@@ -35,7 +35,7 @@ export default function AdmCompanyDetail() {
             <div className="page-sub" style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'center' }}>
               <span className={`nx-badge nx-badge-${company.plan === 'Business' ? 'violet' : company.plan === 'Pro' ? 'cyan' : 'gray'}`}>{company.plan}</span>
               <span className={`nx-badge ${company.active ? 'nx-badge-green' : 'nx-badge-red'}`}>{company.active ? 'Ativa' : 'Inativa'}</span>
-              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Criada em {company.createdAt}</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Criada em {new Date(company.created_at).toLocaleDateString('pt-BR')}</span>
             </div>
           </div>
           <button className="nx-btn-primary" onClick={() => setShowModal(true)}>
@@ -72,10 +72,10 @@ export default function AdmCompanyDetail() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{
                             width: 28, height: 28, borderRadius: '50%',
-                            background: 'rgba(0,201,255,0.08)',
-                            border: '0.5px solid rgba(0,201,255,0.2)',
+                            background: '#EFF6FF',
+                            border: '1px solid #BFDBFE',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 11, fontWeight: 500, color: 'var(--accent-cyan)',
+                            fontSize: 11, fontWeight: 600, color: '#2563EB',
                           }}>{u.name.charAt(0)}</div>
                           {u.name}
                         </div>

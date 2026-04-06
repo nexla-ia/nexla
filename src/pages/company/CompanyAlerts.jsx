@@ -60,10 +60,8 @@ export default function CompanyAlerts() {
       {filtered.map(alert => (
         <div key={alert.id} className={`alert-card ${alert.resolved ? 'resolved' : 'unresolved'}`}>
           <div className="alert-icon" style={{
-            background: alert.type === 'help'
-              ? 'rgba(255,170,0,0.1)'
-              : 'rgba(0,201,255,0.08)',
-            border: `0.5px solid ${alert.type === 'help' ? 'rgba(255,170,0,0.25)' : 'rgba(0,201,255,0.2)'}`,
+            background: alert.type === 'help' ? '#FFFBEB' : '#EFF6FF',
+            border: `1px solid ${alert.type === 'help' ? '#FDE68A' : '#BFDBFE'}`,
           }}>
             {alert.type === 'help'
               ? <HelpCircle size={16} style={{ color: 'var(--accent-amber)' }} />

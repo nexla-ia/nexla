@@ -57,17 +57,17 @@ export default function CompanyHistory() {
                 onClick={() => setSelected(c)}
                 style={{
                   padding: '12px 14px',
-                  borderBottom: i < filtered.length - 1 ? '0.5px solid rgba(255,255,255,0.04)' : 'none',
+                  borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none',
                   cursor: 'pointer',
-                  background: selected?.id === c.id ? 'rgba(0,201,255,0.06)' : 'transparent',
-                  borderLeft: selected?.id === c.id ? '2px solid var(--accent-cyan)' : '2px solid transparent',
+                  background: selected?.id === c.id ? '#EFF6FF' : 'transparent',
+                  borderLeft: selected?.id === c.id ? '2px solid #2563EB' : '2px solid transparent',
                   transition: 'all 0.15s',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                   <div style={{
                     width: 28, height: 28, borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.05)',
+                    background: '#F1F5F9',
                     border: '0.5px solid var(--border)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)',
@@ -129,7 +129,7 @@ export default function CompanyHistory() {
                   <div key={msg.id}>
                     <div style={{
                       fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em',
-                      color: msg.from === 'ai' ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                      color: msg.from === 'ai' ? '#2563EB' : 'var(--text-muted)',
                       textAlign: msg.from === 'client' ? 'right' : 'left',
                       marginBottom: 4, display: 'flex', alignItems: 'center',
                       justifyContent: msg.from === 'client' ? 'flex-end' : 'flex-start', gap: 4,

@@ -190,7 +190,7 @@ export default function AdmCompanies() {
             </div>
 
             {/* Body scrollável */}
-            <div style={{ overflow: 'y-auto', overflowY: 'auto', padding: '1.5rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ overflowY: 'auto', padding: '1.5rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
               {/* Nome da empresa */}
               <div>
