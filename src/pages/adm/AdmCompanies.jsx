@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Plus, Building2, ChevronRight, X, RefreshCw, Users, Database } from 'lucide-react'
@@ -169,10 +170,10 @@ export default function AdmCompanies() {
         </div>
       </div>
 
-      {showModal && (
+      {showModal && createPortal(
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
           backdropFilter: 'blur(4px)', padding: '1.5rem',
         }}>
           <div className="nx-card" style={{ width: '100%', maxWidth: 580, maxHeight: 'calc(100vh - 3rem)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -278,7 +279,7 @@ export default function AdmCompanies() {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   )
 }
