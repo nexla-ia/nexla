@@ -2,8 +2,8 @@
   width: 220px;
   flex-shrink: 0;
   height: 100vh;
-  background: var(--bg-surface);
-  border-right: 0.5px solid var(--border);
+  background: #fff;
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   position: sticky;
@@ -14,13 +14,13 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 1.25rem 1rem;
-  border-bottom: 0.5px solid var(--border);
+  padding: 1.1rem 1rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .sidebar-logo {
   width: 32px; height: 32px;
-  border: 1px solid rgba(0,201,255,0.3);
+  background: #2563EB;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -30,7 +30,7 @@
 
 .sidebar-logo-inner {
   width: 12px; height: 12px;
-  background: linear-gradient(135deg, #00c9ff, #7b2fff);
+  background: #fff;
   border-radius: 3px;
   transform: rotate(45deg) scale(0.85);
 }
@@ -39,22 +39,22 @@
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 16px;
-  color: #fff;
-  letter-spacing: 0.08em;
+  color: var(--text-primary);
+  letter-spacing: 0.06em;
   line-height: 1;
 }
 
 .sidebar-brand-tag {
   font-size: 10px;
-  color: rgba(0,201,255,0.5);
-  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   margin-top: 2px;
 }
 
 .sidebar-nav {
   flex: 1;
-  padding: 1rem 0.75rem;
+  padding: 0.875rem 0.75rem;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -78,9 +78,9 @@
 }
 
 .sidebar-link.active {
-  background: rgba(0,201,255,0.08);
-  color: var(--accent-cyan);
-  border: 0.5px solid rgba(0,201,255,0.15);
+  background: #EFF6FF;
+  color: #2563EB;
+  font-weight: 500;
 }
 
 .sidebar-badge {
@@ -90,7 +90,7 @@
 }
 
 .sidebar-footer {
-  border-top: 0.5px solid var(--border);
+  border-top: 1px solid var(--border);
   padding: 0.75rem;
   display: flex;
   align-items: center;
@@ -108,14 +108,14 @@
 .sidebar-avatar {
   width: 30px; height: 30px;
   border-radius: 50%;
-  background: rgba(0,201,255,0.1);
-  border: 0.5px solid rgba(0,201,255,0.25);
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--accent-cyan);
+  font-size: 12px;
+  font-weight: 600;
+  color: #2563EB;
   flex-shrink: 0;
 }
 
@@ -141,17 +141,17 @@
 .sidebar-logout {
   width: 28px; height: 28px;
   border-radius: var(--radius-sm);
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
   background: transparent;
   color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all 0.15s;
   flex-shrink: 0;
 }
 .sidebar-logout:hover {
-  background: rgba(255,77,106,0.08);
-  border-color: rgba(255,77,106,0.3);
-  color: var(--accent-red);
+  background: #FEF2F2;
+  border-color: #FECACA;
+  color: #DC2626;
 }

@@ -11,15 +11,15 @@
 
 .page-header {
   padding: 1.75rem 2rem 0;
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.5rem;
 }
 
 .page-title {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   color: var(--text-primary);
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .page-sub {
@@ -39,23 +39,25 @@
 }
 
 .stat-card {
-  background: var(--bg-card);
-  border: 0.5px solid var(--border);
+  background: #fff;
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 1.25rem;
+  box-shadow: var(--shadow-card);
 }
 
 .stat-label {
   font-size: 11px;
   color: var(--text-muted);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  font-weight: 500;
 }
 
 .stat-value {
   font-family: var(--font-display);
-  font-size: 1.8rem;
+  font-size: 1.75rem;
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1;
@@ -71,13 +73,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1rem;
+  margin-bottom: 0.875rem;
 }
 
 .section-title {
-  font-family: var(--font-display);
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text-primary);
 }
 
@@ -89,30 +90,34 @@
 .data-table th {
   text-align: left;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-muted);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 10px 14px;
-  border-bottom: 0.5px solid var(--border);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: #F8FAFC;
 }
 
+.data-table th:first-child { border-radius: var(--radius-sm) 0 0 0; }
+.data-table th:last-child  { border-radius: 0 var(--radius-sm) 0 0; }
+
 .data-table td {
-  padding: 12px 14px;
+  padding: 12px 16px;
   font-size: 13px;
   color: var(--text-secondary);
-  border-bottom: 0.5px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid #F1F5F9;
 }
 
 .data-table tr:last-child td { border-bottom: none; }
 
-.data-table tr:hover td { background: var(--bg-hover); }
+.data-table tr:hover td { background: #F8FAFC; }
 
 .td-name { color: var(--text-primary) !important; font-weight: 500; }
 
 .table-action {
   background: none;
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 5px 10px;
   font-size: 12px;
@@ -121,12 +126,12 @@
   transition: all 0.15s;
 }
 .table-action:hover {
-  border-color: rgba(0,201,255,0.4);
-  color: var(--accent-cyan);
-  background: rgba(0,201,255,0.06);
+  border-color: #BFDBFE;
+  color: #2563EB;
+  background: #EFF6FF;
 }
 .table-action.danger:hover {
-  border-color: rgba(255,77,106,0.4);
-  color: var(--accent-red);
-  background: rgba(255,77,106,0.06);
+  border-color: #FECACA;
+  color: #DC2626;
+  background: #FEF2F2;
 }
