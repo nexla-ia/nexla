@@ -29,6 +29,7 @@ export default function AdmCompanies() {
   const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [form, setForm] = useState({
     name: '',
     contactsTable: '',
@@ -93,19 +94,20 @@ export default function AdmCompanies() {
   }
 
   async function handleSave() {
-    if (!form.name.trim()) return
-    if (!form.contactsTable.trim() || !form.historyTable.trim()) return
-    if (form.users.some(u => !u.name || !u.email || !u.password)) return
+    setSaveError('')
+    if (!form.name.trim()) { setSaveError('Informe o nome da empresa.'); return }
+    if (!form.contactsTable.trim()) { setSaveError('Informe o nome da tabela de contatos.'); return }
+    if (!form.historyTable.trim()) { setSaveError('Informe o nome da tabela de histórico IA.'); return }
+    if (form.users.some(u => !u.name || !u.email || !u.password)) { setSaveError('Preencha nome, e-mail e senha de todos os acessos.'); return }
     setSaving(true)
     const company = await addCompany({
       name: form.name,
       contactsTable: form.contactsTable,
       historyTable: form.historyTable,
     })
-    if (company) {
-      for (const u of form.users) {
-        await addUser(company.id, { name: u.name, email: u.email, password: u.password, role: 'admin' })
-      }
+    if (!company) { setSaveError('Erro ao salvar. Verifique o banco e tente novamente.'); setSaving(false); return }
+    for (const u of form.users) {
+      await addUser(company.id, { name: u.name, email: u.email, password: u.password, role: 'admin' })
     }
     setSaving(false)
     setShowModal(false)
@@ -114,6 +116,7 @@ export default function AdmCompanies() {
 
   function closeModal() {
     setShowModal(false)
+    setSaveError('')
     setForm({ name: '', contactsTable: '', historyTable: '', numAccess: 1, users: [{ ...emptyUser }] })
   }
 
@@ -270,12 +273,19 @@ export default function AdmCompanies() {
             </div>
 
             {/* Footer */}
-            <div style={{ padding: '1rem 1.75rem', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, flexShrink: 0 }}>
-              <button className="nx-btn-ghost" style={{ flex: 1 }} onClick={closeModal}>Cancelar</button>
-              <button className="nx-btn-primary" style={{ flex: 2, justifyContent: 'center' }}
-                onClick={handleSave} disabled={saving}>
-                {saving ? 'Salvando...' : 'Cadastrar empresa'}
-              </button>
+            <div style={{ padding: '1rem 1.75rem', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+              {saveError && (
+                <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#DC2626', marginBottom: 12 }}>
+                  {saveError}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="nx-btn-ghost" style={{ flex: 1 }} onClick={closeModal}>Cancelar</button>
+                <button className="nx-btn-primary" style={{ flex: 2, justifyContent: 'center' }}
+                  onClick={handleSave} disabled={saving}>
+                  {saving ? 'Salvando...' : 'Cadastrar empresa'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
