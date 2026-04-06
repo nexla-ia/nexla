@@ -172,10 +172,11 @@ export default function AdmCompanies() {
       {showModal && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
-          backdropFilter: 'blur(4px)', padding: '1rem',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100,
+          backdropFilter: 'blur(4px)', padding: '2rem 1rem',
+          overflowY: 'auto',
         }}>
-          <div className="nx-card" style={{ width: '100%', maxWidth: 580, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+          <div className="nx-card" style={{ width: '100%', maxWidth: 580, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
 
             {/* Header */}
             <div style={{ padding: '1.5rem 1.75rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
