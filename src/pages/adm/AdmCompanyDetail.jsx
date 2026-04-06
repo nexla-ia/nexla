@@ -50,8 +50,12 @@ export default function AdmCompanyDetail() {
   async function handleAddUser() {
     if (!form.name || !form.email || !form.password) { setErr('Preencha todos os campos.'); return }
     setSaving(true)
-    await addUser(company.id, form)
+    const result = await addUser(company.id, form)
     setSaving(false)
+    if (!result?.ok) {
+      setErr(result?.error || 'Erro ao criar acesso. Verifique se a função create_user existe no Supabase.')
+      return
+    }
     setShowModal(false)
   }
 

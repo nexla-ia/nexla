@@ -105,9 +105,14 @@ export default function AdmCompanies() {
       contactsTable: form.contactsTable,
       historyTable: form.historyTable,
     })
-    if (!company) { setSaveError('Erro ao salvar. Verifique o banco e tente novamente.'); setSaving(false); return }
+    if (!company) { setSaveError('Erro ao criar empresa. Verifique as políticas RLS no Supabase.'); setSaving(false); return }
     for (const u of form.users) {
-      await addUser(company.id, { name: u.name, email: u.email, password: u.password, role: 'admin' })
+      const result = await addUser(company.id, { name: u.name, email: u.email, password: u.password, role: 'admin' })
+      if (!result?.ok) {
+        setSaveError(`Erro ao criar acesso para ${u.name}. Verifique se a função create_user existe no Supabase.`)
+        setSaving(false)
+        return
+      }
     }
     setSaving(false)
     setShowModal(false)

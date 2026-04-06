@@ -68,18 +68,23 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [db, setDb] = useState({ companies: [] })
   const [dbLoading, setDbLoading] = useState(false)
+  const [dbError, setDbError] = useState(null)
 
   const loadDB = useCallback(async () => {
     setDbLoading(true)
+    setDbError(null)
     const { data, error } = await supabase
       .from('companies')
       .select('*, users(*)')
       .order('created_at', { ascending: false })
-    if (!error && data) setDb({ companies: data })
+    if (error) {
+      setDbError('Erro ao carregar dados. Verifique as políticas RLS no Supabase.')
+    } else if (data) {
+      setDb({ companies: data })
+    }
     setDbLoading(false)
   }, [])
 
-  // Carrega empresas quando ADM faz login
   useEffect(() => {
     if (session?.role === 'adm') loadDB()
   }, [session?.role, loadDB])
@@ -90,7 +95,11 @@ export function AuthProvider({ children }) {
       p_password: password,
     })
 
-    if (error || !data?.length) {
+    if (error) {
+      return { ok: false, error: 'Erro ao conectar com o servidor. Tente novamente.' }
+    }
+
+    if (!data?.length) {
       return { ok: false, error: 'E-mail ou senha incorretos.' }
     }
 
@@ -102,18 +111,21 @@ export function AuthProvider({ children }) {
       return { ok: true }
     }
 
-    // company mode
     if (user.role === 'adm' || !user.company_id) {
       return { ok: false, error: 'E-mail ou senha incorretos.' }
     }
 
-    const { data: company } = await supabase
+    const { data: company, error: companyError } = await supabase
       .from('companies')
       .select('*, users(*)')
       .eq('id', user.company_id)
       .single()
 
-    if (!company?.active) {
+    if (companyError || !company) {
+      return { ok: false, error: 'Erro ao carregar dados da empresa. Tente novamente.' }
+    }
+
+    if (!company.active) {
       return { ok: false, error: 'Empresa inativa. Contate o administrador.' }
     }
 
@@ -156,26 +168,28 @@ export function AuthProvider({ children }) {
       p_role: userData.role || 'admin',
       p_company_id: companyId,
     })
-    if (!error) await loadDB()
+    if (error) return { ok: false, error: error.message }
+    await loadDB()
+    return { ok: true }
   }
 
   async function toggleUserActive(companyId, userId) {
     const company = db.companies.find(c => c.id === companyId)
     const user = company?.users?.find(u => u.id === userId)
     if (!user) return
-    await supabase.from('users').update({ active: !user.active }).eq('id', userId)
-    await loadDB()
+    const { error } = await supabase.from('users').update({ active: !user.active }).eq('id', userId)
+    if (!error) await loadDB()
   }
 
   async function toggleCompanyActive(companyId) {
     const company = db.companies.find(c => c.id === companyId)
     if (!company) return
-    await supabase.from('companies').update({ active: !company.active }).eq('id', companyId)
-    await loadDB()
+    const { error } = await supabase.from('companies').update({ active: !company.active }).eq('id', companyId)
+    if (!error) await loadDB()
   }
 
   return (
-    <AuthContext.Provider value={{ session, db, dbLoading, login, logout, addCompany, addUser, toggleUserActive, toggleCompanyActive }}>
+    <AuthContext.Provider value={{ session, db, dbLoading, dbError, login, logout, addCompany, addUser, toggleUserActive, toggleCompanyActive }}>
       {children}
     </AuthContext.Provider>
   )

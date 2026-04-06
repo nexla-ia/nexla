@@ -9,7 +9,7 @@ export default function AdmDashboard() {
   const { db } = useAuth()
   const navigate = useNavigate()
 
-  const totalUsers    = db.companies.reduce((a, c) => a + c.users.length, 0)
+  const totalUsers    = db.companies.reduce((a, c) => a + (c.users?.length || 0), 0)
   const totalContacts = Object.values(mockContacts).flat().length
   const totalAlerts   = Object.values(mockAlerts).flat().filter(a => !a.resolved).length
 
@@ -68,7 +68,7 @@ export default function AdmDashboard() {
                     <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/adm/empresas/${c.id}`)}>
                       <td className="td-name">{c.name}</td>
                       <td><span className={`nx-badge nx-badge-${c.plan === 'Business' ? 'violet' : c.plan === 'Pro' ? 'cyan' : 'gray'}`}>{c.plan}</span></td>
-                      <td>{c.users.length}</td>
+                      <td>{(c.users?.length || 0)}</td>
                       <td>{contacts}</td>
                       <td>{alerts > 0 ? <span className="nx-badge nx-badge-amber">{alerts}</span> : '—'}</td>
                       <td><span className={`nx-badge ${c.active ? 'nx-badge-green' : 'nx-badge-red'}`}>{c.active ? 'Ativa' : 'Inativa'}</span></td>

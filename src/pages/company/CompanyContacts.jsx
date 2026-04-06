@@ -16,10 +16,22 @@ export default function CompanyContacts() {
   )
 
   const statusColor = {
-    attended:  'var(--accent-green)',
-    waiting:   'var(--accent-amber)',
-    help:      'var(--accent-red)',
-    scheduled: 'var(--accent-cyan)',
+    attended:  '#059669',
+    waiting:   '#D97706',
+    help:      '#DC2626',
+    scheduled: '#2563EB',
+  }
+  const statusBg = {
+    attended:  '#ECFDF5',
+    waiting:   '#FFFBEB',
+    help:      '#FEF2F2',
+    scheduled: '#EFF6FF',
+  }
+  const statusBorder = {
+    attended:  '#A7F3D0',
+    waiting:   '#FDE68A',
+    help:      '#FECACA',
+    scheduled: '#BFDBFE',
   }
   const statusLabel = {
     attended:  'Atendido',
@@ -91,9 +103,9 @@ export default function CompanyContacts() {
                 </div>
               </div>
               <span className="nx-badge" style={{
-                background: `${statusColor[selected.status]}18`,
+                background: statusBg[selected.status],
                 color: statusColor[selected.status],
-                border: `0.5px solid ${statusColor[selected.status]}44`,
+                border: `1px solid ${statusBorder[selected.status]}`,
               }}>
                 {statusLabel[selected.status]}
               </span>
@@ -109,7 +121,7 @@ export default function CompanyContacts() {
                 <div key={msg.id}>
                   <div className={`msg-label`} style={{
                     textAlign: msg.from === 'client' ? 'right' : 'left',
-                    color: msg.from === 'ai' ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                    color: msg.from === 'ai' ? '#2563EB' : 'var(--text-muted)',
                   }}>
                     {msg.from === 'ai' ? '🤖 IA' : '👤 Cliente'}
                   </div>
