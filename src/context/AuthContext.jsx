@@ -128,12 +128,18 @@ export function AuthProvider({ children }) {
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '')
+      .replace(/\s+/g, '')
+      .replace(/[^a-z0-9]/g, '')
 
     const { data: newComp, error } = await supabase
       .from('companies')
-      .insert({ name: data.name, slug, plan: data.plan || 'Starter' })
+      .insert({
+        name: data.name,
+        slug,
+        plan: data.plan || 'Starter',
+        contacts_table: data.contactsTable || null,
+        history_table: data.historyTable || null,
+      })
       .select()
       .single()
 
