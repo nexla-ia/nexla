@@ -1,6 +1,8 @@
 .login-root {
   min-height: 100vh;
   display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--bg-base);
   position: relative;
   overflow: hidden;
@@ -28,11 +30,12 @@
 .login-glow-2 { background: #7b2fff; bottom: -200px; right: -80px; }
 
 .login-left {
-  flex: 1;
+  width: 460px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 3rem 4rem;
+  padding: 3rem 3.5rem;
   position: relative;
   z-index: 1;
 }
