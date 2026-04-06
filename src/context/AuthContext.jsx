@@ -1,47 +1,7 @@
-import React, { createContext, useContext, useState } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 
-// ─── Mock database ────────────────────────────────────────────────────────────
-export const mockDB = {
-  companies: [
-    {
-      id: 'comp-1',
-      name: 'Clínica Saúde Total',
-      slug: 'saude-total',
-      plan: 'Pro',
-      active: true,
-      createdAt: '2024-10-15',
-      users: [
-        { id: 'u1', name: 'Dr. Marcos Lima',    email: 'marcos@saudetotal.com', password: '123456', role: 'admin',  active: true },
-        { id: 'u2', name: 'Ana Fernanda',        email: 'ana@saudetotal.com',    password: '123456', role: 'viewer', active: true },
-      ],
-    },
-    {
-      id: 'comp-2',
-      name: 'Imobiliária Novolar',
-      slug: 'novolar',
-      plan: 'Business',
-      active: true,
-      createdAt: '2024-11-02',
-      users: [
-        { id: 'u3', name: 'Carla Mendes',  email: 'carla@novolar.com.br', password: '123456', role: 'admin',  active: true },
-        { id: 'u4', name: 'Rafael Torres', email: 'rafael@novolar.com.br', password: '123456', role: 'viewer', active: false },
-      ],
-    },
-    {
-      id: 'comp-3',
-      name: 'Pet Shop Amigo Fiel',
-      slug: 'amigo-fiel',
-      plan: 'Starter',
-      active: true,
-      createdAt: '2025-01-20',
-      users: [
-        { id: 'u5', name: 'Juliana Costa', email: 'ju@amigofiel.com', password: '123456', role: 'admin', active: true },
-      ],
-    },
-  ],
-}
-
-// ─── Mock contacts per company ────────────────────────────────────────────────
+// ─── Mock data (contacts/conversations/alerts — migrar para API depois) ────────
 export const mockContacts = {
   'comp-1': [
     { id: 'c1', name: 'Roberto Alves',    phone: '+55 11 91234-5678', status: 'attended',  lastMsg: 'Quero agendar uma consulta para amanhã.', time: '14:32', unread: 0 },
@@ -61,7 +21,6 @@ export const mockContacts = {
   ],
 }
 
-// ─── Mock conversation history ────────────────────────────────────────────────
 export const mockConversations = {
   c1: [
     { id: 1, from: 'client', text: 'Boa tarde! Gostaria de agendar uma consulta.',        time: '14:20' },
@@ -87,7 +46,6 @@ export const mockConversations = {
   ],
 }
 
-// ─── Mock alerts (AI help requests) ──────────────────────────────────────────
 export const mockAlerts = {
   'comp-1': [
     { id: 'a1', contactName: 'Fernando Rocha',   phone: '+55 21 98765-4321', type: 'help',      message: 'Cliente perguntou sobre cobertura de plano de saúde. IA não conseguiu responder adequadamente.', time: '12:55', resolved: false },
@@ -107,79 +65,111 @@ export const mockAlerts = {
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null) // { role: 'adm' | 'company', user, company }
-  const [db, setDb] = useState(mockDB)
+  const [session, setSession] = useState(null)
+  const [db, setDb] = useState({ companies: [] })
+  const [dbLoading, setDbLoading] = useState(false)
 
-  function login(email, password, mode) {
+  const loadDB = useCallback(async () => {
+    setDbLoading(true)
+    const { data, error } = await supabase
+      .from('companies')
+      .select('*, users(*)')
+      .order('created_at', { ascending: false })
+    if (!error && data) setDb({ companies: data })
+    setDbLoading(false)
+  }, [])
+
+  // Carrega empresas quando ADM faz login
+  useEffect(() => {
+    if (session?.role === 'adm') loadDB()
+  }, [session?.role, loadDB])
+
+  async function login(email, password, mode) {
+    const { data, error } = await supabase.rpc('login_user', {
+      p_email: email,
+      p_password: password,
+    })
+
+    if (error || !data?.length) {
+      return { ok: false, error: 'E-mail ou senha incorretos.' }
+    }
+
+    const user = data[0]
+
     if (mode === 'adm') {
-      if (email === 'admin@nexla.ai' && password === 'nexla123') {
-        setSession({ role: 'adm', user: { name: 'Administrador NEXLA', email } })
-        return { ok: true }
-      }
-      return { ok: false, error: 'Credenciais ADM inválidas.' }
+      if (user.role !== 'adm') return { ok: false, error: 'Credenciais ADM inválidas.' }
+      setSession({ role: 'adm', user: { name: user.name, email: user.email } })
+      return { ok: true }
     }
 
     // company mode
-    for (const company of db.companies) {
-      for (const user of company.users) {
-        if (user.email === email && user.password === password && user.active) {
-          setSession({ role: 'company', user, company })
-          return { ok: true }
-        }
-      }
+    if (user.role === 'adm' || !user.company_id) {
+      return { ok: false, error: 'E-mail ou senha incorretos.' }
     }
-    return { ok: false, error: 'E-mail ou senha incorretos.' }
+
+    const { data: company } = await supabase
+      .from('companies')
+      .select('*, users(*)')
+      .eq('id', user.company_id)
+      .single()
+
+    if (!company?.active) {
+      return { ok: false, error: 'Empresa inativa. Contate o administrador.' }
+    }
+
+    setSession({ role: 'company', user, company })
+    return { ok: true }
   }
 
   function logout() { setSession(null) }
 
-  function addCompany(data) {
-    const newComp = {
-      id: 'comp-' + Date.now(),
-      name: data.name,
-      slug: data.name.toLowerCase().replace(/\s+/g, '-'),
-      plan: data.plan || 'Starter',
-      active: true,
-      createdAt: new Date().toISOString().split('T')[0],
-      users: [],
-    }
-    setDb(prev => ({ ...prev, companies: [...prev.companies, newComp] }))
+  async function addCompany(data) {
+    const slug = data.name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+
+    const { data: newComp, error } = await supabase
+      .from('companies')
+      .insert({ name: data.name, slug, plan: data.plan || 'Starter' })
+      .select()
+      .single()
+
+    if (error) return null
+    await loadDB()
     return newComp
   }
 
-  function addUser(companyId, userData) {
-    setDb(prev => ({
-      ...prev,
-      companies: prev.companies.map(c =>
-        c.id === companyId
-          ? { ...c, users: [...c.users, { id: 'u-' + Date.now(), ...userData, active: true }] }
-          : c
-      ),
-    }))
+  async function addUser(companyId, userData) {
+    const { error } = await supabase.rpc('create_user', {
+      p_name: userData.name,
+      p_email: userData.email,
+      p_password: userData.password,
+      p_role: userData.role || 'admin',
+      p_company_id: companyId,
+    })
+    if (!error) await loadDB()
   }
 
-  function toggleUserActive(companyId, userId) {
-    setDb(prev => ({
-      ...prev,
-      companies: prev.companies.map(c =>
-        c.id === companyId
-          ? { ...c, users: c.users.map(u => u.id === userId ? { ...u, active: !u.active } : u) }
-          : c
-      ),
-    }))
+  async function toggleUserActive(companyId, userId) {
+    const company = db.companies.find(c => c.id === companyId)
+    const user = company?.users?.find(u => u.id === userId)
+    if (!user) return
+    await supabase.from('users').update({ active: !user.active }).eq('id', userId)
+    await loadDB()
   }
 
-  function toggleCompanyActive(companyId) {
-    setDb(prev => ({
-      ...prev,
-      companies: prev.companies.map(c =>
-        c.id === companyId ? { ...c, active: !c.active } : c
-      ),
-    }))
+  async function toggleCompanyActive(companyId) {
+    const company = db.companies.find(c => c.id === companyId)
+    if (!company) return
+    await supabase.from('companies').update({ active: !company.active }).eq('id', companyId)
+    await loadDB()
   }
 
   return (
-    <AuthContext.Provider value={{ session, db, login, logout, addCompany, addUser, toggleUserActive, toggleCompanyActive }}>
+    <AuthContext.Provider value={{ session, db, dbLoading, login, logout, addCompany, addUser, toggleUserActive, toggleCompanyActive }}>
       {children}
     </AuthContext.Provider>
   )

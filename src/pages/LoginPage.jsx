@@ -22,8 +22,7 @@ export default function LoginPage() {
     e.preventDefault()
     if (!form.email || !form.password) { setError('Preencha todos os campos.'); return }
     setLoading(true)
-    await new Promise(r => setTimeout(r, 1000))
-    const result = login(form.email, form.password, tab)
+    const result = await login(form.email, form.password, tab)
     setLoading(false)
     if (result.ok) {
       navigate(tab === 'adm' ? '/adm' : '/painel')
