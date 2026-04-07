@@ -4,10 +4,30 @@ import { supabase } from '../../lib/supabase'
 import { BellRing, CheckCircle2, Clock } from 'lucide-react'
 import './Company.css'
 
+// AudioContext persistente — criado na primeira interação do usuário
+let _audioCtx = null
+
+function getAudioCtx() {
+  if (!_audioCtx) {
+    const AudioCtx = window.AudioContext || (/** @type {any} */ (window)).webkitAudioContext
+    _audioCtx = new AudioCtx()
+  }
+  if (_audioCtx.state === 'suspended') _audioCtx.resume()
+  return _audioCtx
+}
+
+// Inicializa o contexto na primeira interação (desbloqueio do browser)
+function unlockAudio() {
+  getAudioCtx()
+  document.removeEventListener('click', unlockAudio)
+  document.removeEventListener('keydown', unlockAudio)
+}
+document.addEventListener('click', unlockAudio)
+document.addEventListener('keydown', unlockAudio)
+
 function playNotificationSound() {
   try {
-    const AudioCtx = window.AudioContext || (/** @type {any} */ (window)).webkitAudioContext
-    const ctx = new AudioCtx()
+    const ctx = getAudioCtx()
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
     osc.connect(gain)
