@@ -4,7 +4,6 @@ import { supabase } from '../../lib/supabase'
 import { BellRing, CheckCircle2, Clock } from 'lucide-react'
 import './Company.css'
 
-// AudioContext persistente — criado na primeira interação do usuário
 let _audioCtx = null
 
 function getAudioCtx() {
@@ -15,15 +14,6 @@ function getAudioCtx() {
   if (_audioCtx.state === 'suspended') _audioCtx.resume()
   return _audioCtx
 }
-
-// Inicializa o contexto na primeira interação (desbloqueio do browser)
-function unlockAudio() {
-  getAudioCtx()
-  document.removeEventListener('click', unlockAudio)
-  document.removeEventListener('keydown', unlockAudio)
-}
-document.addEventListener('click', unlockAudio)
-document.addEventListener('keydown', unlockAudio)
 
 function playNotificationSound() {
   try {
@@ -73,6 +63,15 @@ export default function CompanyAlerts() {
   const [filter, setFilter] = useState('all')
   const [realtimeStatus, setRealtimeStatus] = useState('connecting')
   const [unreadCount, setUnreadCount] = useState(0)
+  const [audioEnabled, setAudioEnabled] = useState(false)
+
+  function enableAudio() {
+    try {
+      getAudioCtx()
+      playNotificationSound() // toca um som de confirmação
+      setAudioEnabled(true)
+    } catch (_) {}
+  }
 
   // Atualiza título da aba com contador de alertas não lidos
   useEffect(() => {
@@ -207,6 +206,28 @@ export default function CompanyAlerts() {
           </div>
         </div>
       </div>
+
+      {/* Banner de permissão de áudio */}
+      {!audioEnabled && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: '#FFFBEB', border: '1px solid #FDE68A',
+          borderRadius: 10, padding: '10px 16px', marginBottom: '1rem',
+          fontSize: 13,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#92400E' }}>
+            <BellRing size={15} />
+            Ative o som para ser notificado quando chegar um novo alerta.
+          </div>
+          <button
+            className="nx-btn-primary"
+            style={{ fontSize: 12, padding: '6px 14px' }}
+            onClick={enableAudio}
+          >
+            Ativar som
+          </button>
+        </div>
+      )}
 
       {!instance && (
         <div className="nx-card" style={{ padding: '2rem', textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
