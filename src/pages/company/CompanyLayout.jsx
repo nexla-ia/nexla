@@ -11,8 +11,8 @@ export default function CompanyLayout() {
   const pendingAlerts = (mockAlerts[companyId] || []).filter(a => !a.resolved).length
 
   const links = [
-    { to: '/painel',           end: true, icon: MessageSquare, label: 'Contatos'  },
-    { to: '/painel/historico',            icon: History,       label: 'Histórico' },
+    // { to: '/painel',           end: true, icon: MessageSquare, label: 'Contatos'  },
+    { to: '/painel/historico',            icon: History,       label: 'Histórico de Conversa' },
     { to: '/painel/alertas',              icon: BellRing,      label: 'Alertas',
       badge: pendingAlerts > 0 ? pendingAlerts : null, badgeColor: 'amber' },
   ]

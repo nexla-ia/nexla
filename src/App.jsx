@@ -7,7 +7,6 @@ import AdmDashboard from './pages/adm/AdmDashboard'
 import AdmCompanies from './pages/adm/AdmCompanies'
 import AdmCompanyDetail from './pages/adm/AdmCompanyDetail'
 import CompanyLayout from './pages/company/CompanyLayout'
-import CompanyContacts from './pages/company/CompanyContacts'
 import CompanyHistory from './pages/company/CompanyHistory'
 import CompanyAlerts from './pages/company/CompanyAlerts'
 
@@ -46,7 +45,7 @@ export default function App() {
           </Route>
 
           <Route path="/painel" element={<PrivateCompany><CompanyLayout /></PrivateCompany>}>
-            <Route index element={<CompanyContacts />} />
+            <Route index element={<Navigate to="/painel/historico" replace />} />
             <Route path="historico" element={<CompanyHistory />} />
             <Route path="alertas" element={<CompanyAlerts />} />
           </Route>
