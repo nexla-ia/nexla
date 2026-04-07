@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { BellRing, Calendar, HelpCircle, Phone, CheckCircle2, Clock } from 'lucide-react'
+import { BellRing, CheckCircle2, Clock } from 'lucide-react'
 import './Company.css'
 
 function formatTime(ts) {
@@ -28,42 +28,47 @@ function formatTime(ts) {
 
 export default function CompanyAlerts() {
   const { session } = useAuth()
-  const companyId = session?.company?.id
+  const instance = session?.company?.instance  // ex: "NEXLA"
 
   const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [realtimeStatus, setRealtimeStatus] = useState('connecting')
 
-  // Carrega alertas do banco
+  // Carrega alertas filtrados pela instância da empresa
   useEffect(() => {
-    if (!companyId) return
+    if (!instance) return
     setLoading(true)
     supabase
       .from('alerts')
       .select('*')
-      .eq('company_id', companyId)
+      .eq('instancia', instance)
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
         if (!error && data) setAlerts(data)
         setLoading(false)
       })
-  }, [companyId])
+  }, [instance])
 
-  // Realtime: escuta novos alertas em tempo real
+  // Realtime: só recebe alertas da instância desta empresa
   useEffect(() => {
-    if (!companyId) return
+    if (!instance) return
     setRealtimeStatus('connecting')
 
     const channel = supabase
-      .channel('realtime-alerts')
+      .channel(`realtime-alerts-${instance}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'alerts', filter: `company_id=eq.${companyId}` },
+        { event: 'INSERT', schema: 'public', table: 'alerts', filter: `instancia=eq.${instance}` },
         (payload) => {
-          if (payload.new) {
-            setAlerts(prev => [payload.new, ...prev])
-          }
+          if (payload.new) setAlerts(prev => [payload.new, ...prev])
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'alerts', filter: `instancia=eq.${instance}` },
+        (payload) => {
+          if (payload.new) setAlerts(prev => prev.map(a => a.id === payload.new.id ? payload.new : a))
         }
       )
       .subscribe((status) => {
@@ -72,17 +77,11 @@ export default function CompanyAlerts() {
       })
 
     return () => { supabase.removeChannel(channel) }
-  }, [companyId])
+  }, [instance])
 
   async function resolve(id) {
-    const { error } = await supabase
-      .from('alerts')
-      .update({ resolved: true })
-      .eq('id', id)
-
-    if (!error) {
-      setAlerts(prev => prev.map(a => a.id === id ? { ...a, resolved: true } : a))
-    }
+    await supabase.from('alerts').update({ resolved: true }).eq('id', id)
+    // Realtime UPDATE já atualiza o estado
   }
 
   const filtered = alerts.filter(a => {
@@ -102,7 +101,7 @@ export default function CompanyAlerts() {
             Alertas da IA
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-            {loading ? 'Carregando...' : 'Pedidos de ajuda e avisos de agendamento'}
+            {loading ? 'Carregando...' : 'Avisos enviados pelo agente de IA'}
           </div>
         </div>
 
@@ -110,7 +109,8 @@ export default function CompanyAlerts() {
           {/* Indicador Realtime */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,
-            fontSize: 12, color: realtimeStatus === 'connected' ? '#16A34A' : realtimeStatus === 'error' ? '#DC2626' : '#9CA3AF',
+            fontSize: 12,
+            color: realtimeStatus === 'connected' ? '#16A34A' : realtimeStatus === 'error' ? '#DC2626' : '#9CA3AF',
             background: realtimeStatus === 'connected' ? '#F0FDF4' : realtimeStatus === 'error' ? '#FEF2F2' : '#F9FAFB',
             border: `1px solid ${realtimeStatus === 'connected' ? '#BBF7D0' : realtimeStatus === 'error' ? '#FECACA' : '#E5E7EB'}`,
             borderRadius: 20, padding: '4px 10px',
@@ -141,58 +141,59 @@ export default function CompanyAlerts() {
         </div>
       </div>
 
-      {!loading && filtered.length === 0 && (
+      {!instance && (
+        <div className="nx-card" style={{ padding: '2rem', textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
+          Instância não configurada para esta empresa.
+        </div>
+      )}
+
+      {!loading && instance && filtered.length === 0 && (
         <div className="nx-card" style={{
           padding: '3rem', textAlign: 'center', color: 'var(--text-muted)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
         }}>
           <BellRing size={28} style={{ opacity: 0.2 }} />
-          <div style={{ fontSize: 14 }}>Nenhum alerta {filter === 'pending' ? 'pendente' : filter === 'resolved' ? 'resolvido' : ''} encontrado.</div>
+          <div style={{ fontSize: 14 }}>
+            Nenhum alerta {filter === 'pending' ? 'pendente' : filter === 'resolved' ? 'resolvido' : ''} encontrado.
+          </div>
         </div>
       )}
 
       {filtered.map(alert => (
         <div key={alert.id} className={`alert-card ${alert.resolved ? 'resolved' : 'unresolved'}`}>
           <div className="alert-icon" style={{
-            background: alert.type === 'help' ? '#FFFBEB' : '#EFF6FF',
-            border: `1px solid ${alert.type === 'help' ? '#FDE68A' : '#BFDBFE'}`,
+            background: '#FFFBEB',
+            border: '1px solid #FDE68A',
+            alignSelf: 'flex-start',
           }}>
-            {alert.type === 'help'
-              ? <HelpCircle size={16} style={{ color: 'var(--accent-amber)' }} />
-              : <Calendar size={16} style={{ color: 'var(--accent-cyan)' }} />
-            }
+            <BellRing size={16} style={{ color: '#D97706' }} />
           </div>
 
           <div className="alert-body">
-            <div className="alert-title">{alert.contact_name}</div>
-            <div className="alert-msg">{alert.message}</div>
+            <div className="alert-msg" style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+              {alert.mensagem}
+            </div>
             <div className="alert-footer">
-              <span className={`nx-badge ${alert.type === 'help' ? 'nx-badge-amber' : 'nx-badge-cyan'}`}>
-                {alert.type === 'help' ? 'Pedido de ajuda' : 'Agendamento'}
-              </span>
               <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Clock size={11} /> {formatTime(alert.created_at)}
               </span>
-              <a
-                href={`https://wa.me/${alert.phone.replace(/\D/g, '')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="nx-btn-ghost"
-                style={{ fontSize: 12, padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                onClick={e => e.stopPropagation()}
-              >
-                <Phone size={11} /> Contatar
-              </a>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                instância: {alert.instancia}
+              </span>
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+          <div style={{ flexShrink: 0 }}>
             {alert.resolved ? (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--accent-green)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#16A34A' }}>
                 <CheckCircle2 size={14} /> Resolvido
               </span>
             ) : (
-              <button className="nx-btn-primary" style={{ fontSize: 12, padding: '7px 14px' }} onClick={() => resolve(alert.id)}>
+              <button
+                className="nx-btn-primary"
+                style={{ fontSize: 12, padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 5 }}
+                onClick={() => resolve(alert.id)}
+              >
                 <CheckCircle2 size={13} /> Marcar resolvido
               </button>
             )}
