@@ -151,6 +151,7 @@ export function AuthProvider({ children }) {
         plan: data.plan || 'Starter',
         contacts_table: data.contactsTable || null,
         history_table: data.historyTable || null,
+        instance: data.instance || null,
       })
       .select()
       .single()

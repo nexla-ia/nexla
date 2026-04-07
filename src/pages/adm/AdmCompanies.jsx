@@ -34,6 +34,7 @@ export default function AdmCompanies() {
     name: '',
     contactsTable: '',
     historyTable: '',
+    instance: '',
     numAccess: 1,
     users: [{ ...emptyUser }],
   })
@@ -98,12 +99,14 @@ export default function AdmCompanies() {
     if (!form.name.trim()) { setSaveError('Informe o nome da empresa.'); return }
     if (!form.contactsTable.trim()) { setSaveError('Informe o nome da tabela de contatos.'); return }
     if (!form.historyTable.trim()) { setSaveError('Informe o nome da tabela de histórico IA.'); return }
+    if (!form.instance.trim()) { setSaveError('Informe o nome da instância do WhatsApp.'); return }
     if (form.users.some(u => !u.name || !u.email || !u.password)) { setSaveError('Preencha nome, e-mail e senha de todos os acessos.'); return }
     setSaving(true)
     const company = await addCompany({
       name: form.name,
       contactsTable: form.contactsTable,
       historyTable: form.historyTable,
+      instance: form.instance,
     })
     if (!company) { setSaveError('Erro ao criar empresa. Verifique as políticas RLS no Supabase.'); setSaving(false); return }
     for (const u of form.users) {
@@ -116,13 +119,13 @@ export default function AdmCompanies() {
     }
     setSaving(false)
     setShowModal(false)
-    setForm({ name: '', contactsTable: '', historyTable: '', numAccess: 1, users: [{ ...emptyUser }] })
+    setForm({ name: '', contactsTable: '', historyTable: '', instance: '', numAccess: 1, users: [{ ...emptyUser }] })
   }
 
   function closeModal() {
     setShowModal(false)
     setSaveError('')
-    setForm({ name: '', contactsTable: '', historyTable: '', numAccess: 1, users: [{ ...emptyUser }] })
+    setForm({ name: '', contactsTable: '', historyTable: '', instance: '', numAccess: 1, users: [{ ...emptyUser }] })
   }
 
   return (
@@ -218,16 +221,28 @@ export default function AdmCompanies() {
                   <Database size={13} style={{ color: '#2563EB' }} />
                   <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>Tabelas n8n</span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div>
-                    <label style={labelStyle}>Tabela de contatos</label>
-                    <input className="nx-input" placeholder="Ex: contatos_clinica"
-                      value={form.contactsTable} onChange={e => setForm(p => ({ ...p, contactsTable: e.target.value }))} />
+                    <label style={labelStyle}>Instância WhatsApp</label>
+                    <input className="nx-input" placeholder="Ex: clinica-saude"
+                      value={form.instance} onChange={e => setForm(p => ({ ...p, instance: e.target.value.trim() }))} />
+                    {form.instance && (
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                        Alertas do n8n serão vinculados a esta empresa via instância <strong style={{ color: '#2563EB' }}>{form.instance}</strong>
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <label style={labelStyle}>Tabela de histórico IA</label>
-                    <input className="nx-input" placeholder="Ex: historico_clinica"
-                      value={form.historyTable} onChange={e => setForm(p => ({ ...p, historyTable: e.target.value }))} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label style={labelStyle}>Tabela de contatos</label>
+                      <input className="nx-input" placeholder="Ex: contatos_clinica"
+                        value={form.contactsTable} onChange={e => setForm(p => ({ ...p, contactsTable: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Tabela de histórico IA</label>
+                      <input className="nx-input" placeholder="Ex: historico_clinica"
+                        value={form.historyTable} onChange={e => setForm(p => ({ ...p, historyTable: e.target.value }))} />
+                    </div>
                   </div>
                 </div>
               </div>
