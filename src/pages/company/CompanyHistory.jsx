@@ -381,7 +381,7 @@ export default function CompanyHistory() {
                   }}
                 >
                   <PhoneCall size={15} />
-                  Assumir conversa no WhatsApp
+                  Ver conversa no WhatsApp
                 </a>
               </div>
             </div>

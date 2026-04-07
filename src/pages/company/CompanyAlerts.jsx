@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { BellRing, CheckCircle2, Clock } from 'lucide-react'
+import { BellRing, CheckCircle2, Clock, MessageCircle } from 'lucide-react'
 import './Company.css'
 
 let _audioCtx = null
@@ -265,9 +265,21 @@ export default function CompanyAlerts() {
               <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Clock size={11} /> {formatTime(alert.created_at)}
               </span>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                instância: {alert.instancia}
-              </span>
+              {alert.numero && (
+                <a
+                  href={`https://wa.me/${alert.numero.replace(/@.*$/, '').replace(/\D/g, '')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    fontSize: 11, color: '#16A34A', fontWeight: 500,
+                    textDecoration: 'none',
+                  }}
+                >
+                  <MessageCircle size={11} />
+                  Falar no WhatsApp
+                </a>
+              )}
             </div>
           </div>
 
