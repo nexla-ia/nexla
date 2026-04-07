@@ -1,3 +1,8 @@
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 .company-root {
   display: flex;
   min-height: 100vh;

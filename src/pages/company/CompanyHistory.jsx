@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Search, MessageSquare, Bot, User, PhoneCall } from 'lucide-react'
@@ -71,7 +71,12 @@ export default function CompanyHistory() {
   const [selected, setSelected] = useState(null)
   const [messages, setMessages] = useState([])
   const [loadingMsgs, setLoadingMsgs] = useState(false)
+  const [realtimeStatus, setRealtimeStatus] = useState('connecting') // 'connecting' | 'connected' | 'error'
   const bottomRef = useRef(null)
+  const selectedRef = useRef(null)
+
+  // Mantém ref sincronizada com state para uso em closures do Realtime
+  useEffect(() => { selectedRef.current = selected }, [selected])
 
   // Carrega lista de contatos únicos com timestamp da última mensagem
   useEffect(() => {
@@ -124,9 +129,11 @@ export default function CompanyHistory() {
       })
   }, [selected, historyTable])
 
-  // Realtime: escuta novos INSERTs na tabela
+  // Realtime: escuta novos INSERTs na tabela via WebSocket (sem polling)
   useEffect(() => {
     if (!historyTable) return
+
+    setRealtimeStatus('connecting')
 
     const channel = supabase
       .channel(`realtime-${historyTable}`)
@@ -137,12 +144,6 @@ export default function CompanyHistory() {
           const row = payload.new
           if (!row) return
 
-          const contact = {
-            session_id: row.session_id,
-            phone: formatPhone(row.session_id),
-            lastTs: row.data,
-          }
-
           // Atualiza lista de contatos: move o contato pro topo com novo lastTs
           setContacts(prev => {
             const exists = prev.find(c => c.session_id === row.session_id)
@@ -152,27 +153,27 @@ export default function CompanyHistory() {
                 ...prev.filter(c => c.session_id !== row.session_id),
               ]
             }
-            return [contact, ...prev]
+            return [{ session_id: row.session_id, phone: formatPhone(row.session_id), lastTs: row.data }, ...prev]
           })
 
-          // Se a mensagem é do contato aberto, adiciona na conversa
-          setSelected(prev => {
-            if (prev?.session_id === row.session_id) {
-              setMessages(msgs => [
-                ...msgs,
-                {
-                  id: row.id,
-                  type: row.message?.type,
-                  content: parseContent(row.message?.content || ''),
-                  ts: row.data,
-                },
-              ])
-            }
-            return prev
-          })
+          // Usa ref para evitar closure stale — sem precisar recriar o canal
+          if (selectedRef.current?.session_id === row.session_id) {
+            setMessages(msgs => [
+              ...msgs,
+              {
+                id: row.id,
+                type: row.message?.type,
+                content: parseContent(row.message?.content || ''),
+                ts: row.data,
+              },
+            ])
+          }
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') setRealtimeStatus('connected')
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setRealtimeStatus('error')
+      })
 
     return () => { supabase.removeChannel(channel) }
   }, [historyTable])
@@ -186,13 +187,33 @@ export default function CompanyHistory() {
 
   return (
     <div className="history-root">
-      <div style={{ marginBottom: '1.5rem' }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.3rem', color: 'var(--text-primary)', marginBottom: 4 }}>
-          Histórico de Conversas
+      <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.3rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+            Histórico de Conversas
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            {loadingContacts ? 'Carregando...' : `${contacts.length} conversa(s) registrada(s)`}
+          </div>
         </div>
-        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          {loadingContacts ? 'Carregando...' : `${contacts.length} conversa(s) registrada(s)`}
-        </div>
+        {historyTable && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: 12, color: realtimeStatus === 'connected' ? '#16A34A' : realtimeStatus === 'error' ? '#DC2626' : '#9CA3AF',
+            background: realtimeStatus === 'connected' ? '#F0FDF4' : realtimeStatus === 'error' ? '#FEF2F2' : '#F9FAFB',
+            border: `1px solid ${realtimeStatus === 'connected' ? '#BBF7D0' : realtimeStatus === 'error' ? '#FECACA' : '#E5E7EB'}`,
+            borderRadius: 20, padding: '4px 10px',
+          }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%',
+              background: realtimeStatus === 'connected' ? '#16A34A' : realtimeStatus === 'error' ? '#DC2626' : '#9CA3AF',
+              boxShadow: realtimeStatus === 'connected' ? '0 0 0 2px #BBF7D0' : 'none',
+              display: 'inline-block',
+              animation: realtimeStatus === 'connected' ? 'pulse-dot 2s infinite' : 'none',
+            }} />
+            {realtimeStatus === 'connected' ? 'Ao vivo' : realtimeStatus === 'error' ? 'Erro de conexão' : 'Conectando...'}
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: '1.5rem' }}>
