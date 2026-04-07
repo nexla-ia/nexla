@@ -4,6 +4,24 @@ import { supabase } from '../../lib/supabase'
 import { BellRing, CheckCircle2, Clock } from 'lucide-react'
 import './Company.css'
 
+function playNotificationSound() {
+  try {
+    const AudioCtx = window.AudioContext || (/** @type {any} */ (window)).webkitAudioContext
+    const ctx = new AudioCtx()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(880, ctx.currentTime)
+    osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.12)
+    gain.gain.setValueAtTime(0.25, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.4)
+  } catch (_) {}
+}
+
 function formatTime(ts) {
   if (!ts) return ''
   const date = new Date(ts)
@@ -28,12 +46,23 @@ function formatTime(ts) {
 
 export default function CompanyAlerts() {
   const { session } = useAuth()
-  const instance = session?.company?.instance  // ex: "NEXLA"
+  const instance = session?.company?.instance
 
   const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [realtimeStatus, setRealtimeStatus] = useState('connecting')
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  // Atualiza título da aba com contador de alertas não lidos
+  useEffect(() => {
+    if (unreadCount > 0) {
+      document.title = `(${unreadCount}) Alertas — NEXLA`
+    } else {
+      document.title = 'NEXLA'
+    }
+    return () => { document.title = 'NEXLA' }
+  }, [unreadCount])
 
   // Carrega alertas filtrados pela instância da empresa
   useEffect(() => {
@@ -61,7 +90,10 @@ export default function CompanyAlerts() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'alerts', filter: `instancia=eq.${instance}` },
         (payload) => {
-          if (payload.new) setAlerts(prev => [payload.new, ...prev])
+          if (!payload.new) return
+          setAlerts(prev => [payload.new, ...prev])
+          setUnreadCount(c => c + 1)
+          playNotificationSound()
         }
       )
       .on(
@@ -81,8 +113,14 @@ export default function CompanyAlerts() {
 
   async function resolve(id) {
     await supabase.from('alerts').update({ resolved: true }).eq('id', id)
-    // Realtime UPDATE já atualiza o estado
   }
+
+  // Zera contador ao focar na aba
+  useEffect(() => {
+    function onFocus() { setUnreadCount(0) }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [])
 
   const filtered = alerts.filter(a => {
     if (filter === 'pending') return !a.resolved
@@ -99,6 +137,15 @@ export default function CompanyAlerts() {
         <div>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.3rem', color: 'var(--text-primary)', marginBottom: 4 }}>
             Alertas da IA
+            {unreadCount > 0 && (
+              <span style={{
+                marginLeft: 8, background: '#DC2626', color: '#fff',
+                borderRadius: 20, fontSize: 11, fontWeight: 700,
+                padding: '2px 8px', verticalAlign: 'middle',
+              }}>
+                {unreadCount} novo{unreadCount > 1 ? 's' : ''}
+              </span>
+            )}
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
             {loading ? 'Carregando...' : 'Avisos enviados pelo agente de IA'}
