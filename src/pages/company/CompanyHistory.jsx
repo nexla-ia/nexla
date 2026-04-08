@@ -12,6 +12,14 @@ function parseContent(content) {
   return content.replace(/^\*[^*]+\*:\n/, '').trim()
 }
 
+function isToolMessage(row) {
+  const type = row.message?.type
+  const content = row.message?.content || ''
+  if (type === 'tool') return true
+  if (type === 'ai' && /^Calling \w+ with input:/i.test(content.trim())) return true
+  return false
+}
+
 function formatMsgTime(ts) {
   if (!ts) return ''
   const date = new Date(ts)
@@ -115,7 +123,7 @@ export default function CompanyHistory() {
       .order('id', { ascending: true })
       .then(({ data, error }) => {
         if (!error && data) {
-          setMessages(data.map(row => ({
+          setMessages(data.filter(row => !isToolMessage(row)).map(row => ({
             id: row.id,
             type: row.message?.type,
             content: parseContent(row.message?.content || ''),
@@ -151,7 +159,7 @@ export default function CompanyHistory() {
             return [{ session_id: row.session_id, phone: formatPhone(row.session_id), lastTs: ts }, ...prev]
           })
 
-          if (selectedRef.current?.session_id === row.session_id) {
+          if (selectedRef.current?.session_id === row.session_id && !isToolMessage(row)) {
             setMessages(msgs => [
               ...msgs,
               {
