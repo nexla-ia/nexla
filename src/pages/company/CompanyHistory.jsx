@@ -80,7 +80,7 @@ export default function CompanyHistory() {
     setLoadingContacts(true)
     supabase
       .from(historyTable)
-      .select('session_id, data')
+      .select('session_id, data, created_at')
       .order('id', { ascending: false })
       .then(({ data, error }) => {
         if (!error && data) {
@@ -92,7 +92,7 @@ export default function CompanyHistory() {
               unique.push({
                 session_id: row.session_id,
                 phone: formatPhone(row.session_id),
-                lastTs: row.data,
+                lastTs: row.data || row.created_at || null,
               })
             }
           }
@@ -108,7 +108,7 @@ export default function CompanyHistory() {
     setMessages([])
     supabase
       .from(historyTable)
-      .select('id, message, data')
+      .select('id, message, data, created_at')
       .eq('session_id', selected.session_id)
       .order('id', { ascending: true })
       .then(({ data, error }) => {
@@ -117,7 +117,7 @@ export default function CompanyHistory() {
             id: row.id,
             type: row.message?.type,
             content: parseContent(row.message?.content || ''),
-            ts: row.data,
+            ts: row.data || row.created_at || null,
           })))
         }
         setLoadingMsgs(false)
@@ -137,15 +137,16 @@ export default function CompanyHistory() {
           const row = payload.new
           if (!row) return
 
+          const ts = row.data || row.created_at || null
           setContacts(prev => {
             const exists = prev.find(c => c.session_id === row.session_id)
             if (exists) {
               return [
-                { ...exists, lastTs: row.data },
+                { ...exists, lastTs: ts },
                 ...prev.filter(c => c.session_id !== row.session_id),
               ]
             }
-            return [{ session_id: row.session_id, phone: formatPhone(row.session_id), lastTs: row.data }, ...prev]
+            return [{ session_id: row.session_id, phone: formatPhone(row.session_id), lastTs: ts }, ...prev]
           })
 
           if (selectedRef.current?.session_id === row.session_id) {
@@ -155,7 +156,7 @@ export default function CompanyHistory() {
                 id: row.id,
                 type: row.message?.type,
                 content: parseContent(row.message?.content || ''),
-                ts: row.data,
+                ts,
               },
             ])
           }
