@@ -67,6 +67,7 @@ export default function CompanyConversations() {
   const [closeModal, setCloseModal] = useState(null)
   const [reason, setReason]         = useState('')
   const [closing, setClosing]       = useState(false)
+  const [toast, setToast]           = useState(null)
   const bottomRef = useRef(null)
   const selectedRef = useRef(null)
 
@@ -192,6 +193,9 @@ export default function CompanyConversations() {
     setClosing(false)
     setCloseModal(null)
     setReason('')
+    const label = REASONS.find(r => r.value === reason)?.label || reason
+    setToast({ message: `Conversa finalizada — ${label}`, color: REASONS.find(r => r.value === reason)?.color || '#16A34A' })
+    setTimeout(() => setToast(null), 3500)
   }
 
   // Conversas ativas = contatos do histórico que NÃO estão na lista de encerrados
@@ -333,6 +337,21 @@ export default function CompanyConversations() {
           </>
         )}
       </div>
+
+      {toast && createPortal(
+        <div style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 10000,
+          background: '#fff', border: `1.5px solid ${toast.color}`,
+          borderRadius: 10, padding: '12px 20px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+          display: 'flex', alignItems: 'center', gap: 10,
+          fontSize: 13, fontWeight: 600, color: toast.color,
+          animation: 'slide-in-right 0.2s ease',
+        }}>
+          <CheckCircle2 size={16} />
+          {toast.message}
+        </div>
+      , document.body)}
 
       {closeModal && createPortal(
         <div style={{
