@@ -163,12 +163,11 @@ export default function CompanyAlerts() {
   }, [])
 
   // Filtra: mostra alertas gerais + encaminhados para mim
-  // Oculta alertas encaminhados para outra pessoa (que não eu)
+  // Alertas encaminhados para outra pessoa somem da tela de quem encaminhou
   const visible = alerts.filter(a => {
-    if (!a.forwarded_to_user_id) return true           // alerta geral, todos veem
-    if (a.forwarded_to_user_id === currentUser?.id) return true  // encaminhado para mim
-    if (a.forwarded_by_name === currentUser?.name) return true   // eu encaminhei, ainda vejo
-    return false
+    if (!a.forwarded_to_user_id) return true                     // alerta geral, todos veem
+    if (a.forwarded_to_user_id === currentUser?.id) return true  // encaminhado para mim, vejo
+    return false                                                  // encaminhado para outro, não vejo
   })
 
   const filtered = visible.filter(a => {
