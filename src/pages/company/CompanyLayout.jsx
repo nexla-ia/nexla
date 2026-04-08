@@ -13,23 +13,29 @@ export default function CompanyLayout() {
   const [activeCount, setActiveCount] = useState(0)
   const [pendingAlerts, setPendingAlerts] = useState(0)
 
-  // Conta conversas ativas
+  // Conta conversas ativas = sessões únicas no histórico - encerradas
   useEffect(() => {
     if (!instance) return
-    supabase.from('conversations').select('id', { count: 'exact' })
-      .eq('instancia', instance).eq('status', 'active')
-      .then(({ count }) => setActiveCount(count || 0))
+    const historyTable = session?.company?.history_table
+    if (!historyTable) return
+
+    async function refresh() {
+      const [{ data: hist }, { data: closed }] = await Promise.all([
+        supabase.from(historyTable).select('session_id'),
+        supabase.from('conversations').select('session_id').eq('instancia', instance),
+      ])
+      const closedSet = new Set((closed || []).map(r => r.session_id))
+      const unique = new Set((hist || []).map(r => r.session_id))
+      setActiveCount([...unique].filter(s => !closedSet.has(s)).length)
+    }
+    refresh()
 
     const ch = supabase.channel('layout-conversations')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations', filter: `instancia=eq.${instance}` },
-        () => {
-          supabase.from('conversations').select('id', { count: 'exact' })
-            .eq('instancia', instance).eq('status', 'active')
-            .then(({ count }) => setActiveCount(count || 0))
-        })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations', filter: `instancia=eq.${instance}` },
+        () => refresh())
       .subscribe()
     return () => supabase.removeChannel(ch)
-  }, [instance])
+  }, [instance, session?.company?.history_table])
 
   // Conta alertas pendentes reais
   useEffect(() => {

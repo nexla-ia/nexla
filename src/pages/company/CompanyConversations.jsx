@@ -25,9 +25,8 @@ function formatMsgTime(ts) {
   if (!ts) return ''
   const date = new Date(ts)
   const now = new Date()
-  const isToday = date.toDateString() === now.toDateString()
   const hhmm = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-  if (isToday) return hhmm
+  if (date.toDateString() === now.toDateString()) return hhmm
   const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1)
   if (date.toDateString() === yesterday.toDateString()) return `Ontem ${hhmm}`
   return `${date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${hhmm}`
@@ -58,13 +57,14 @@ export default function CompanyConversations() {
   const instance     = session?.company?.instance
   const historyTable = session?.company?.history_table
 
-  const [convs, setConvs]           = useState([])
-  const [loading, setLoading]       = useState(true)
+  const [contacts, setContacts]     = useState([])   // todos do histórico
+  const [closed, setClosed]         = useState(new Set()) // session_ids encerrados
+  const [loadingContacts, setLoadingContacts] = useState(false)
+  const [search, setSearch]         = useState('')
   const [selected, setSelected]     = useState(null)
   const [messages, setMessages]     = useState([])
   const [loadingMsgs, setLoadingMsgs] = useState(false)
-  const [search, setSearch]         = useState('')
-  const [closeModal, setCloseModal] = useState(null) // conversa a fechar
+  const [closeModal, setCloseModal] = useState(null)
   const [reason, setReason]         = useState('')
   const [closing, setClosing]       = useState(false)
   const bottomRef = useRef(null)
@@ -72,73 +72,64 @@ export default function CompanyConversations() {
 
   useEffect(() => { selectedRef.current = selected }, [selected])
 
-  // Carrega conversas ativas
+  // Carrega contatos do histórico (igual ao CompanyHistory)
+  useEffect(() => {
+    if (!historyTable) return
+    supabase.rpc('ensure_table_setup', { p_table: historyTable })
+    setLoadingContacts(true)
+    supabase.from(historyTable).select('*').order('id', { ascending: false })
+      .then(({ data, error }) => {
+        if (!error && data) {
+          const seen = new Set()
+          const unique = []
+          for (const row of data) {
+            if (!seen.has(row.session_id)) {
+              seen.add(row.session_id)
+              unique.push({
+                session_id: row.session_id,
+                phone: formatPhone(row.session_id),
+                lastTs: row.data || row.created_at || null,
+              })
+            }
+          }
+          setContacts(unique)
+        }
+        setLoadingContacts(false)
+      })
+  }, [historyTable])
+
+  // Carrega sessões encerradas
   useEffect(() => {
     if (!instance) return
-    setLoading(true)
-    supabase.from('conversations')
-      .select('*')
-      .eq('instancia', instance)
-      .eq('status', 'active')
-      .order('last_ts', { ascending: false, nullsFirst: false })
-      .then(({ data, error }) => {
-        if (!error && data) setConvs(data)
-        setLoading(false)
+    supabase.from('conversations').select('session_id').eq('instancia', instance)
+      .then(({ data }) => {
+        if (data) setClosed(new Set(data.map(r => r.session_id)))
       })
   }, [instance])
 
-  // Realtime conversas
+  // Realtime histórico — nova mensagem adiciona contato no topo
   useEffect(() => {
-    if (!instance) return
-    const ch = supabase.channel(`convs-${instance}`)
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'conversations', filter: `instancia=eq.${instance}` },
-        (p) => { if (p.new?.status === 'active') setConvs(prev => [p.new, ...prev]) }
-      )
-      .on('postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `instancia=eq.${instance}` },
+    if (!historyTable) return
+    const ch = supabase.channel(`convs-hist-${historyTable}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: historyTable },
         (p) => {
-          if (p.new?.status === 'closed') {
-            // Remove da lista e fecha painel se estava selecionada
-            setConvs(prev => prev.filter(c => c.id !== p.new.id))
-            setSelected(prev => prev?.id === p.new.id ? null : prev)
-          } else {
-            setConvs(prev => prev.map(c => c.id === p.new.id ? p.new : c))
-          }
-        }
-      )
-      .subscribe()
-    return () => supabase.removeChannel(ch)
-  }, [instance])
-
-  // Realtime histórico — nova mensagem atualiza a conversa e adiciona no chat aberto
-  useEffect(() => {
-    if (!historyTable || !instance) return
-    const ch = supabase.channel(`convs-history-${historyTable}`)
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: historyTable },
-        async (p) => {
           const row = p.new
           if (!row || isToolMessage(row)) return
           const ts = row.data || row.created_at || null
-          const phone = formatPhone(row.session_id)
-          const content = parseContent(row.message?.content || '')
 
-          // Upsert na tabela conversations
-          await supabase.from('conversations').upsert({
-            session_id: row.session_id,
-            instancia: instance,
-            status: 'active',
-            last_message: content.slice(0, 120),
-            last_ts: ts,
-          }, { onConflict: 'session_id,instancia', ignoreDuplicates: false })
+          setContacts(prev => {
+            const exists = prev.find(c => c.session_id === row.session_id)
+            if (exists) {
+              return [{ ...exists, lastTs: ts }, ...prev.filter(c => c.session_id !== row.session_id)]
+            }
+            return [{ session_id: row.session_id, phone: formatPhone(row.session_id), lastTs: ts }, ...prev]
+          })
 
-          // Adiciona mensagem no chat se conversa estiver aberta
           if (selectedRef.current?.session_id === row.session_id) {
             setMessages(msgs => [...msgs, {
               id: row.id,
               type: row.message?.type,
-              content,
+              content: parseContent(row.message?.content || ''),
               ts,
             }])
           }
@@ -146,15 +137,30 @@ export default function CompanyConversations() {
       )
       .subscribe()
     return () => supabase.removeChannel(ch)
-  }, [historyTable, instance])
+  }, [historyTable])
+
+  // Realtime enceramentos — quando uma sessão é encerrada (manual ou cron), remove da tela
+  useEffect(() => {
+    if (!instance) return
+    const ch = supabase.channel(`convs-closed-${instance}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations', filter: `instancia=eq.${instance}` },
+        (p) => {
+          if (!p.new) return
+          setClosed(prev => new Set([...prev, p.new.session_id]))
+          // Se a conversa encerrada estava aberta, fecha o painel
+          setSelected(prev => prev?.session_id === p.new.session_id ? null : prev)
+        }
+      )
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [instance])
 
   // Carrega mensagens da conversa selecionada
   useEffect(() => {
     if (!selected || !historyTable) return
     setLoadingMsgs(true)
     setMessages([])
-    supabase.from(historyTable)
-      .select('*')
+    supabase.from(historyTable).select('*')
       .eq('session_id', selected.session_id)
       .order('id', { ascending: true })
       .then(({ data, error }) => {
@@ -177,25 +183,29 @@ export default function CompanyConversations() {
   async function handleClose() {
     if (!reason || !closeModal) return
     setClosing(true)
-    await supabase.from('conversations')
-      .update({ status: 'closed', reason, closed_at: new Date().toISOString() })
-      .eq('id', closeModal.id)
+    await supabase.from('conversations').insert({
+      session_id: closeModal.session_id,
+      instancia: instance,
+      reason,
+      closed_at: new Date().toISOString(),
+    })
     setClosing(false)
     setCloseModal(null)
     setReason('')
   }
 
-  const filtered = convs.filter(c => formatPhone(c.session_id).includes(search))
+  // Conversas ativas = contatos do histórico que NÃO estão na lista de encerrados
+  const active = contacts.filter(c => !closed.has(c.session_id))
+  const filtered = active.filter(c => c.phone.includes(search))
 
   return (
     <div className="contacts-root">
-      {/* Lista lateral */}
       <div className="contacts-list">
         <div className="contacts-list-header">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div className="contacts-list-title">Conversas ativas</div>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', background: '#F1F5F9', borderRadius: 20, padding: '2px 8px' }}>
-              {convs.length}
+              {active.length}
             </span>
           </div>
           <input
@@ -207,36 +217,33 @@ export default function CompanyConversations() {
         </div>
 
         <div className="contacts-list-body">
-          {loading && (
+          {loadingContacts && (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Carregando...</div>
           )}
-          {!loading && filtered.length === 0 && (
+          {!loadingContacts && filtered.length === 0 && (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-              {convs.length === 0 ? 'Nenhuma conversa ativa.' : 'Nenhum resultado.'}
+              {active.length === 0 ? 'Nenhuma conversa ativa.' : 'Nenhum resultado.'}
             </div>
           )}
           {filtered.map(c => (
             <div
-              key={c.id}
-              className={`contact-item ${selected?.id === c.id ? 'selected' : ''}`}
+              key={c.session_id}
+              className={`contact-item ${selected?.session_id === c.session_id ? 'selected' : ''}`}
               onClick={() => setSelected(c)}
             >
               <div className="contact-avatar"><User size={14} style={{ opacity: 0.4 }} /></div>
               <div className="contact-info">
-                <div className="contact-name">{formatPhone(c.session_id)}</div>
-                <div className="contact-preview" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {c.last_message || 'Ver conversa'}
-                </div>
+                <div className="contact-name">{c.phone}</div>
+                <div className="contact-preview">Ver conversa</div>
               </div>
               <div className="contact-meta">
-                {c.last_ts && <div className="contact-time">{formatContactTime(c.last_ts)}</div>}
+                {c.lastTs && <div className="contact-time">{formatContactTime(c.lastTs)}</div>}
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Painel de chat */}
       <div className="chat-panel">
         {!selected ? (
           <div className="chat-empty">
@@ -250,16 +257,14 @@ export default function CompanyConversations() {
                 <User size={14} style={{ opacity: 0.4 }} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-primary)' }}>
-                  {formatPhone(selected.session_id)}
-                </div>
+                <div style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-primary)' }}>{selected.phone}</div>
                 {!loadingMsgs && (
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{messages.length} mensagem(ns)</div>
                 )}
               </div>
               <button
                 className="nx-btn-ghost"
-                style={{ fontSize: 12, padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 6, color: '#DC2626', borderColor: '#FECACA' }}
+                style={{ fontSize: 12, padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
                 onClick={() => { setCloseModal(selected); setReason('') }}
               >
                 <CheckCircle2 size={14} /> Finalizar conversa
@@ -273,9 +278,7 @@ export default function CompanyConversations() {
                 </div>
               )}
               {!loadingMsgs && messages.length === 0 && (
-                <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', marginTop: '2rem' }}>
-                  Sem mensagens.
-                </div>
+                <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', marginTop: '2rem' }}>Sem mensagens.</div>
               )}
               {messages.map(msg => {
                 const isHuman = msg.type === 'human'
@@ -315,14 +318,13 @@ export default function CompanyConversations() {
 
             <div style={{ padding: '12px 18px', borderTop: '0.5px solid var(--border)', background: 'var(--bg-surface)', flexShrink: 0 }}>
               <a
-                href={`https://wa.me/${formatPhone(selected.session_id)}`}
+                href={`https://wa.me/${selected.phone}`}
                 target="_blank" rel="noreferrer"
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 8,
-                  background: '#25D366', color: '#fff', border: 'none', borderRadius: 8,
+                  background: '#25D366', color: '#fff', borderRadius: 8,
                   padding: '9px 18px', fontSize: 13, fontWeight: 600,
-                  cursor: 'pointer', textDecoration: 'none',
-                  boxShadow: '0 1px 4px rgba(37,211,102,0.3)',
+                  textDecoration: 'none', boxShadow: '0 1px 4px rgba(37,211,102,0.3)',
                 }}
               >
                 <PhoneCall size={15} /> Ver conversa no WhatsApp
@@ -332,7 +334,6 @@ export default function CompanyConversations() {
         )}
       </div>
 
-      {/* Modal finalizar */}
       {closeModal && createPortal(
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)',
@@ -344,7 +345,7 @@ export default function CompanyConversations() {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>Finalizar conversa</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                  {formatPhone(closeModal.session_id)} — qual foi o resultado?
+                  {closeModal.phone} — qual foi o resultado?
                 </div>
               </div>
               <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 4, cursor: 'pointer' }}
@@ -365,7 +366,6 @@ export default function CompanyConversations() {
                   <div style={{
                     width: 12, height: 12, borderRadius: '50%', flexShrink: 0,
                     background: reason === r.value ? r.color : 'var(--border)',
-                    transition: 'background 0.15s',
                   }} />
                   <div style={{ fontSize: 13, fontWeight: 600, color: reason === r.value ? r.color : 'var(--text-primary)' }}>
                     {r.label}
