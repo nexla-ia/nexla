@@ -184,13 +184,18 @@ export default function CompanyConversations() {
   async function handleClose() {
     if (!reason || !closeModal) return
     setClosing(true)
-    await supabase.from('conversations').insert({
+    const { error } = await supabase.from('conversations').insert({
       session_id: closeModal.session_id,
       instancia: instance,
       reason,
       closed_at: new Date().toISOString(),
     })
     setClosing(false)
+    if (error) return
+    // Atualiza UI imediatamente sem depender do Realtime
+    const closedId = closeModal.session_id
+    setClosed(prev => new Set([...prev, closedId]))
+    if (selected?.session_id === closedId) setSelected(null)
     setCloseModal(null)
     setReason('')
     const label = REASONS.find(r => r.value === reason)?.label || reason
