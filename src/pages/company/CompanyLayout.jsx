@@ -13,6 +13,11 @@ export default function CompanyLayout() {
   const [activeCount, setActiveCount] = useState(0)
   const [pendingAlerts, setPendingAlerts] = useState(0)
 
+  // Garante que a tabela conversations está no Realtime
+  useEffect(() => {
+    supabase.rpc('ensure_table_setup', { p_table: 'conversations' })
+  }, [])
+
   // Conta conversas ativas = sessões únicas no histórico - encerradas
   useEffect(() => {
     if (!instance) return
