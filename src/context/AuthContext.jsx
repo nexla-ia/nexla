@@ -174,6 +174,27 @@ export function AuthProvider({ children }) {
     return { ok: true }
   }
 
+  async function updateUser(userId, userData) {
+    const updates = {
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+    }
+    const { error } = await supabase.from('users').update(updates).eq('id', userId)
+    if (error) return { ok: false, error: error.message }
+
+    if (userData.password) {
+      const { error: pwErr } = await supabase.rpc('update_user_password', {
+        p_user_id: userId,
+        p_password: userData.password,
+      })
+      if (pwErr) return { ok: false, error: pwErr.message }
+    }
+
+    await loadDB()
+    return { ok: true }
+  }
+
   async function toggleUserActive(companyId, userId) {
     const company = db.companies.find(c => c.id === companyId)
     const user = company?.users?.find(u => u.id === userId)
@@ -190,7 +211,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, db, dbLoading, dbError, login, logout, addCompany, addUser, toggleUserActive, toggleCompanyActive }}>
+    <AuthContext.Provider value={{ session, db, dbLoading, dbError, login, logout, addCompany, addUser, updateUser, toggleUserActive, toggleCompanyActive }}>
       {children}
     </AuthContext.Provider>
   )

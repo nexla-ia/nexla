@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { ArrowLeft, Plus, X, UserCheck, UserX, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Plus, X, UserCheck, UserX, RefreshCw, Pencil } from 'lucide-react'
 import './Adm.css'
 
 function slugify(name) {
@@ -24,12 +24,15 @@ function generatePassword(companyName) {
 
 export default function AdmCompanyDetail() {
   const { id } = useParams()
-  const { db, addUser, toggleUserActive } = useAuth()
+  const { db, addUser, updateUser, toggleUserActive } = useAuth()
   const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
+  const [editModal, setEditModal] = useState(null) // usuário sendo editado
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'admin' })
+  const [editForm, setEditForm] = useState({ name: '', email: '', password: '', role: 'admin' })
   const [err, setErr] = useState('')
+  const [editErr, setEditErr] = useState('')
 
   const company = db.companies.find(c => c.id === id)
   if (!company) return <div style={{ padding: '2rem', color: 'var(--text-muted)' }}>Empresa não encontrada.</div>
@@ -45,6 +48,21 @@ export default function AdmCompanyDetail() {
     setForm({ name: '', email: '', password: '', role: 'admin' })
     setErr('')
     setShowModal(true)
+  }
+
+  function openEdit(user) {
+    setEditForm({ name: user.name, email: user.email, password: '', role: user.role })
+    setEditErr('')
+    setEditModal(user)
+  }
+
+  async function handleEditUser() {
+    if (!editForm.name || !editForm.email) { setEditErr('Nome e e-mail são obrigatórios.'); return }
+    setSaving(true)
+    const result = await updateUser(editModal.id, editForm)
+    setSaving(false)
+    if (!result?.ok) { setEditErr(result?.error || 'Erro ao salvar alterações.'); return }
+    setEditModal(null)
   }
 
   async function handleAddUser() {
@@ -116,7 +134,10 @@ export default function AdmCompanyDetail() {
                     <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{u.email}</td>
                     <td><span className={`nx-badge ${u.role === 'admin' ? 'nx-badge-cyan' : 'nx-badge-gray'}`}>{u.role === 'admin' ? 'Admin' : 'Viewer'}</span></td>
                     <td><span className={`nx-badge ${u.active ? 'nx-badge-green' : 'nx-badge-red'}`}>{u.active ? 'Ativo' : 'Inativo'}</span></td>
-                    <td>
+                    <td style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <button className="table-action" onClick={() => openEdit(u)}>
+                        <Pencil size={12} /> Editar
+                      </button>
                       <button className={`table-action ${u.active ? 'danger' : ''}`} onClick={() => toggleUserActive(company.id, u.id)}>
                         {u.active ? <><UserX size={12} /> Desativar</> : <><UserCheck size={12} /> Ativar</>}
                       </button>
@@ -128,6 +149,71 @@ export default function AdmCompanyDetail() {
           )}
         </div>
       </div>
+
+      {editModal && createPortal(
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
+          backdropFilter: 'blur(4px)', padding: '1.5rem',
+        }}>
+          <div className="nx-card" style={{ width: '100%', maxWidth: 440 }}>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>Editar usuário</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{editModal.name}</div>
+              </div>
+              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 4 }}
+                onClick={() => setEditModal(null)}><X size={16} /></button>
+            </div>
+
+            <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={labelStyle}>Nome</label>
+                <input className="nx-input" value={editForm.name}
+                  onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} autoFocus />
+              </div>
+              <div>
+                <label style={labelStyle}>E-mail</label>
+                <input className="nx-input" type="email" value={editForm.email}
+                  onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div>
+                <label style={labelStyle}>Nova senha <span style={{ fontWeight: 400, textTransform: 'none' }}>(deixe em branco para não alterar)</span></label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input className="nx-input" placeholder="Nova senha..."
+                    value={editForm.password} onChange={e => setEditForm(p => ({ ...p, password: e.target.value }))} />
+                  <button type="button" className="nx-btn-ghost" style={{ flexShrink: 0, padding: '0 12px' }}
+                    title="Gerar senha" onClick={() => setEditForm(p => ({ ...p, password: generatePassword(company.name) }))}>
+                    <RefreshCw size={13} />
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Perfil de acesso</label>
+                <select className="nx-select" value={editForm.role} onChange={e => setEditForm(p => ({ ...p, role: e.target.value }))}>
+                  <option value="admin">Admin — acesso completo</option>
+                  <option value="viewer">Viewer — somente leitura</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
+              {editErr && (
+                <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#DC2626', marginBottom: 12 }}>
+                  {editErr}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="nx-btn-ghost" style={{ flex: 1 }} onClick={() => setEditModal(null)}>Cancelar</button>
+                <button className="nx-btn-primary" style={{ flex: 1, justifyContent: 'center' }}
+                  onClick={handleEditUser} disabled={saving}>
+                  {saving ? 'Salvando...' : 'Salvar alterações'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      , document.body)}
 
       {showModal && createPortal(
         <div style={{
