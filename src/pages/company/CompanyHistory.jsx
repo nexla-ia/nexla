@@ -5,10 +5,11 @@ import { MessageSquare, Bot, User, PhoneCall } from 'lucide-react'
 import './Company.css'
 
 const REASON_STYLE = {
-  agendado:    { label: 'Agendado',    color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0' },
-  resolvido:   { label: 'Resolvido',   color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
-  encaminhado: { label: 'Encaminhado', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
-  desistiu:    { label: 'Desistiu',    color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+  agendado:       { label: 'Agendado',    color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0' },
+  resolvido:      { label: 'Resolvido',   color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
+  encaminhado:    { label: 'Encaminhado', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
+  desistiu:       { label: 'Desistiu',    color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+  encerrado_auto: { label: 'Auto',        color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
 }
 
 function formatPhone(sessionId) {
