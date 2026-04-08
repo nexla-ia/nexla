@@ -40,9 +40,10 @@ function formatTime(ts) {
   const diffMin = Math.floor((now - date) / 60000)
   const diffH = Math.floor(diffMin / 60)
 
-  if (diffMin < 1) return 'agora'
-  if (diffMin < 60) return `${diffMin}min`
-  if (diffH < 24) return `${diffH}h`
+  const hhmm = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  if (diffMin < 1) return hhmm
+  if (diffMin < 60) return hhmm
+  if (diffH < 24) return hhmm
 
   const yesterday = new Date(now)
   yesterday.setDate(now.getDate() - 1)
