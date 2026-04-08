@@ -36,6 +36,8 @@ export default function CompanyLayout() {
     refresh()
 
     const ch = supabase.channel('layout-conversations')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: historyTable },
+        () => refresh())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations', filter: `instancia=eq.${instance}` },
         () => refresh())
       .subscribe()
