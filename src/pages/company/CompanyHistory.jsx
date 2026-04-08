@@ -288,6 +288,7 @@ export default function CompanyHistory() {
               )}
               {messages.map(msg => {
                 const isHuman = msg.type === 'human'
+                const isImage = isHuman && /^(esta imagem|a imagem|esse documento|este documento|essa imagem|o documento|a foto|essa foto)/i.test(msg.content.trim())
                 return (
                   <div key={msg.id}>
                     <div className="msg-label" style={{
@@ -301,6 +302,16 @@ export default function CompanyHistory() {
                     </div>
                     <div className={`msg-row ${isHuman ? 'ai' : 'client'}`}>
                       <div className="msg-bubble">
+                        {isImage && (
+                          <div style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                            fontSize: 11, fontWeight: 600, color: '#6B7280',
+                            background: '#F3F4F6', border: '1px solid #E5E7EB',
+                            borderRadius: 6, padding: '2px 8px', marginBottom: 6,
+                          }}>
+                            🖼️ Imagem enviada
+                          </div>
+                        )}
                         {msg.content}
                       </div>
                     </div>
