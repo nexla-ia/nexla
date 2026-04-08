@@ -82,7 +82,7 @@ export default function CompanyHistory() {
     setLoadingContacts(true)
     supabase
       .from(historyTable)
-      .select('session_id, data, created_at')
+      .select('*')
       .order('id', { ascending: false })
       .then(({ data, error }) => {
         if (!error && data) {
@@ -110,7 +110,7 @@ export default function CompanyHistory() {
     setMessages([])
     supabase
       .from(historyTable)
-      .select('id, message, data, created_at')
+      .select('*')
       .eq('session_id', selected.session_id)
       .order('id', { ascending: true })
       .then(({ data, error }) => {
