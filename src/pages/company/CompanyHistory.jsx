@@ -4,6 +4,12 @@ import { supabase } from '../../lib/supabase'
 import { MessageSquare, Bot, User, PhoneCall } from 'lucide-react'
 import './Company.css'
 
+const REASON_STYLE = {
+  agendado:  { label: 'Agendado',  color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0' },
+  resolvido: { label: 'Resolvido', color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
+  desistiu:  { label: 'Desistiu',  color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+}
+
 function formatPhone(sessionId) {
   return sessionId.replace(/@.*$/, '')
 }
@@ -72,6 +78,7 @@ export default function CompanyHistory() {
   const historyTable = session?.company?.history_table
 
   const [contacts, setContacts] = useState([])
+  const [closedMap, setClosedMap] = useState({}) // session_id → reason
   const [loadingContacts, setLoadingContacts] = useState(false)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
@@ -82,6 +89,26 @@ export default function CompanyHistory() {
   const selectedRef = useRef(null)
 
   useEffect(() => { selectedRef.current = selected }, [selected])
+
+  // Carrega enceramentos para mostrar badge de motivo no histórico
+  useEffect(() => {
+    const instance = session?.company?.instance
+    if (!instance) return
+    supabase.from('conversations').select('session_id, reason').eq('instancia', instance)
+      .then(({ data }) => {
+        if (data) {
+          const map = {}
+          data.forEach(r => { map[r.session_id] = r.reason })
+          setClosedMap(map)
+        }
+      })
+    // Realtime: quando nova conversa for encerrada, atualiza o badge
+    const ch = supabase.channel('hist-closed')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations', filter: `instancia=eq.${instance}` },
+        (p) => { if (p.new) setClosedMap(prev => ({ ...prev, [p.new.session_id]: p.new.reason })) })
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [session?.company?.instance])
 
   useEffect(() => {
     if (!historyTable) return
@@ -233,24 +260,35 @@ export default function CompanyHistory() {
               Nenhum contato encontrado.
             </div>
           )}
-          {filtered.map(c => (
-            <div
-              key={c.session_id}
-              className={`contact-item ${selected?.session_id === c.session_id ? 'selected' : ''}`}
-              onClick={() => setSelected(c)}
-            >
-              <div className="contact-avatar"><User size={14} style={{ opacity: 0.4 }} /></div>
-              <div className="contact-info">
-                <div className="contact-name">{c.phone}</div>
-                <div className="contact-preview">Ver conversa completa</div>
+          {filtered.map(c => {
+            const reason = closedMap[c.session_id]
+            const rs = reason ? REASON_STYLE[reason] : null
+            return (
+              <div
+                key={c.session_id}
+                className={`contact-item ${selected?.session_id === c.session_id ? 'selected' : ''}`}
+                onClick={() => setSelected(c)}
+              >
+                <div className="contact-avatar"><User size={14} style={{ opacity: 0.4 }} /></div>
+                <div className="contact-info">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <div className="contact-name">{c.phone}</div>
+                    {rs && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
+                        color: rs.color, background: rs.bg, border: `1px solid ${rs.border}`,
+                        lineHeight: '16px',
+                      }}>{rs.label}</span>
+                    )}
+                  </div>
+                  <div className="contact-preview">Ver conversa completa</div>
+                </div>
+                <div className="contact-meta">
+                  {c.lastTs && <div className="contact-time">{formatContactTime(c.lastTs)}</div>}
+                </div>
               </div>
-              <div className="contact-meta">
-                {c.lastTs && (
-                  <div className="contact-time">{formatContactTime(c.lastTs)}</div>
-                )}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
