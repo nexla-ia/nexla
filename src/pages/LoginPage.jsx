@@ -38,16 +38,6 @@ export default function LoginPage() {
       <div className="login-glow login-glow-2" />
 
       <div className="login-left">
-        <div className="login-brand">
-          <div className="login-logo">
-            <div className="login-logo-inner" />
-          </div>
-          <div>
-            <div className="login-brand-name">NEXLA</div>
-            <div className="login-brand-tag">AI Operations Hub</div>
-          </div>
-        </div>
-
         <h1 className="login-headline">
           Central de controle<br />
           <span className="login-headline-accent">inteligente</span>
@@ -113,13 +103,6 @@ export default function LoginPage() {
           <button type="submit" className="login-submit" disabled={loading}>
             {loading ? <><Loader2 size={15} className="spin" /> Verificando...</> : tab === 'adm' ? 'Acesso administrativo' : 'Entrar no painel'}
           </button>
-
-          <div className="login-hint">
-            {tab === 'adm'
-              ? <><strong>Demo ADM:</strong> admin@nexla.ai / nexla123</>
-              : <><strong>Demo empresa:</strong> marcos@saudetotal.com / 123456</>
-            }
-          </div>
 
           <div className="login-footer">NEXLA v2.0 · Plataforma exclusiva · Acesso restrito</div>
         </form>
