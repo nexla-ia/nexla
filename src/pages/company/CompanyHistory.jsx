@@ -77,6 +77,8 @@ export default function CompanyHistory() {
 
   useEffect(() => {
     if (!historyTable) return
+    // Garante RLS + Realtime configurados (idempotente, seguro chamar sempre)
+    supabase.rpc('ensure_table_setup', { p_table: historyTable })
     setLoadingContacts(true)
     supabase
       .from(historyTable)

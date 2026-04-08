@@ -157,6 +157,13 @@ export function AuthProvider({ children }) {
       .single()
 
     if (error) return null
+
+    // Configura RLS + Realtime nas tabelas se já existirem
+    if (newComp) {
+      if (data.historyTable) await supabase.rpc('ensure_table_setup', { p_table: data.historyTable })
+      if (data.contactsTable) await supabase.rpc('ensure_table_setup', { p_table: data.contactsTable })
+    }
+
     await loadDB()
     return newComp
   }
