@@ -25,7 +25,7 @@ function generatePassword(companyName) {
 
 export default function AdmCompanyDetail() {
   const { id } = useParams()
-  const { db, addUser, updateUser, toggleUserActive } = useAuth()
+  const { db, loadDB, addUser, updateUser, toggleUserActive } = useAuth()
   const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
   const [editModal, setEditModal] = useState(null) // usuário sendo editado
@@ -82,7 +82,7 @@ export default function AdmCompanyDetail() {
     setSaving(false)
     if (error) { setCompanyErr('Erro ao salvar: ' + error.message); return }
     setCompanyModal(false)
-    window.location.reload()
+    await loadDB()
   }
 
   function openEdit(user) {
