@@ -152,6 +152,7 @@ export function AuthProvider({ children }) {
         contacts_table: data.contactsTable || null,
         history_table: data.historyTable || null,
         instance: data.instance || null,
+        api_instancia: data.apiInstancia || null,
       })
       .select()
       .single()

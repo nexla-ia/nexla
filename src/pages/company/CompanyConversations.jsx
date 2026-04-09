@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X } from 'lucide-react'
+import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send } from 'lucide-react'
 import './Company.css'
 
 function formatPhone(sessionId) {
@@ -56,6 +56,7 @@ const REASONS = [
 export default function CompanyConversations() {
   const { session } = useAuth()
   const instance     = session?.company?.instance
+  const apiInstancia = session?.company?.api_instancia
   const historyTable = session?.company?.history_table
 
   const [contacts, setContacts]     = useState([])   // todos do histórico
@@ -69,6 +70,8 @@ export default function CompanyConversations() {
   const [reason, setReason]         = useState('')
   const [closing, setClosing]       = useState(false)
   const [toast, setToast]           = useState(null)
+  const [msgText, setMsgText]       = useState('')
+  const [sending, setSending]       = useState(false)
   const bottomRef = useRef(null)
   const selectedRef = useRef(null)
 
@@ -192,6 +195,30 @@ export default function CompanyConversations() {
   useEffect(() => {
     if (!loadingMsgs) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loadingMsgs])
+
+  async function handleSend() {
+    if (!msgText.trim() || !selected || sending) return
+    setSending(true)
+    try {
+      await fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: msgText.trim(),
+          session_id: selected.session_id,
+          phone: selected.phone,
+          instancia: instance,
+          api_instancia: apiInstancia,
+          company: session?.company?.name,
+          sender_name: session?.user?.name,
+          sender_email: session?.user?.email,
+        }),
+      })
+      setMsgText('')
+    } finally {
+      setSending(false)
+    }
+  }
 
   async function handleClose() {
     if (!reason || !closeModal) return
@@ -338,6 +365,25 @@ export default function CompanyConversations() {
             </div>
 
             <div style={{ padding: '12px 18px', borderTop: '0.5px solid var(--border)', background: 'var(--bg-surface)', flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                <input
+                  className="nx-input"
+                  style={{ flex: 1, fontSize: 13 }}
+                  placeholder="Digite uma mensagem..."
+                  value={msgText}
+                  onChange={e => setMsgText(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                  disabled={sending}
+                />
+                <button
+                  className="nx-btn-primary"
+                  style={{ padding: '0 16px', flexShrink: 0 }}
+                  onClick={handleSend}
+                  disabled={!msgText.trim() || sending}
+                >
+                  <Send size={14} />
+                </button>
+              </div>
               <a
                 href={`https://wa.me/${selected.phone}`}
                 target="_blank" rel="noreferrer"

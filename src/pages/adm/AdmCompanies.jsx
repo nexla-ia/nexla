@@ -35,6 +35,7 @@ export default function AdmCompanies() {
     contactsTable: '',
     historyTable: '',
     instance: '',
+    apiInstancia: '',
     numAccess: 1,
     users: [{ ...emptyUser }],
   })
@@ -100,6 +101,7 @@ export default function AdmCompanies() {
     if (!form.contactsTable.trim()) { setSaveError('Informe o nome da tabela de contatos.'); return }
     if (!form.historyTable.trim()) { setSaveError('Informe o nome da tabela de histórico IA.'); return }
     if (!form.instance.trim()) { setSaveError('Informe o nome da instância do WhatsApp.'); return }
+    if (form.instance.trim() && !form.apiInstancia.trim()) { setSaveError('Informe a API da instância (obrigatório quando instância é preenchida).'); return }
     if (form.users.some(u => !u.name || !u.email || !u.password)) { setSaveError('Preencha nome, e-mail e senha de todos os acessos.'); return }
     setSaving(true)
     const company = await addCompany({
@@ -107,6 +109,7 @@ export default function AdmCompanies() {
       contactsTable: form.contactsTable,
       historyTable: form.historyTable,
       instance: form.instance,
+      apiInstancia: form.apiInstancia,
     })
     if (!company) { setSaveError('Erro ao criar empresa. Verifique as políticas RLS no Supabase.'); setSaving(false); return }
     for (const u of form.users) {
@@ -119,13 +122,13 @@ export default function AdmCompanies() {
     }
     setSaving(false)
     setShowModal(false)
-    setForm({ name: '', contactsTable: '', historyTable: '', instance: '', numAccess: 1, users: [{ ...emptyUser }] })
+    setForm({ name: '', contactsTable: '', historyTable: '', instance: '', apiInstancia: '', numAccess: 1, users: [{ ...emptyUser }] })
   }
 
   function closeModal() {
     setShowModal(false)
     setSaveError('')
-    setForm({ name: '', contactsTable: '', historyTable: '', instance: '', numAccess: 1, users: [{ ...emptyUser }] })
+    setForm({ name: '', contactsTable: '', historyTable: '', instance: '', apiInstancia: '', numAccess: 1, users: [{ ...emptyUser }] })
   }
 
   return (
@@ -222,15 +225,19 @@ export default function AdmCompanies() {
                   <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>Tabelas n8n</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div>
-                    <label style={labelStyle}>Instância WhatsApp</label>
-                    <input className="nx-input" placeholder="Ex: clinica-saude"
-                      value={form.instance} onChange={e => setForm(p => ({ ...p, instance: e.target.value.trim() }))} />
-                    {form.instance && (
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                        Alertas do n8n serão vinculados a esta empresa via instância <strong style={{ color: '#2563EB' }}>{form.instance}</strong>
-                      </div>
-                    )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label style={labelStyle}>Instância WhatsApp</label>
+                      <input className="nx-input" placeholder="Ex: clinica-saude"
+                        value={form.instance} onChange={e => setForm(p => ({ ...p, instance: e.target.value.trim() }))} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>
+                        API Instância <span style={{ color: '#DC2626' }}>*</span>
+                      </label>
+                      <input className="nx-input" placeholder="Token/chave da API"
+                        value={form.apiInstancia} onChange={e => setForm(p => ({ ...p, apiInstancia: e.target.value.trim() }))} />
+                    </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <div>
