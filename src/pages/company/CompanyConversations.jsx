@@ -119,6 +119,17 @@ export default function CompanyConversations() {
           if (!row || isToolMessage(row)) return
           const ts = row.data || row.created_at || null
 
+          // Se sessão estava encerrada e chegou nova mensagem, reativa
+          setClosed(prev => {
+            if (prev.has(row.session_id)) {
+              supabase.from('conversations').delete().eq('session_id', row.session_id).eq('instancia', instance)
+              const next = new Set(prev)
+              next.delete(row.session_id)
+              return next
+            }
+            return prev
+          })
+
           setContacts(prev => {
             const exists = prev.find(c => c.session_id === row.session_id)
             if (exists) {

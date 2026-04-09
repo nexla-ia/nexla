@@ -177,6 +177,15 @@ export default function CompanyHistory() {
           if (!row) return
 
           const ts = row.data || row.created_at || null
+          // Se sessão estava encerrada e chegou nova mensagem, remove o badge
+          setClosedMap(prev => {
+            if (prev[row.session_id]) {
+              const next = { ...prev }
+              delete next[row.session_id]
+              return next
+            }
+            return prev
+          })
           setContacts(prev => {
             const exists = prev.find(c => c.session_id === row.session_id)
             if (exists) {
