@@ -2,7 +2,8 @@ import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { ArrowLeft, Plus, X, UserCheck, UserX, RefreshCw, Pencil } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
+import { ArrowLeft, Plus, X, UserCheck, UserX, RefreshCw, Pencil, Settings } from 'lucide-react'
 import './Adm.css'
 
 function slugify(name) {
@@ -28,6 +29,9 @@ export default function AdmCompanyDetail() {
   const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
   const [editModal, setEditModal] = useState(null) // usuário sendo editado
+  const [companyModal, setCompanyModal] = useState(false)
+  const [companyForm, setCompanyForm] = useState({})
+  const [companyErr, setCompanyErr] = useState('')
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'admin' })
   const [editForm, setEditForm] = useState({ name: '', email: '', password: '', role: 'admin' })
@@ -48,6 +52,37 @@ export default function AdmCompanyDetail() {
     setForm({ name: '', email: '', password: '', role: 'admin' })
     setErr('')
     setShowModal(true)
+  }
+
+  function openCompanyEdit() {
+    setCompanyForm({
+      name: company.name || '',
+      instance: company.instance || '',
+      apiInstancia: company.api_instancia || '',
+      historyTable: company.history_table || '',
+      contactsTable: company.contacts_table || '',
+    })
+    setCompanyErr('')
+    setCompanyModal(true)
+  }
+
+  async function handleSaveCompany() {
+    if (!companyForm.name?.trim()) { setCompanyErr('Nome é obrigatório.'); return }
+    if (companyForm.instance?.trim() && !companyForm.apiInstancia?.trim()) {
+      setCompanyErr('API Instância é obrigatória quando a instância está preenchida.'); return
+    }
+    setSaving(true)
+    const { error } = await supabase.from('companies').update({
+      name: companyForm.name,
+      instance: companyForm.instance || null,
+      api_instancia: companyForm.apiInstancia || null,
+      history_table: companyForm.historyTable || null,
+      contacts_table: companyForm.contactsTable || null,
+    }).eq('id', company.id)
+    setSaving(false)
+    if (error) { setCompanyErr('Erro ao salvar: ' + error.message); return }
+    setCompanyModal(false)
+    window.location.reload()
   }
 
   function openEdit(user) {
@@ -91,9 +126,14 @@ export default function AdmCompanyDetail() {
               <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Criada em {new Date(company.created_at).toLocaleDateString('pt-BR')}</span>
             </div>
           </div>
-          <button className="nx-btn-primary" onClick={openModal}>
-            <Plus size={14} /> Novo usuário
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="nx-btn-ghost" onClick={openCompanyEdit}>
+              <Settings size={14} /> Editar empresa
+            </button>
+            <button className="nx-btn-primary" onClick={openModal}>
+              <Plus size={14} /> Novo usuário
+            </button>
+          </div>
         </div>
       </div>
 
@@ -282,6 +322,54 @@ export default function AdmCompanyDetail() {
                 <button className="nx-btn-primary" style={{ flex: 1, justifyContent: 'center' }}
                   onClick={handleAddUser} disabled={saving}>
                   {saving ? 'Salvando...' : 'Criar acesso'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      , document.body)}
+
+      {companyModal && createPortal(
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(4px)', padding: '1.5rem' }}>
+          <div className="nx-card" style={{ width: '100%', maxWidth: 480 }}>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>Editar empresa</div>
+              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => setCompanyModal(false)}><X size={16} /></button>
+            </div>
+            <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={labelStyle}>Nome da empresa</label>
+                <input className="nx-input" value={companyForm.name} onChange={e => setCompanyForm(p => ({ ...p, name: e.target.value }))} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>Instância WhatsApp</label>
+                  <input className="nx-input" placeholder="Ex: clinica-saude" value={companyForm.instance} onChange={e => setCompanyForm(p => ({ ...p, instance: e.target.value.trim() }))} />
+                </div>
+                <div>
+                  <label style={labelStyle}>API Instância <span style={{ color: '#DC2626' }}>*</span></label>
+                  <input className="nx-input" placeholder="Token/chave da API" value={companyForm.apiInstancia} onChange={e => setCompanyForm(p => ({ ...p, apiInstancia: e.target.value.trim() }))} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>Tabela de histórico IA</label>
+                  <input className="nx-input" placeholder="Ex: n8n_chat_histories_..." value={companyForm.historyTable} onChange={e => setCompanyForm(p => ({ ...p, historyTable: e.target.value }))} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Tabela de contatos</label>
+                  <input className="nx-input" placeholder="Ex: contatos_clinica" value={companyForm.contactsTable} onChange={e => setCompanyForm(p => ({ ...p, contactsTable: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
+              {companyErr && (
+                <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#DC2626', marginBottom: 12 }}>{companyErr}</div>
+              )}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="nx-btn-ghost" style={{ flex: 1 }} onClick={() => setCompanyModal(false)}>Cancelar</button>
+                <button className="nx-btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={handleSaveCompany} disabled={saving}>
+                  {saving ? 'Salvando...' : 'Salvar'}
                 </button>
               </div>
             </div>
