@@ -454,20 +454,39 @@ function TimelineChart({ leads }) {
 
   const max = Math.max(...days.map(d => d[1]))
 
+  const BAR_H = 80
+
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 80, paddingBottom: 20, position: 'relative' }}>
-      {days.map(([date, count]) => (
-        <div key={date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 0 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)' }}>{count}</div>
-          <div style={{
-            width: '100%', minWidth: 8,
-            height: `${Math.max((count / max) * 52, 4)}px`,
-            background: 'var(--primary)', borderRadius: '4px 4px 0 0',
-            opacity: 0.85,
-          }} />
-          <div style={{ fontSize: 9, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{date}</div>
-        </div>
-      ))}
+    <div>
+      {/* Contadores */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+        {days.map(([date, count]) => (
+          <div key={date} style={{ flex: 1, textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'var(--primary)', minWidth: 0 }}>
+            {count}
+          </div>
+        ))}
+      </div>
+      {/* Barras */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: BAR_H }}>
+        {days.map(([date, count]) => (
+          <div key={date} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end', minWidth: 0 }}>
+            <div style={{
+              width: '100%', minWidth: 8,
+              height: `${Math.max((count / max) * 100, 5)}%`,
+              background: 'var(--primary)', borderRadius: '4px 4px 0 0',
+              opacity: 0.85, transition: 'height 0.4s ease',
+            }} />
+          </div>
+        ))}
+      </div>
+      {/* Datas */}
+      <div style={{ display: 'flex', gap: 6, marginTop: 4, borderTop: '1px solid var(--border)', paddingTop: 4 }}>
+        {days.map(([date, count]) => (
+          <div key={date} style={{ flex: 1, textAlign: 'center', fontSize: 9, color: 'var(--text-muted)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {date}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
