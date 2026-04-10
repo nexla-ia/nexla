@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { Users, MessageSquare, TrendingUp, Clock, Inbox, BarChart2, RefreshCw } from 'lucide-react'
+import { Users, MessageSquare, TrendingUp, Clock, Inbox, BarChart2, RefreshCw, Search, ChevronDown } from 'lucide-react'
 import './Company.css'
 
 const PERIODS = [
@@ -54,10 +54,14 @@ export default function CompanyMetrics() {
   const instance      = session?.company?.instance
   const contactsTable = session?.company?.contacts_table
 
-  const [period, setPeriod]     = useState('semana')
-  const [leads, setLeads]       = useState([])
-  const [loading, setLoading]   = useState(false)
+  const [period, setPeriod]         = useState('semana')
+  const [leads, setLeads]           = useState([])
+  const [loading, setLoading]       = useState(false)
   const [lastRefresh, setLastRefresh] = useState(null)
+  const [search, setSearch]         = useState('')
+  const [filterOrigem, setFilterOrigem] = useState('todas')
+  const [page, setPage]             = useState(1)
+  const PAGE_SIZE = 10
 
   async function load() {
     if (!contactsTable || !instance) return
@@ -112,6 +116,20 @@ export default function CompanyMetrics() {
 
   const maxOrigem = origensMap[0]?.[1] || 1
   const maxClassif = classifMap[0]?.[1] || 1
+
+  // Tabela de contatos filtrada
+  const tableRows = useMemo(() => {
+    return filtered.filter(l => {
+      const matchSearch = !search ||
+        (l.nome || '').toLowerCase().includes(search.toLowerCase()) ||
+        (l.numero || '').includes(search)
+      const matchOrigem = filterOrigem === 'todas' || (l.origem || 'Desconhecido') === filterOrigem
+      return matchSearch && matchOrigem
+    })
+  }, [filtered, search, filterOrigem])
+
+  const totalPages = Math.ceil(tableRows.length / PAGE_SIZE)
+  const pagedRows = tableRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   if (!contactsTable) {
     return (
@@ -273,6 +291,118 @@ export default function CompanyMetrics() {
           </div>
           <TimelineChart leads={filtered} />
         </div>
+      </div>
+
+      {/* Tabela de contatos */}
+      <div className="nx-card" style={{ marginTop: 16, overflow: 'hidden' }}>
+        <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <Users size={15} color="var(--primary)" />
+          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>Contatos</div>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', background: '#F1F5F9', borderRadius: 20, padding: '2px 8px' }}>{tableRows.length}</span>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {/* Busca */}
+            <div style={{ position: 'relative' }}>
+              <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+              <input
+                className="nx-input"
+                style={{ paddingLeft: 30, width: 200, fontSize: 12 }}
+                placeholder="Telefone ou nome"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1) }}
+              />
+            </div>
+            {/* Filtro origem */}
+            <div style={{ position: 'relative' }}>
+              <select
+                className="nx-select"
+                style={{ fontSize: 12, paddingRight: 28, appearance: 'none' }}
+                value={filterOrigem}
+                onChange={e => { setFilterOrigem(e.target.value); setPage(1) }}
+              >
+                <option value="todas">Todas as origens</option>
+                {origensMap.map(([o]) => <option key={o} value={o}>{o}</option>)}
+              </select>
+              <ChevronDown size={12} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
+            </div>
+          </div>
+        </div>
+
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: '#F8FAFC' }}>
+                {['Contato', 'Origem', 'Classificação', 'Primeira Mensagem', 'Última Mensagem', 'Criado em'].map(h => (
+                  <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {pagedRows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    Nenhum contato encontrado.
+                  </td>
+                </tr>
+              ) : pagedRows.map(l => {
+                const cs = CLASSIF_COLORS[l.classificacao_lead] || { color: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB' }
+                const phone = (l.numero || '').replace(/@.*$/, '').replace(/\D/g, '')
+                return (
+                  <tr key={l.id} style={{ borderBottom: '1px solid var(--border)' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <td style={{ padding: '10px 16px' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{l.nome || '—'}</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>{phone || l.numero}</div>
+                    </td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <span style={{ textTransform: 'capitalize', color: 'var(--text-secondary)', fontSize: 12 }}>{l.origem || '—'}</span>
+                    </td>
+                    <td style={{ padding: '10px 16px' }}>
+                      {l.classificacao_lead ? (
+                        <span style={{ fontSize: 11, fontWeight: 600, color: cs.color, background: cs.bg, border: `1px solid ${cs.border}`, borderRadius: 20, padding: '2px 10px' }}>
+                          {l.classificacao_lead}
+                        </span>
+                      ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)', maxWidth: 200 }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {l.primeiro_contato === 'sim' ? '✓ Realizado' : '—'}
+                      </div>
+                    </td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)', maxWidth: 220 }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {l.ultima_mensagem || '—'}
+                      </div>
+                      {l.data_ultimaMensagem && (
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{l.data_ultimaMensagem}</div>
+                      )}
+                    </td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                      {new Date(l.created_at).toLocaleDateString('pt-BR')}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Paginação */}
+        {totalPages > 1 && (
+          <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, tableRows.length)} de {tableRows.length}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button className="nx-btn-ghost" style={{ padding: '4px 12px', fontSize: 12 }}
+                onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>‹ Anterior</button>
+              <button className="nx-btn-ghost" style={{ padding: '4px 12px', fontSize: 12 }}
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Próximo ›</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
