@@ -2,7 +2,7 @@ import React from 'react'
 import { Outlet } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import Sidebar from '../../components/Sidebar'
-import { MessageSquare, History, BellRing } from 'lucide-react'
+import { MessageSquare, History, BellRing, BarChart2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import './Company.css'
@@ -68,6 +68,7 @@ export default function CompanyLayout() {
     { to: '/painel/historico', icon: History,       label: 'Histórico' },
     { to: '/painel/alertas',   icon: BellRing,      label: 'Alertas',
       badge: pendingAlerts > 0 ? pendingAlerts : null, badgeColor: 'amber' },
+    { to: '/painel/metricas',  icon: BarChart2,     label: 'Métricas' },
   ]
 
   return (
