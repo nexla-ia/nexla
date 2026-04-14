@@ -25,6 +25,8 @@ function isToolMessage(row) {
   const content = row.message?.content || ''
   if (type === 'tool') return true
   if (type === 'ai' && /^Calling \w+ with input:/i.test(content.trim())) return true
+  // Respostas de subagente: mensagens de IA muito longas (>800 chars) são internas
+  if (type === 'ai' && content.length > 800) return true
   return false
 }
 
