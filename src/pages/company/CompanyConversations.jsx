@@ -5,25 +5,25 @@ import { supabase } from '../../lib/supabase'
 import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send } from 'lucide-react'
 import './Company.css'
 
+const CONV_TABLE = 'mensagens_geral'
+
 function formatPhone(val) {
   return (val || '').replace(/@.*$/, '')
 }
 
-// Helpers de esquema dual: n8n (session_id/message/data) ou mensagens_geral (numero/mensagem/horaLastMessage/type)
-function getSessionId(row) { return row.session_id || row.numero || null }
 function getMessageContent(row) {
-  const raw = row.message?.content || row.mensagem || ''
-  return raw.replace(/^\*[^*]+\*:\n/, '').trim()
+  return (row.mensagem || '').replace(/^\*[^*]+\*:\n/, '').trim()
 }
-function getMessageType(row) { return row.message?.type || row.type || 'human' }
-function getTimestamp(row) { return row.data || row['horaLastMessage'] || row.created_at || null }
+
+function getMessageType(row) { return row.type || 'human' }
+
+function getTimestamp(row) { return row.horaLastMessage || row.created_at || null }
 
 function isToolMessage(row) {
   const type = getMessageType(row)
-  const content = row.message?.content || ''
+  const content = row.mensagem || ''
   if (type === 'tool') return true
   if (type === 'ai' && /^Calling \w+ with input:/i.test(content.trim())) return true
-  // Respostas de subagente: mensagens de IA muito longas (>800 chars) são internas
   if (type === 'ai' && content.length > 800) return true
   return false
 }
@@ -54,63 +54,57 @@ function formatContactTime(ts) {
 }
 
 const REASONS = [
-  { value: 'agendado',     label: 'Agendado',     color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0' },
-  { value: 'resolvido',    label: 'Resolvido',    color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
-  { value: 'encaminhado',  label: 'Encaminhado',  color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
-  { value: 'desistiu',     label: 'Desistiu',     color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+  { value: 'agendado',    label: 'Agendado',    color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0' },
+  { value: 'resolvido',   label: 'Resolvido',   color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
+  { value: 'encaminhado', label: 'Encaminhado', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
+  { value: 'desistiu',    label: 'Desistiu',    color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
 ]
 
 export default function CompanyConversations() {
   const { session } = useAuth()
   const instance     = session?.company?.instance
   const apiInstancia = session?.company?.api_instancia
-  const historyTable = session?.company?.history_table
 
-  const [contacts, setContacts]     = useState([])   // todos do histórico
-  const [closed, setClosed]         = useState(new Set()) // session_ids encerrados
+  const [contacts, setContacts]       = useState([])
+  const [closed, setClosed]           = useState(new Set())
   const [loadingContacts, setLoadingContacts] = useState(false)
-  const [search, setSearch]         = useState('')
-  const [selected, setSelected]     = useState(null)
-  const [messages, setMessages]     = useState([])
+  const [search, setSearch]           = useState('')
+  const [selected, setSelected]       = useState(null)
+  const [messages, setMessages]       = useState([])
   const [loadingMsgs, setLoadingMsgs] = useState(false)
-  const [closeModal, setCloseModal] = useState(null)
-  const [reason, setReason]         = useState('')
-  const [closing, setClosing]       = useState(false)
-  const [toast, setToast]           = useState(null)
-  const [msgText, setMsgText]       = useState('')
-  const [sending, setSending]       = useState(false)
-  const bottomRef = useRef(null)
+  const [closeModal, setCloseModal]   = useState(null)
+  const [reason, setReason]           = useState('')
+  const [closing, setClosing]         = useState(false)
+  const [toast, setToast]             = useState(null)
+  const [msgText, setMsgText]         = useState('')
+  const [sending, setSending]         = useState(false)
+  const bottomRef  = useRef(null)
   const selectedRef = useRef(null)
 
   useEffect(() => { selectedRef.current = selected }, [selected])
 
-  // Carrega contatos do histórico (igual ao CompanyHistory)
+  // Carrega contatos únicos da mensagens_geral para esta instancia
   useEffect(() => {
-    if (!historyTable) return
-    supabase.rpc('ensure_table_setup', { p_table: historyTable })
+    if (!instance) return
     setLoadingContacts(true)
-    const q = supabase.from(historyTable).select('*').order('id', { ascending: false })
-    const query = historyTable === 'mensagens_geral' ? q.eq('instancia', instance) : q
-    query
+    supabase.from(CONV_TABLE).select('*')
+      .eq('instancia', instance)
+      .order('id', { ascending: false })
       .then(({ data, error }) => {
         if (!error && data) {
           const seen = new Set()
           const unique = []
           for (const row of data) {
-            const sid = getSessionId(row)
+            const sid = row.numero
             if (!sid || seen.has(sid)) continue
             seen.add(sid)
-            unique.push({
-              session_id: sid,
-              phone: formatPhone(sid),
-              lastTs: getTimestamp(row),
-            })
+            unique.push({ session_id: sid, phone: formatPhone(sid), lastTs: getTimestamp(row) })
           }
           setContacts(unique)
         }
         setLoadingContacts(false)
       })
-  }, [historyTable])
+  }, [instance])
 
   // Carrega sessões encerradas
   useEffect(() => {
@@ -121,37 +115,30 @@ export default function CompanyConversations() {
       })
   }, [instance])
 
-  // Realtime histórico — nova mensagem adiciona contato no topo
+  // Realtime: nova mensagem na mensagens_geral desta instancia
   useEffect(() => {
-    if (!historyTable) return
-    const rtFilter = historyTable === 'mensagens_geral' && instance
-      ? `instancia=eq.${instance}`
-      : undefined
-    const ch = supabase.channel(`convs-hist-${historyTable}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: historyTable, ...(rtFilter ? { filter: rtFilter } : {}) },
+    if (!instance) return
+    const ch = supabase.channel(`convs-msgs-${instance}`)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: CONV_TABLE, filter: `instancia=eq.${instance}` },
         (p) => {
           const row = p.new
           if (!row || isToolMessage(row)) return
-          const sid = getSessionId(row)
+          const sid = row.numero
           if (!sid) return
           const ts = getTimestamp(row)
 
-          // Se sessão estava encerrada e chegou nova mensagem, reativa
           setClosed(prev => {
             if (prev.has(sid)) {
               supabase.from('conversations').delete().eq('session_id', sid).eq('instancia', instance)
-              const next = new Set(prev)
-              next.delete(sid)
-              return next
+              const next = new Set(prev); next.delete(sid); return next
             }
             return prev
           })
 
           setContacts(prev => {
             const exists = prev.find(c => c.session_id === sid)
-            if (exists) {
-              return [{ ...exists, lastTs: ts }, ...prev.filter(c => c.session_id !== sid)]
-            }
+            if (exists) return [{ ...exists, lastTs: ts }, ...prev.filter(c => c.session_id !== sid)]
             return [{ session_id: sid, phone: formatPhone(sid), lastTs: ts }, ...prev]
           })
 
@@ -167,17 +154,17 @@ export default function CompanyConversations() {
       )
       .subscribe()
     return () => supabase.removeChannel(ch)
-  }, [historyTable])
+  }, [instance])
 
-  // Realtime enceramentos — quando uma sessão é encerrada (manual ou cron), remove da tela
+  // Realtime: conversa encerrada
   useEffect(() => {
     if (!instance) return
     const ch = supabase.channel(`convs-closed-${instance}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations', filter: `instancia=eq.${instance}` },
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'conversations', filter: `instancia=eq.${instance}` },
         (p) => {
           if (!p.new) return
           setClosed(prev => new Set([...prev, p.new.session_id]))
-          // Se a conversa encerrada estava aberta, fecha o painel
           setSelected(prev => prev?.session_id === p.new.session_id ? null : prev)
         }
       )
@@ -187,13 +174,13 @@ export default function CompanyConversations() {
 
   // Carrega mensagens da conversa selecionada
   useEffect(() => {
-    if (!selected || !historyTable) return
+    if (!selected || !instance) return
     setLoadingMsgs(true)
     setMessages([])
-    const col = historyTable === 'mensagens_geral' ? 'numero' : 'session_id'
-    const mq = supabase.from(historyTable).select('*').eq(col, selected.session_id)
-    const msgQuery = historyTable === 'mensagens_geral' ? mq.eq('instancia', instance) : mq
-    msgQuery.order('id', { ascending: true })
+    supabase.from(CONV_TABLE).select('*')
+      .eq('instancia', instance)
+      .eq('numero', selected.session_id)
+      .order('id', { ascending: true })
       .then(({ data, error }) => {
         if (!error && data) {
           setMessages(data.filter(r => !isToolMessage(r)).map(r => ({
@@ -205,7 +192,7 @@ export default function CompanyConversations() {
         }
         setLoadingMsgs(false)
       })
-  }, [selected, historyTable])
+  }, [selected, instance])
 
   useEffect(() => {
     if (!loadingMsgs) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -218,19 +205,17 @@ export default function CompanyConversations() {
       const text = msgText.trim()
       setMsgText('')
 
-      // Para mensagens_geral: insere na tabela PRIMEIRO (independente do envio)
-      if (historyTable === 'mensagens_geral') {
-        const { error: insErr } = await supabase.rpc('send_mensagem_geral', {
-          p_instancia: instance,
-          p_numero: selected.session_id,
-          p_mensagem: text,
-          p_type: 'human',
-          p_hora: new Date().toISOString(),
-        })
-        if (insErr) console.error('send_mensagem_geral:', insErr)
-      }
+      // Insere na mensagens_geral para aparecer no painel imediatamente
+      const { error: insErr } = await supabase.rpc('send_mensagem_geral', {
+        p_instancia: instance,
+        p_numero: selected.session_id,
+        p_mensagem: text,
+        p_type: 'human',
+        p_hora: new Date().toISOString(),
+      })
+      if (insErr) console.error('send_mensagem_geral:', insErr)
 
-      // Envia via webhook n8n (encaminha para Evolution API / WhatsApp) — erros não bloqueiam
+      // Envia via webhook n8n → Evolution API → WhatsApp
       fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -261,7 +246,6 @@ export default function CompanyConversations() {
     })
     setClosing(false)
     if (error) return
-    // Atualiza UI imediatamente sem depender do Realtime
     const closedId = closeModal.session_id
     setClosed(prev => new Set([...prev, closedId]))
     if (selected?.session_id === closedId) setSelected(null)
@@ -272,8 +256,7 @@ export default function CompanyConversations() {
     setTimeout(() => setToast(null), 3500)
   }
 
-  // Conversas ativas = contatos do histórico que NÃO estão na lista de encerrados
-  const active = contacts.filter(c => !closed.has(c.session_id))
+  const active   = contacts.filter(c => !closed.has(c.session_id))
   const filtered = active.filter(c => c.phone.includes(search))
 
   return (
