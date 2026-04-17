@@ -210,20 +210,31 @@ export default function CompanyConversations() {
     if (!msgText.trim() || !selected || sending) return
     setSending(true)
     try {
-      await fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: msgText.trim(),
-          session_id: selected.session_id,
-          phone: selected.phone,
+      if (historyTable === 'mensagens_geral') {
+        // Insere diretamente na tabela — o Realtime exibe na tela e o n8n pode escutar para enviar via WhatsApp
+        await supabase.from('mensagens_geral').insert({
           instancia: instance,
-          api_instancia: apiInstancia,
-          company: session?.company?.name,
-          sender_name: session?.user?.name,
-          sender_email: session?.user?.email,
-        }),
-      })
+          numero: selected.session_id,
+          mensagem: msgText.trim(),
+          type: 'human',
+          'horaLastMessage': new Date().toISOString(),
+        })
+      } else {
+        await fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: msgText.trim(),
+            session_id: selected.session_id,
+            phone: selected.phone,
+            instancia: instance,
+            api_instancia: apiInstancia,
+            company: session?.company?.name,
+            sender_name: session?.user?.name,
+            sender_email: session?.user?.email,
+          }),
+        })
+      }
       setMsgText('')
     } finally {
       setSending(false)
