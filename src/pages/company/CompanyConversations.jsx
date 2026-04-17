@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset } from 'lucide-react'
+import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles } from 'lucide-react'
 import './Company.css'
 
 const CONV_TABLE = 'mensagens_geral'
@@ -89,10 +89,22 @@ export default function CompanyConversations() {
   const [toast, setToast]             = useState(null)
   const [msgText, setMsgText]         = useState('')
   const [sending, setSending]         = useState(false)
+  const [assumedSet, setAssumedSet]   = useState(new Set())
+  const [assuming, setAssuming]       = useState(null)
   const bottomRef  = useRef(null)
   const selectedRef = useRef(null)
 
   useEffect(() => { selectedRef.current = selected }, [selected])
+
+  // Carrega quais números já têm mensagem de atendente (= foram assumidos)
+  useEffect(() => {
+    if (!instance) return
+    supabase.from(CONV_TABLE).select('numero')
+      .eq('instancia', instance).eq('type', 'atendente')
+      .then(({ data }) => {
+        if (data) setAssumedSet(new Set(data.map(r => r.numero)))
+      })
+  }, [instance])
 
   // Carrega contatos únicos da mensagens_geral para esta instancia
   useEffect(() => {
@@ -153,6 +165,10 @@ export default function CompanyConversations() {
             return [{ session_id: sid, phone: formatPhone(sid), lastTs: ts }, ...prev]
           })
 
+          if (getMessageType(row) === 'atendente') {
+            setAssumedSet(prev => new Set([...prev, sid]))
+          }
+
           if (selectedRef.current?.session_id === sid) {
             setMessages(msgs => [...msgs, {
               id: row.id,
@@ -208,6 +224,22 @@ export default function CompanyConversations() {
   useEffect(() => {
     if (!loadingMsgs) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loadingMsgs])
+
+  async function handleAssume(contact, e) {
+    e.stopPropagation()
+    if (assumedSet.has(contact.session_id) || assuming === contact.session_id) return
+    setAssuming(contact.session_id)
+    const name = session?.user?.name || 'Atendente'
+    await supabase.rpc('send_mensagem_geral', {
+      p_instancia: instance,
+      p_numero: contact.session_id,
+      p_mensagem: `▶ Atendimento assumido por ${name}`,
+      p_type: 'atendente',
+      p_hora: new Date().toISOString(),
+    })
+    setAssumedSet(prev => new Set([...prev, contact.session_id]))
+    setAssuming(null)
+  }
 
   async function handleSend() {
     if (!msgText.trim() || !selected || sending) return
@@ -297,22 +329,61 @@ export default function CompanyConversations() {
               {active.length === 0 ? 'Nenhuma conversa ativa.' : 'Nenhum resultado.'}
             </div>
           )}
-          {filtered.map(c => (
-            <div
-              key={c.session_id}
-              className={`contact-item ${selected?.session_id === c.session_id ? 'selected' : ''}`}
-              onClick={() => setSelected(c)}
-            >
-              <div className="contact-avatar"><User size={14} style={{ opacity: 0.4 }} /></div>
-              <div className="contact-info">
-                <div className="contact-name">{c.phone}</div>
-                <div className="contact-preview">Ver conversa</div>
+          {filtered.map(c => {
+            const isAssumed = assumedSet.has(c.session_id)
+            const isAssuming = assuming === c.session_id
+            return (
+              <div
+                key={c.session_id}
+                className={`contact-item ${selected?.session_id === c.session_id ? 'selected' : ''}`}
+                onClick={() => setSelected(c)}
+              >
+                <div className="contact-avatar"><User size={14} style={{ opacity: 0.4 }} /></div>
+                <div className="contact-info" style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <div className="contact-name">{c.phone}</div>
+                    {isAssumed ? (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 3,
+                        fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
+                        color: '#16A34A', background: '#F0FDF4', border: '1px solid #BBF7D0',
+                        lineHeight: '16px',
+                      }}>
+                        <Headset size={9} /> Atendente
+                      </span>
+                    ) : (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 3,
+                        fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
+                        color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE',
+                        lineHeight: '16px',
+                      }}>
+                        <Sparkles size={9} /> IA
+                      </span>
+                    )}
+                  </div>
+                  {!isAssumed && (
+                    <button
+                      onClick={e => handleAssume(c, e)}
+                      disabled={isAssuming}
+                      style={{
+                        marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4,
+                        fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6,
+                        background: '#16A34A', color: '#fff', border: 'none', cursor: 'pointer',
+                        opacity: isAssuming ? 0.6 : 1,
+                      }}
+                    >
+                      <Headset size={10} />
+                      {isAssuming ? 'Assumindo...' : 'Assumir atendimento'}
+                    </button>
+                  )}
+                </div>
+                <div className="contact-meta">
+                  {c.lastTs && <div className="contact-time">{formatContactTime(c.lastTs)}</div>}
+                </div>
               </div>
-              <div className="contact-meta">
-                {c.lastTs && <div className="contact-time">{formatContactTime(c.lastTs)}</div>}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
