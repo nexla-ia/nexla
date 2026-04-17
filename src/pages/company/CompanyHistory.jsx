@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { MessageSquare, Bot, User, PhoneCall } from 'lucide-react'
+import { MessageSquare, Bot, User, PhoneCall, Info } from 'lucide-react'
 import './Company.css'
 
 const REASON_STYLE = {
@@ -316,6 +316,21 @@ export default function CompanyHistory() {
 
       {/* Painel de chat */}
       <div className="chat-panel">
+        <div style={{
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+          background: '#EFF6FF', border: '1px solid #BFDBFE',
+          borderRadius: 8, padding: '10px 16px', margin: '12px 16px 0',
+          fontSize: 12, color: '#1E40AF', lineHeight: '1.5',
+          flexShrink: 0,
+        }}>
+          <Info size={14} style={{ marginTop: 1, flexShrink: 0, color: '#2563EB' }} />
+          <span>
+            <strong>Conversas IA</strong> — exibe todas as mensagens recebidas e processadas pela IA.
+            Caso o atendimento seja assumido por um atendente, a conversa indica que foi assumida
+            e as mensagens do atendente <strong>não aparecem aqui</strong> — elas ficam registradas na tela de Conversas.
+          </span>
+        </div>
+
         {!selected ? (
           <div className="chat-empty">
             <MessageSquare size={32} style={{ opacity: 0.2 }} />
