@@ -124,8 +124,11 @@ export default function CompanyConversations() {
   // Realtime histórico — nova mensagem adiciona contato no topo
   useEffect(() => {
     if (!historyTable) return
+    const rtFilter = historyTable === 'mensagens_geral' && instance
+      ? `instancia=eq.${instance}`
+      : undefined
     const ch = supabase.channel(`convs-hist-${historyTable}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: historyTable },
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: historyTable, ...(rtFilter ? { filter: rtFilter } : {}) },
         (p) => {
           const row = p.new
           if (!row || isToolMessage(row)) return

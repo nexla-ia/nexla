@@ -85,6 +85,7 @@ function formatContactTime(ts) {
 export default function CompanyHistory() {
   const { session } = useAuth()
   const historyTable = session?.company?.history_table
+  const instance     = session?.company?.instance
 
   const [contacts, setContacts] = useState([])
   const [closedMap, setClosedMap] = useState({}) // session_id → reason
@@ -101,7 +102,6 @@ export default function CompanyHistory() {
 
   // Carrega enceramentos para mostrar badge de motivo no histórico
   useEffect(() => {
-    const instance = session?.company?.instance
     if (!instance) return
     supabase.from('conversations').select('session_id, reason').eq('instancia', instance)
       .then(({ data }) => {
@@ -145,7 +145,7 @@ export default function CompanyHistory() {
         }
         setLoadingContacts(false)
       })
-  }, [historyTable])
+  }, [historyTable, instance])
 
   useEffect(() => {
     if (!selected || !historyTable) return
@@ -172,11 +172,15 @@ export default function CompanyHistory() {
     if (!historyTable) return
     setRealtimeStatus('connecting')
 
+    const rtFilter = historyTable === 'mensagens_geral' && instance
+      ? `instancia=eq.${instance}`
+      : undefined
+
     const channel = supabase
       .channel(`realtime-${historyTable}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: historyTable },
+        { event: 'INSERT', schema: 'public', table: historyTable, ...(rtFilter ? { filter: rtFilter } : {}) },
         (payload) => {
           const row = payload.new
           if (!row) return
@@ -223,7 +227,7 @@ export default function CompanyHistory() {
       })
 
     return () => { supabase.removeChannel(channel) }
-  }, [historyTable])
+  }, [historyTable, instance])
 
   useEffect(() => {
     if (!loadingMsgs) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
