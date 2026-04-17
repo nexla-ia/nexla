@@ -372,7 +372,7 @@ export default function CompanyHistory() {
                             🖼️ Imagem enviada
                           </div>
                         )}
-                        {msg.content}
+                        <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
                       </div>
                     </div>
                     {msg.ts && (

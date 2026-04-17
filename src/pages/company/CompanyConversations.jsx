@@ -381,7 +381,7 @@ export default function CompanyConversations() {
                             borderRadius: 6, padding: '2px 8px', marginBottom: 6,
                           }}>🖼️ Imagem enviada</div>
                         )}
-                        {msg.content}
+                        <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
                       </div>
                     </div>
                     {msg.ts && (
