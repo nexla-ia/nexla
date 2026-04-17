@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send } from 'lucide-react'
+import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset } from 'lucide-react'
 import './Company.css'
 
 const CONV_TABLE = 'mensagens_geral'
@@ -34,8 +34,8 @@ function isToolMessage(row) {
   const type = getMessageType(row)
   const content = row.mensagem || ''
   if (type === 'tool') return true
-  if (type === 'ai' && /^Calling \w+ with input:/i.test(content.trim())) return true
-  if (type === 'ai' && content.length > 800) return true
+  if (type === 'ia' && /^Calling \w+ with input:/i.test(content.trim())) return true
+  if (type === 'ia' && content.length > 800) return true
   return false
 }
 
@@ -221,7 +221,7 @@ export default function CompanyConversations() {
         p_instancia: instance,
         p_numero: selected.session_id,
         p_mensagem: text,
-        p_type: 'human',
+        p_type: 'atendente',
         p_hora: new Date().toISOString(),
       })
       if (insErr) console.error('send_mensagem_geral:', insErr)
@@ -353,19 +353,26 @@ export default function CompanyConversations() {
                 <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', marginTop: '2rem' }}>Sem mensagens.</div>
               )}
               {messages.map(msg => {
-                const isHuman = msg.type === 'human'
-                const isImage = isHuman && /^(esta imagem|a imagem|esse documento|este documento|essa imagem|o documento|a foto|essa foto)/i.test(msg.content.trim())
+                const isCliente    = msg.type === 'cliente'
+                const isAtendente  = msg.type === 'atendente'
+                const isLeft       = isCliente
+                const isImage      = isCliente && /^(esta imagem|a imagem|esse documento|este documento|essa imagem|o documento|a foto|essa foto)/i.test(msg.content.trim())
+                const labelColor   = isCliente ? 'var(--text-muted)' : isAtendente ? '#16A34A' : '#2563EB'
                 return (
                   <div key={msg.id}>
                     <div className="msg-label" style={{
                       display: 'flex', alignItems: 'center', gap: 4,
-                      justifyContent: isHuman ? 'flex-start' : 'flex-end',
-                      color: isHuman ? 'var(--text-muted)' : '#2563EB',
+                      justifyContent: isLeft ? 'flex-start' : 'flex-end',
+                      color: labelColor,
                     }}>
-                      {isHuman ? <><User size={10} /> Cliente</> : <><Bot size={10} /> IA</>}
+                      {isCliente
+                        ? <><User size={10} /> Cliente</>
+                        : isAtendente
+                          ? <><Headset size={10} /> Atendente</>
+                          : <><Bot size={10} /> IA</>}
                     </div>
-                    <div className={`msg-row ${isHuman ? 'ai' : 'client'}`}>
-                      <div className="msg-bubble">
+                    <div className={`msg-row ${isLeft ? 'ai' : 'client'}`}>
+                      <div className="msg-bubble" style={isAtendente ? { background: '#16A34A', color: '#fff', borderBottomRightRadius: 4 } : {}}>
                         {isImage && (
                           <div style={{
                             display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -378,7 +385,7 @@ export default function CompanyConversations() {
                       </div>
                     </div>
                     {msg.ts && (
-                      <div className="msg-time" style={{ textAlign: isHuman ? 'left' : 'right' }}>
+                      <div className="msg-time" style={{ textAlign: isLeft ? 'left' : 'right' }}>
                         {formatMsgTime(msg.ts)}
                       </div>
                     )}
