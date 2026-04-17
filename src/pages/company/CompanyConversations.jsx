@@ -211,6 +211,7 @@ export default function CompanyConversations() {
   async function handleSend() {
     if (!msgText.trim() || !selected || sending) return
     setSending(true)
+    console.log('[handleSend] historyTable:', historyTable, '| session_id:', selected.session_id, '| instance:', instance)
     try {
       if (historyTable === 'mensagens_geral') {
         // Insere diretamente na tabela — o Realtime exibe na tela e o n8n pode escutar para enviar via WhatsApp
