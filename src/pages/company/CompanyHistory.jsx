@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { MessageSquare, Bot, User, PhoneCall, Info } from 'lucide-react'
+import { MessageSquare, Bot, User, PhoneCall, Info, Headset } from 'lucide-react'
 import './Company.css'
 
 const REASON_STYLE = {
@@ -95,10 +95,31 @@ export default function CompanyHistory() {
   const [messages, setMessages] = useState([])
   const [loadingMsgs, setLoadingMsgs] = useState(false)
   const [realtimeStatus, setRealtimeStatus] = useState('connecting')
+  const [assumedSet, setAssumedSet] = useState(new Set())
   const bottomRef = useRef(null)
   const selectedRef = useRef(null)
 
   useEffect(() => { selectedRef.current = selected }, [selected])
+
+  // Detecta quais números foram assumidos por atendente (via mensagens_geral)
+  useEffect(() => {
+    if (!instance) return
+    supabase.from('mensagens_geral').select('numero')
+      .eq('instancia', instance).eq('type', 'atendente')
+      .then(({ data }) => {
+        if (data) setAssumedSet(new Set(data.map(r => r.numero)))
+      })
+    const ch = supabase.channel('hist-assumed')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'mensagens_geral', filter: `instancia=eq.${instance}` },
+        (p) => {
+          if (p.new?.type === 'atendente' && p.new?.numero) {
+            setAssumedSet(prev => new Set([...prev, p.new.numero]))
+          }
+        })
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [instance])
 
   // Carrega enceramentos para mostrar badge de motivo no histórico
   useEffect(() => {
@@ -285,6 +306,7 @@ export default function CompanyHistory() {
           {filtered.map(c => {
             const reason = closedMap[c.session_id]
             const rs = reason ? REASON_STYLE[reason] : null
+            const assumed = assumedSet.has(c.session_id)
             return (
               <div
                 key={c.session_id}
@@ -301,6 +323,16 @@ export default function CompanyHistory() {
                         color: rs.color, background: rs.bg, border: `1px solid ${rs.border}`,
                         lineHeight: '16px',
                       }}>{rs.label}</span>
+                    )}
+                    {assumed && (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 3,
+                        fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
+                        color: '#16A34A', background: '#F0FDF4', border: '1px solid #BBF7D0',
+                        lineHeight: '16px',
+                      }}>
+                        <Headset size={9} /> Assumido
+                      </span>
                     )}
                   </div>
                   <div className="contact-preview">Ver conversa completa</div>
@@ -349,6 +381,19 @@ export default function CompanyHistory() {
                 )}
               </div>
             </div>
+
+            {assumedSet.has(selected.session_id) && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: '#F0FDF4', border: '1px solid #BBF7D0',
+                borderRadius: 0, padding: '8px 18px',
+                fontSize: 12, color: '#15803D', fontWeight: 500,
+                flexShrink: 0,
+              }}>
+                <Headset size={13} />
+                Atendimento assumido por um atendente — mensagens do atendente não são exibidas aqui.
+              </div>
+            )}
 
             <div className="chat-body">
               {loadingMsgs && (
