@@ -89,7 +89,9 @@ export default function CompanyConversations() {
     if (!historyTable) return
     supabase.rpc('ensure_table_setup', { p_table: historyTable })
     setLoadingContacts(true)
-    supabase.from(historyTable).select('*').order('id', { ascending: false })
+    const q = supabase.from(historyTable).select('*').order('id', { ascending: false })
+    const query = historyTable === 'mensagens_geral' ? q.eq('instancia', instance) : q
+    query
       .then(({ data, error }) => {
         if (!error && data) {
           const seen = new Set()
@@ -186,9 +188,9 @@ export default function CompanyConversations() {
     setLoadingMsgs(true)
     setMessages([])
     const col = historyTable === 'mensagens_geral' ? 'numero' : 'session_id'
-    supabase.from(historyTable).select('*')
-      .eq(col, selected.session_id)
-      .order('id', { ascending: true })
+    const mq = supabase.from(historyTable).select('*').eq(col, selected.session_id)
+    const msgQuery = historyTable === 'mensagens_geral' ? mq.eq('instancia', instance) : mq
+    msgQuery.order('id', { ascending: true })
       .then(({ data, error }) => {
         if (!error && data) {
           setMessages(data.filter(r => !isToolMessage(r)).map(r => ({
