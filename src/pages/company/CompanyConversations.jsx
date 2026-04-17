@@ -414,6 +414,35 @@ export default function CompanyConversations() {
               </button>
             </div>
 
+            {!assumedSet.has(selected.session_id) && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: '#EFF6FF', borderBottom: '1px solid #BFDBFE',
+                padding: '10px 20px', flexShrink: 0, gap: 12,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#1E40AF' }}>
+                  <Sparkles size={15} style={{ color: '#2563EB' }} />
+                  <span>Conversa sob atendimento da <strong>IA</strong></span>
+                </div>
+                <button
+                  onClick={e => handleAssume(selected, e)}
+                  disabled={assuming === selected.session_id}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    background: '#16A34A', color: '#fff', border: 'none',
+                    borderRadius: 8, padding: '10px 22px',
+                    fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(22,163,74,0.3)',
+                    opacity: assuming === selected.session_id ? 0.6 : 1,
+                    flexShrink: 0,
+                  }}
+                >
+                  <Headset size={16} />
+                  {assuming === selected.session_id ? 'Assumindo...' : 'Assumir atendimento'}
+                </button>
+              </div>
+            )}
+
             <div className="chat-body">
               {loadingMsgs && (
                 <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', marginTop: '2rem' }}>
