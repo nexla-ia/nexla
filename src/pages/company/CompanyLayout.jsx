@@ -63,7 +63,7 @@ export default function CompanyLayout() {
   const links = [
     { to: '/painel/conversas', icon: MessageSquare, label: 'Conversas',
       badge: activeCount > 0 ? activeCount : null, badgeColor: 'cyan' },
-    { to: '/painel/historico', icon: History,       label: 'Histórico' },
+    { to: '/painel/historico', icon: History,       label: 'Conversas IA' },
     { to: '/painel/alertas',   icon: BellRing,      label: 'Alertas',
       badge: pendingAlerts > 0 ? pendingAlerts : null, badgeColor: 'amber' },
     { to: '/painel/metricas',  icon: BarChart2,     label: 'Métricas' },
