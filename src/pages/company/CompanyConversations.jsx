@@ -15,9 +15,20 @@ function getMessageContent(row) {
   return (row.mensagem || '').replace(/^\*[^*]+\*:\n/, '').trim()
 }
 
-function getMessageType(row) { return row.type || 'human' }
+function getMessageType(row) { return (row.type || 'human').toLowerCase() }
 
-function getTimestamp(row) { return row.horaLastMessage || row.created_at || null }
+function parseTimestamp(val) {
+  if (!val) return null
+  // Suporta "DD/MM/YYYY HH:MM:SS" e ISO
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(val)) {
+    const [date, time] = val.split(' ')
+    const [d, m, y] = date.split('/')
+    return new Date(`${y}-${m}-${d}T${time || '00:00:00'}`).toISOString()
+  }
+  return val
+}
+
+function getTimestamp(row) { return parseTimestamp(row.horaLastMessage) || row.created_at || null }
 
 function isToolMessage(row) {
   const type = getMessageType(row)
