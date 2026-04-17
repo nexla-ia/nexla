@@ -5,16 +5,21 @@ import { supabase } from '../../lib/supabase'
 import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send } from 'lucide-react'
 import './Company.css'
 
-function formatPhone(sessionId) {
-  return sessionId.replace(/@.*$/, '')
+function formatPhone(val) {
+  return (val || '').replace(/@.*$/, '')
 }
 
-function parseContent(content) {
-  return content.replace(/^\*[^*]+\*:\n/, '').trim()
+// Helpers de esquema dual: n8n (session_id/message/data) ou mensagens_geral (numero/mensagem/horaLastMessage/type)
+function getSessionId(row) { return row.session_id || row.numero || null }
+function getMessageContent(row) {
+  const raw = row.message?.content || row.mensagem || ''
+  return raw.replace(/^\*[^*]+\*:\n/, '').trim()
 }
+function getMessageType(row) { return row.message?.type || row.type || 'human' }
+function getTimestamp(row) { return row.data || row['horaLastMessage'] || row.created_at || null }
 
 function isToolMessage(row) {
-  const type = row.message?.type
+  const type = getMessageType(row)
   const content = row.message?.content || ''
   if (type === 'tool') return true
   if (type === 'ai' && /^Calling \w+ with input:/i.test(content.trim())) return true
@@ -90,14 +95,14 @@ export default function CompanyConversations() {
           const seen = new Set()
           const unique = []
           for (const row of data) {
-            if (!seen.has(row.session_id)) {
-              seen.add(row.session_id)
-              unique.push({
-                session_id: row.session_id,
-                phone: formatPhone(row.session_id),
-                lastTs: row.data || row.created_at || null,
-              })
-            }
+            const sid = getSessionId(row)
+            if (!sid || seen.has(sid)) continue
+            seen.add(sid)
+            unique.push({
+              session_id: sid,
+              phone: formatPhone(sid),
+              lastTs: getTimestamp(row),
+            })
           }
           setContacts(unique)
         }
@@ -122,32 +127,34 @@ export default function CompanyConversations() {
         (p) => {
           const row = p.new
           if (!row || isToolMessage(row)) return
-          const ts = row.data || row.created_at || null
+          const sid = getSessionId(row)
+          if (!sid) return
+          const ts = getTimestamp(row)
 
           // Se sessão estava encerrada e chegou nova mensagem, reativa
           setClosed(prev => {
-            if (prev.has(row.session_id)) {
-              supabase.from('conversations').delete().eq('session_id', row.session_id).eq('instancia', instance)
+            if (prev.has(sid)) {
+              supabase.from('conversations').delete().eq('session_id', sid).eq('instancia', instance)
               const next = new Set(prev)
-              next.delete(row.session_id)
+              next.delete(sid)
               return next
             }
             return prev
           })
 
           setContacts(prev => {
-            const exists = prev.find(c => c.session_id === row.session_id)
+            const exists = prev.find(c => c.session_id === sid)
             if (exists) {
-              return [{ ...exists, lastTs: ts }, ...prev.filter(c => c.session_id !== row.session_id)]
+              return [{ ...exists, lastTs: ts }, ...prev.filter(c => c.session_id !== sid)]
             }
-            return [{ session_id: row.session_id, phone: formatPhone(row.session_id), lastTs: ts }, ...prev]
+            return [{ session_id: sid, phone: formatPhone(sid), lastTs: ts }, ...prev]
           })
 
-          if (selectedRef.current?.session_id === row.session_id) {
+          if (selectedRef.current?.session_id === sid) {
             setMessages(msgs => [...msgs, {
               id: row.id,
-              type: row.message?.type,
-              content: parseContent(row.message?.content || ''),
+              type: getMessageType(row),
+              content: getMessageContent(row),
               ts,
             }])
           }
@@ -178,16 +185,17 @@ export default function CompanyConversations() {
     if (!selected || !historyTable) return
     setLoadingMsgs(true)
     setMessages([])
+    const col = historyTable === 'mensagens_geral' ? 'numero' : 'session_id'
     supabase.from(historyTable).select('*')
-      .eq('session_id', selected.session_id)
+      .eq(col, selected.session_id)
       .order('id', { ascending: true })
       .then(({ data, error }) => {
         if (!error && data) {
           setMessages(data.filter(r => !isToolMessage(r)).map(r => ({
             id: r.id,
-            type: r.message?.type,
-            content: parseContent(r.message?.content || ''),
-            ts: r.data || r.created_at || null,
+            type: getMessageType(r),
+            content: getMessageContent(r),
+            ts: getTimestamp(r),
           })))
         }
         setLoadingMsgs(false)
