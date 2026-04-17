@@ -213,8 +213,23 @@ export default function CompanyConversations() {
     setSending(true)
     console.log('[handleSend] historyTable:', historyTable, '| session_id:', selected.session_id, '| instance:', instance)
     try {
+      // Envia via webhook n8n (encaminha para Evolution API / WhatsApp)
+      await fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: msgText.trim(),
+          session_id: selected.session_id,
+          phone: selected.phone,
+          instancia: instance,
+          api_instancia: apiInstancia,
+          company: session?.company?.name,
+          sender_name: session?.user?.name,
+          sender_email: session?.user?.email,
+        }),
+      })
+      // Para mensagens_geral: insere também na tabela para exibir no painel em tempo real
       if (historyTable === 'mensagens_geral') {
-        // Insere diretamente na tabela — o Realtime exibe na tela e o n8n pode escutar para enviar via WhatsApp
         const { error: insErr } = await supabase.rpc('send_mensagem_geral', {
           p_instancia: instance,
           p_numero: selected.session_id,
@@ -222,22 +237,7 @@ export default function CompanyConversations() {
           p_type: 'human',
           p_hora: new Date().toISOString(),
         })
-        if (insErr) { console.error('send_mensagem_geral:', insErr); setSending(false); return }
-      } else {
-        await fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: msgText.trim(),
-            session_id: selected.session_id,
-            phone: selected.phone,
-            instancia: instance,
-            api_instancia: apiInstancia,
-            company: session?.company?.name,
-            sender_name: session?.user?.name,
-            sender_email: session?.user?.email,
-          }),
-        })
+        if (insErr) console.error('send_mensagem_geral:', insErr)
       }
       setMsgText('')
     } finally {
