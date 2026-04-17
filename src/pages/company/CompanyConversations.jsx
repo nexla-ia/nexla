@@ -214,13 +214,14 @@ export default function CompanyConversations() {
     try {
       if (historyTable === 'mensagens_geral') {
         // Insere diretamente na tabela — o Realtime exibe na tela e o n8n pode escutar para enviar via WhatsApp
-        await supabase.from('mensagens_geral').insert({
+        const { error: insErr } = await supabase.from('mensagens_geral').insert({
           instancia: instance,
           numero: selected.session_id,
           mensagem: msgText.trim(),
           type: 'human',
-          'horaLastMessage': new Date().toISOString(),
+          horaLastMessage: new Date().toISOString(),
         })
+        if (insErr) { console.error('Insert mensagens_geral:', insErr); setSending(false); return }
       } else {
         await fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
           method: 'POST',
