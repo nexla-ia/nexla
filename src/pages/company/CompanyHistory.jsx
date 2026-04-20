@@ -25,13 +25,15 @@ function getMessageContent(row) {
 function getMessageType(row) { return row.message?.type || row.type || 'human' }
 function getTimestamp(row) { return row.data || row['horaLastMessage'] || row.created_at || null }
 
+const INJECTED_PROMPT_RE = /responda em portugu[eê]s|de forma objetiva|solicite\s|n[aã]o informar|indicar que|apresentaremos|breve explica[çc][aã]o|orienta[çc][õo]es gerais|avalia[çc][aã]o pr[eé]-operat/i
+
 function isToolMessage(row) {
   const type = getMessageType(row)
-  const content = row.message?.content || ''
+  const content = row.message?.content || row.mensagem || ''
   if (type === 'tool') return true
   if (type === 'ai' && /^Calling \w+ with input:/i.test(content.trim())) return true
-  // Respostas de subagente: mensagens de IA muito longas (>800 chars) são internas
   if (type === 'ai' && content.length > 800) return true
+  if ((type === 'human' || type === 'cliente') && content.length > 200 && INJECTED_PROMPT_RE.test(content)) return true
   return false
 }
 
