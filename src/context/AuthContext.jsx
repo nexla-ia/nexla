@@ -64,11 +64,20 @@ export const mockAlerts = {
 // ─── Auth context ─────────────────────────────────────────────────────────────
 const AuthContext = createContext(null)
 
+const SESSION_KEY = 'nx_session'
+
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null)
+  const [session, setSession] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(SESSION_KEY)) } catch { return null }
+  })
   const [db, setDb] = useState({ companies: [] })
   const [dbLoading, setDbLoading] = useState(false)
   const [dbError, setDbError] = useState(null)
+
+  useEffect(() => {
+    if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+    else localStorage.removeItem(SESSION_KEY)
+  }, [session])
 
   const loadDB = useCallback(async () => {
     setDbLoading(true)
@@ -133,7 +142,7 @@ export function AuthProvider({ children }) {
     return { ok: true }
   }
 
-  function logout() { setSession(null) }
+  function logout() { setSession(null); localStorage.removeItem(SESSION_KEY) }
 
   async function addCompany(data) {
     const slug = data.name
