@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles } from 'lucide-react'
+import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive } from 'lucide-react'
 import './Company.css'
 
 const CONV_TABLE = 'mensagens_geral'
@@ -19,7 +19,6 @@ function getMessageType(row) { return (row.type || 'human').toLowerCase() }
 
 function parseTimestamp(val) {
   if (!val) return null
-  // Suporta "DD/MM/YYYY HH:MM:SS" e ISO
   if (/^\d{2}\/\d{2}\/\d{4}/.test(val)) {
     const [date, time] = val.split(' ')
     const [d, m, y] = date.split('/')
@@ -38,7 +37,6 @@ function isToolMessage(row) {
   if (type === 'tool') return true
   if (type === 'ia' && /^Calling \w+ with input:/i.test(content.trim())) return true
   if (type === 'ia' && content.length > 800) return true
-  // Prompts internos do n8n que aparecem com type=cliente mas são instruções à IA
   if (type === 'cliente' && content.length > 200 && INJECTED_PROMPT_RE.test(content)) return true
   return false
 }
@@ -81,7 +79,10 @@ export default function CompanyConversations() {
   const apiInstancia = session?.company?.api_instancia
 
   const [contacts, setContacts]       = useState([])
-  const [closed, setClosed]           = useState(new Set())
+  const [closedMap, setClosedMap]     = useState({}) // session_id → reason
+  const [assumedSet, setAssumedSet]   = useState(new Set())
+  const [assuming, setAssuming]       = useState(null)
+  const [tab, setTab]                 = useState('recepcao')
   const [loadingContacts, setLoadingContacts] = useState(false)
   const [search, setSearch]           = useState('')
   const [selected, setSelected]       = useState(null)
@@ -93,14 +94,12 @@ export default function CompanyConversations() {
   const [toast, setToast]             = useState(null)
   const [msgText, setMsgText]         = useState('')
   const [sending, setSending]         = useState(false)
-  const [assumedSet, setAssumedSet]   = useState(new Set())
-  const [assuming, setAssuming]       = useState(null)
   const bottomRef  = useRef(null)
   const selectedRef = useRef(null)
 
   useEffect(() => { selectedRef.current = selected }, [selected])
 
-  // Carrega quais números já têm mensagem de atendente (= foram assumidos)
+  // Carrega quais números foram assumidos por atendente
   useEffect(() => {
     if (!instance) return
     supabase.from(CONV_TABLE).select('numero')
@@ -110,7 +109,7 @@ export default function CompanyConversations() {
       })
   }, [instance])
 
-  // Carrega contatos únicos da mensagens_geral para esta instancia
+  // Carrega todos os contatos únicos da mensagens_geral
   useEffect(() => {
     if (!instance) return
     setLoadingContacts(true)
@@ -133,16 +132,20 @@ export default function CompanyConversations() {
       })
   }, [instance])
 
-  // Carrega sessões encerradas
+  // Carrega sessões encerradas com motivo
   useEffect(() => {
     if (!instance) return
-    supabase.from('conversations').select('session_id').eq('instancia', instance)
+    supabase.from('conversations').select('session_id, reason').eq('instancia', instance)
       .then(({ data }) => {
-        if (data) setClosed(new Set(data.map(r => r.session_id)))
+        if (data) {
+          const map = {}
+          data.forEach(r => { map[r.session_id] = r.reason || 'resolvido' })
+          setClosedMap(map)
+        }
       })
   }, [instance])
 
-  // Realtime: nova mensagem na mensagens_geral desta instancia
+  // Realtime: nova mensagem
   useEffect(() => {
     if (!instance) return
     const ch = supabase.channel(`convs-msgs-${instance}`)
@@ -155,12 +158,12 @@ export default function CompanyConversations() {
           if (!sid) return
           const ts = getTimestamp(row)
 
-          setClosed(prev => {
-            if (prev.has(sid)) {
-              supabase.from('conversations').delete().eq('session_id', sid).eq('instancia', instance)
-              const next = new Set(prev); next.delete(sid); return next
-            }
-            return prev
+          // Reabre ticket encerrado: remove do closed e do assumedSet
+          setClosedMap(prev => {
+            if (!prev[sid]) return prev
+            supabase.from('conversations').delete().eq('session_id', sid).eq('instancia', instance)
+            setAssumedSet(as => { const n = new Set(as); n.delete(sid); return n })
+            const next = { ...prev }; delete next[sid]; return next
           })
 
           setContacts(prev => {
@@ -187,7 +190,7 @@ export default function CompanyConversations() {
     return () => supabase.removeChannel(ch)
   }, [instance])
 
-  // Realtime: conversa encerrada
+  // Realtime: conversa encerrada por outro usuário
   useEffect(() => {
     if (!instance) return
     const ch = supabase.channel(`convs-closed-${instance}`)
@@ -195,7 +198,7 @@ export default function CompanyConversations() {
         { event: 'INSERT', schema: 'public', table: 'conversations', filter: `instancia=eq.${instance}` },
         (p) => {
           if (!p.new) return
-          setClosed(prev => new Set([...prev, p.new.session_id]))
+          setClosedMap(prev => ({ ...prev, [p.new.session_id]: p.new.reason || 'resolvido' }))
           setSelected(prev => prev?.session_id === p.new.session_id ? null : prev)
         }
       )
@@ -230,7 +233,7 @@ export default function CompanyConversations() {
   }, [messages, loadingMsgs])
 
   async function handleAssume(contact, e) {
-    e.stopPropagation()
+    e?.stopPropagation()
     if (assumedSet.has(contact.session_id) || assuming === contact.session_id) return
     setAssuming(contact.session_id)
     const name = session?.user?.name || 'Atendente'
@@ -242,6 +245,7 @@ export default function CompanyConversations() {
       p_hora: new Date().toISOString(),
     })
     setAssumedSet(prev => new Set([...prev, contact.session_id]))
+    setTab('meu-setor')
     setAssuming(null)
   }
 
@@ -251,8 +255,6 @@ export default function CompanyConversations() {
     try {
       const text = msgText.trim()
       setMsgText('')
-
-      // Insere na mensagens_geral para aparecer no painel imediatamente
       const { error: insErr } = await supabase.rpc('send_mensagem_geral', {
         p_instancia: instance,
         p_numero: selected.session_id,
@@ -261,8 +263,6 @@ export default function CompanyConversations() {
         p_hora: new Date().toISOString(),
       })
       if (insErr) console.error('send_mensagem_geral:', insErr)
-
-      // Envia via webhook n8n → Evolution API → WhatsApp
       fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -294,28 +294,67 @@ export default function CompanyConversations() {
     setClosing(false)
     if (error) return
     const closedId = closeModal.session_id
-    setClosed(prev => new Set([...prev, closedId]))
+    setClosedMap(prev => ({ ...prev, [closedId]: reason }))
     if (selected?.session_id === closedId) setSelected(null)
     setCloseModal(null)
     setReason('')
+    setTab('finalizados')
     const label = REASONS.find(r => r.value === reason)?.label || reason
     setToast({ message: `Conversa finalizada — ${label}`, color: REASONS.find(r => r.value === reason)?.color || '#16A34A' })
     setTimeout(() => setToast(null), 3500)
   }
 
-  const active   = contacts.filter(c => !closed.has(c.session_id))
-  const filtered = active.filter(c => c.phone.includes(search))
+  const closed = new Set(Object.keys(closedMap))
+  const recepcao   = contacts.filter(c => !closed.has(c.session_id) && !assumedSet.has(c.session_id))
+  const meuSetor   = contacts.filter(c => !closed.has(c.session_id) && assumedSet.has(c.session_id))
+  const finalizados = contacts.filter(c => closed.has(c.session_id))
+
+  const tabList = [
+    { id: 'recepcao',    label: 'Recepção',    icon: Inbox,      count: recepcao.length },
+    { id: 'meu-setor',  label: 'Meu setor',   icon: UserCheck,  count: meuSetor.length },
+    { id: 'finalizados', label: 'Finalizados', icon: Archive,    count: finalizados.length },
+  ]
+
+  const currentList = tab === 'recepcao' ? recepcao : tab === 'meu-setor' ? meuSetor : finalizados
+  const filtered = currentList.filter(c => c.phone.includes(search))
+  const isClosed = selected ? closed.has(selected.session_id) : false
 
   return (
     <div className="contacts-root">
       <div className="contacts-list">
-        <div className="contacts-list-header">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <div className="contacts-list-title">Conversas ativas</div>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', background: '#F1F5F9', borderRadius: 20, padding: '2px 8px' }}>
-              {active.length}
-            </span>
-          </div>
+        {/* Abas */}
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)' }}>
+          {tabList.map(t => (
+            <button
+              key={t.id}
+              onClick={() => { setTab(t.id); setSelected(null) }}
+              style={{
+                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                padding: '10px 4px', border: 'none', background: 'none', cursor: 'pointer',
+                borderBottom: tab === t.id ? '2px solid #2563EB' : '2px solid transparent',
+                color: tab === t.id ? '#2563EB' : 'var(--text-muted)',
+                fontSize: 11, fontWeight: tab === t.id ? 700 : 500,
+                transition: 'all 0.15s',
+              }}
+            >
+              <t.icon size={14} />
+              {t.label}
+              {t.count > 0 && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700, minWidth: 16, height: 16,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: 20, padding: '0 4px',
+                  background: tab === t.id ? '#2563EB' : '#E2E8F0',
+                  color: tab === t.id ? '#fff' : 'var(--text-muted)',
+                }}>
+                  {t.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="contacts-list-header" style={{ paddingTop: 10 }}>
           <input
             className="contacts-search"
             placeholder="Buscar por telefone..."
@@ -330,12 +369,14 @@ export default function CompanyConversations() {
           )}
           {!loadingContacts && filtered.length === 0 && (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-              {active.length === 0 ? 'Nenhuma conversa ativa.' : 'Nenhum resultado.'}
+              Nenhuma conversa aqui.
             </div>
           )}
           {filtered.map(c => {
-            const isAssumed = assumedSet.has(c.session_id)
+            const isAssumed  = assumedSet.has(c.session_id)
             const isAssuming = assuming === c.session_id
+            const closedReason = closedMap[c.session_id]
+            const rs = closedReason ? REASONS.find(r => r.value === closedReason) : null
             return (
               <div
                 key={c.session_id}
@@ -346,7 +387,14 @@ export default function CompanyConversations() {
                 <div className="contact-info" style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <div className="contact-name">{c.phone}</div>
-                    {isAssumed ? (
+                    {tab === 'finalizados' && rs && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
+                        color: rs.color, background: rs.bg, border: `1px solid ${rs.border}`,
+                        lineHeight: '16px',
+                      }}>{rs.label}</span>
+                    )}
+                    {tab === 'meu-setor' && (
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 3,
                         fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
@@ -355,7 +403,8 @@ export default function CompanyConversations() {
                       }}>
                         <Headset size={9} /> Atendente
                       </span>
-                    ) : (
+                    )}
+                    {tab === 'recepcao' && (
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 3,
                         fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
@@ -366,7 +415,7 @@ export default function CompanyConversations() {
                       </span>
                     )}
                   </div>
-                  {!isAssumed && (
+                  {tab === 'recepcao' && (
                     <button
                       onClick={e => handleAssume(c, e)}
                       disabled={isAssuming}
@@ -395,7 +444,7 @@ export default function CompanyConversations() {
         {!selected ? (
           <div className="chat-empty">
             <MessageSquare size={32} style={{ opacity: 0.2 }} />
-            <div style={{ fontSize: 14 }}>Selecione uma conversa ativa</div>
+            <div style={{ fontSize: 14 }}>Selecione uma conversa</div>
           </div>
         ) : (
           <>
@@ -409,16 +458,28 @@ export default function CompanyConversations() {
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{messages.length} mensagem(ns)</div>
                 )}
               </div>
-              <button
-                className="nx-btn-ghost"
-                style={{ fontSize: 12, padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
-                onClick={() => { setCloseModal(selected); setReason('') }}
-              >
-                <CheckCircle2 size={14} /> Finalizar conversa
-              </button>
+              {!isClosed && (
+                <button
+                  className="nx-btn-ghost"
+                  style={{ fontSize: 12, padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
+                  onClick={() => { setCloseModal(selected); setReason('') }}
+                >
+                  <CheckCircle2 size={14} /> Finalizar conversa
+                </button>
+              )}
+              {isClosed && (() => {
+                const rs = REASONS.find(r => r.value === closedMap[selected.session_id])
+                return rs ? (
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20,
+                    color: rs.color, background: rs.bg, border: `1px solid ${rs.border}`,
+                  }}>{rs.label}</span>
+                ) : null
+              })()}
             </div>
 
-            {!assumedSet.has(selected.session_id) && (
+            {/* Banner Recepção: botão assumir */}
+            {!isClosed && !assumedSet.has(selected.session_id) && (
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 background: '#EFF6FF', borderBottom: '1px solid #BFDBFE',
@@ -444,6 +505,19 @@ export default function CompanyConversations() {
                   <Headset size={16} />
                   {assuming === selected.session_id ? 'Assumindo...' : 'Assumir atendimento'}
                 </button>
+              </div>
+            )}
+
+            {/* Banner Finalizados */}
+            {isClosed && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: '#F8FAFC', borderBottom: '1px solid var(--border)',
+                padding: '8px 18px', flexShrink: 0,
+                fontSize: 12, color: 'var(--text-muted)',
+              }}>
+                <Archive size={13} />
+                Conversa encerrada. Se o cliente enviar nova mensagem, um novo ticket será aberto automaticamente.
               </div>
             )}
 
@@ -499,39 +573,41 @@ export default function CompanyConversations() {
               <div ref={bottomRef} />
             </div>
 
-            <div style={{ padding: '12px 18px', borderTop: '0.5px solid var(--border)', background: 'var(--bg-surface)', flexShrink: 0 }}>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                <input
-                  className="nx-input"
-                  style={{ flex: 1, fontSize: 13 }}
-                  placeholder="Digite uma mensagem..."
-                  value={msgText}
-                  onChange={e => setMsgText(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                  disabled={sending}
-                />
-                <button
-                  className="nx-btn-primary"
-                  style={{ padding: '0 16px', flexShrink: 0 }}
-                  onClick={handleSend}
-                  disabled={!msgText.trim() || sending}
+            {!isClosed && (
+              <div style={{ padding: '12px 18px', borderTop: '0.5px solid var(--border)', background: 'var(--bg-surface)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                  <input
+                    className="nx-input"
+                    style={{ flex: 1, fontSize: 13 }}
+                    placeholder="Digite uma mensagem..."
+                    value={msgText}
+                    onChange={e => setMsgText(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                    disabled={sending}
+                  />
+                  <button
+                    className="nx-btn-primary"
+                    style={{ padding: '0 16px', flexShrink: 0 }}
+                    onClick={handleSend}
+                    disabled={!msgText.trim() || sending}
+                  >
+                    <Send size={14} />
+                  </button>
+                </div>
+                <a
+                  href={`https://wa.me/${selected.phone}`}
+                  target="_blank" rel="noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    background: '#25D366', color: '#fff', borderRadius: 8,
+                    padding: '9px 18px', fontSize: 13, fontWeight: 600,
+                    textDecoration: 'none', boxShadow: '0 1px 4px rgba(37,211,102,0.3)',
+                  }}
                 >
-                  <Send size={14} />
-                </button>
+                  <PhoneCall size={15} /> Ver conversa no WhatsApp
+                </a>
               </div>
-              <a
-                href={`https://wa.me/${selected.phone}`}
-                target="_blank" rel="noreferrer"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 8,
-                  background: '#25D366', color: '#fff', borderRadius: 8,
-                  padding: '9px 18px', fontSize: 13, fontWeight: 600,
-                  textDecoration: 'none', boxShadow: '0 1px 4px rgba(37,211,102,0.3)',
-                }}
-              >
-                <PhoneCall size={15} /> Ver conversa no WhatsApp
-              </a>
-            </div>
+            )}
           </>
         )}
       </div>
@@ -544,7 +620,6 @@ export default function CompanyConversations() {
           boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
           display: 'flex', alignItems: 'center', gap: 10,
           fontSize: 13, fontWeight: 600, color: toast.color,
-          animation: 'slide-in-right 0.2s ease',
         }}>
           <CheckCircle2 size={16} />
           {toast.message}
