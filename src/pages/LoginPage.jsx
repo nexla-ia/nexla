@@ -104,7 +104,7 @@ export default function LoginPage() {
             {loading ? <><Loader2 size={15} className="spin" /> Verificando...</> : tab === 'adm' ? 'Acesso administrativo' : 'Entrar no painel'}
           </button>
 
-          <div className="login-footer">NEXLA v2.0 · Plataforma exclusiva · Acesso restrito</div>
+          <div className="login-footer">MedicinaMKT v2.0 · Plataforma exclusiva · Acesso restrito</div>
         </form>
       </div>
     </div>

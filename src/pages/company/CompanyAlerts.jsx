@@ -84,11 +84,11 @@ export default function CompanyAlerts() {
 
   useEffect(() => {
     if (unreadCount > 0) {
-      document.title = `(${unreadCount}) Alertas — NEXLA`
+      document.title = `(${unreadCount}) Alertas — MedicinaMKT`
     } else {
-      document.title = 'NEXLA'
+      document.title = 'MedicinaMKT'
     }
-    return () => { document.title = 'NEXLA' }
+    return () => { document.title = 'MedicinaMKT' }
   }, [unreadCount])
 
   useEffect(() => {

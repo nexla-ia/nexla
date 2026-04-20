@@ -20,7 +20,7 @@ export default function Sidebar({ links, role }) {
           <div className="sidebar-logo-inner" />
         </div>
         <div>
-          <div className="sidebar-brand-name">NEXLA</div>
+          <div className="sidebar-brand-name">MedicinaMKT</div>
           <div className="sidebar-brand-tag">{role === 'adm' ? 'ADM Global' : 'Painel'}</div>
         </div>
       </div>
