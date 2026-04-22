@@ -68,8 +68,10 @@ export default function CompanyLayout() {
     { to: '/painel/historico', icon: History,       label: 'Conversas IA' },
     { to: '/painel/alertas',   icon: BellRing,      label: 'Alertas',
       badge: pendingAlerts > 0 ? pendingAlerts : null, badgeColor: 'amber' },
-    { to: '/painel/metricas',  icon: BarChart2,     label: 'Métricas' },
-    ...(isAdmin ? [{ to: '/painel/admin', icon: Settings2, label: 'Administração' }] : []),
+    ...(isAdmin ? [
+      { to: '/painel/metricas', icon: BarChart2, label: 'Métricas' },
+      { to: '/painel/admin',    icon: Settings2, label: 'Administração' },
+    ] : []),
   ]
 
   return (
