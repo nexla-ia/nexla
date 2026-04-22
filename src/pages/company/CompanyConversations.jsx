@@ -78,10 +78,13 @@ export default function CompanyConversations() {
   const instance     = session?.company?.instance
   const apiInstancia = session?.company?.api_instancia
 
-  const [contacts, setContacts]       = useState([])
-  const [closedMap, setClosedMap]     = useState({}) // session_id → reason
-  const [assumedSet, setAssumedSet]   = useState(new Set())
-  const [assuming, setAssuming]       = useState(null)
+  const isAdmin = session?.user?.role === 'admin'
+  const userSector = session?.user?.sector // { id, name, color } or null
+
+  const [contacts, setContacts]         = useState([])
+  const [closedMap, setClosedMap]       = useState({}) // session_id → reason
+  const [attendancesMap, setAttendancesMap] = useState({}) // numero → attendance record
+  const [assuming, setAssuming]         = useState(null)
   const [tab, setTab]                 = useState('recepcao')
   const [loadingContacts, setLoadingContacts] = useState(false)
   const [search, setSearch]           = useState('')
@@ -99,14 +102,33 @@ export default function CompanyConversations() {
 
   useEffect(() => { selectedRef.current = selected }, [selected])
 
-  // Carrega quais números foram assumidos por atendente
+  // Carrega atendimentos ativos (quem está em qual setor + atendente)
   useEffect(() => {
     if (!instance) return
-    supabase.from(CONV_TABLE).select('numero')
-      .eq('instancia', instance).eq('type', 'atendente')
+    supabase.from('attendances').select('*').eq('instancia', instance)
       .then(({ data }) => {
-        if (data) setAssumedSet(new Set(data.map(r => r.numero)))
+        if (data) {
+          const map = {}
+          data.forEach(r => { map[r.numero] = r })
+          setAttendancesMap(map)
+        }
       })
+  }, [instance])
+
+  // Realtime: attendances
+  useEffect(() => {
+    if (!instance) return
+    const ch = supabase.channel(`convs-attendances-${instance}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendances', filter: `instancia=eq.${instance}` },
+        (p) => {
+          if (p.eventType === 'DELETE') {
+            setAttendancesMap(prev => { const n = { ...prev }; delete n[p.old.numero]; return n })
+          } else if (p.new) {
+            setAttendancesMap(prev => ({ ...prev, [p.new.numero]: p.new }))
+          }
+        })
+      .subscribe()
+    return () => supabase.removeChannel(ch)
   }, [instance])
 
   // Carrega todos os contatos únicos da mensagens_geral
@@ -158,11 +180,12 @@ export default function CompanyConversations() {
           if (!sid) return
           const ts = getTimestamp(row)
 
-          // Reabre ticket encerrado: remove do closed e do assumedSet
+          // Reabre ticket encerrado: remove do closed e limpa attendance
           setClosedMap(prev => {
             if (!prev[sid]) return prev
             supabase.from('conversations').delete().eq('session_id', sid).eq('instancia', instance)
-            setAssumedSet(as => { const n = new Set(as); n.delete(sid); return n })
+            supabase.from('attendances').delete().eq('numero', sid).eq('instancia', instance)
+            setAttendancesMap(at => { const n = { ...at }; delete n[sid]; return n })
             const next = { ...prev }; delete next[sid]; return next
           })
 
@@ -172,9 +195,6 @@ export default function CompanyConversations() {
             return [{ session_id: sid, phone: formatPhone(sid), lastTs: ts }, ...prev]
           })
 
-          if (getMessageType(row) === 'atendente') {
-            setAssumedSet(prev => new Set([...prev, sid]))
-          }
 
           if (selectedRef.current?.session_id === sid) {
             setMessages(msgs => [...msgs, {
@@ -234,17 +254,39 @@ export default function CompanyConversations() {
 
   async function handleAssume(contact, e) {
     e?.stopPropagation()
-    if (assumedSet.has(contact.session_id) || assuming === contact.session_id) return
+    if (attendancesMap[contact.session_id] || assuming === contact.session_id) return
     setAssuming(contact.session_id)
     const name = session?.user?.name || 'Atendente'
+    const sectorLabel = userSector ? ` (${userSector.name})` : ''
+
+    await supabase.from('attendances').upsert({
+      numero: contact.session_id,
+      instancia: instance,
+      sector_id: userSector?.id || null,
+      sector_name: userSector?.name || null,
+      sector_color: userSector?.color || '#6B7280',
+      attendant_name: name,
+      attendant_email: session?.user?.email,
+      assumed_at: new Date().toISOString(),
+    }, { onConflict: 'numero,instancia' })
+
     await supabase.rpc('send_mensagem_geral', {
       p_instancia: instance,
       p_numero: contact.session_id,
-      p_mensagem: `▶ Atendimento assumido por ${name}`,
+      p_mensagem: `▶ Atendimento assumido por ${name}${sectorLabel}`,
       p_type: 'atendente',
       p_hora: new Date().toISOString(),
     })
-    setAssumedSet(prev => new Set([...prev, contact.session_id]))
+
+    setAttendancesMap(prev => ({
+      ...prev,
+      [contact.session_id]: {
+        numero: contact.session_id, instancia: instance,
+        sector_id: userSector?.id, sector_name: userSector?.name,
+        sector_color: userSector?.color || '#6B7280',
+        attendant_name: name, attendant_email: session?.user?.email,
+      }
+    }))
     setTab('meu-setor')
     setAssuming(null)
   }
@@ -295,6 +337,8 @@ export default function CompanyConversations() {
     if (error) return
     const closedId = closeModal.session_id
     setClosedMap(prev => ({ ...prev, [closedId]: reason }))
+    supabase.from('attendances').delete().eq('numero', closedId).eq('instancia', instance)
+    setAttendancesMap(prev => { const n = { ...prev }; delete n[closedId]; return n })
     if (selected?.session_id === closedId) setSelected(null)
     setCloseModal(null)
     setReason('')
@@ -305,8 +349,9 @@ export default function CompanyConversations() {
   }
 
   const closed = new Set(Object.keys(closedMap))
-  const recepcao   = contacts.filter(c => !closed.has(c.session_id) && !assumedSet.has(c.session_id))
-  const meuSetor   = contacts.filter(c => !closed.has(c.session_id) && assumedSet.has(c.session_id))
+  const recepcao    = contacts.filter(c => !closed.has(c.session_id) && !attendancesMap[c.session_id])
+  const meuSetor    = contacts.filter(c => !closed.has(c.session_id) && attendancesMap[c.session_id] &&
+    (isAdmin || !userSector || attendancesMap[c.session_id].sector_id === userSector.id))
   const finalizados = contacts.filter(c => closed.has(c.session_id))
 
   const tabList = [
@@ -373,7 +418,7 @@ export default function CompanyConversations() {
             </div>
           )}
           {filtered.map(c => {
-            const isAssumed  = assumedSet.has(c.session_id)
+            const att = attendancesMap[c.session_id]
             const isAssuming = assuming === c.session_id
             const closedReason = closedMap[c.session_id]
             const rs = closedReason ? REASONS.find(r => r.value === closedReason) : null
@@ -385,46 +430,34 @@ export default function CompanyConversations() {
               >
                 <div className="contact-avatar"><User size={14} style={{ opacity: 0.4 }} /></div>
                 <div className="contact-info" style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                     <div className="contact-name">{c.phone}</div>
-                    {tab === 'finalizados' && rs && (
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
-                        color: rs.color, background: rs.bg, border: `1px solid ${rs.border}`,
-                        lineHeight: '16px',
-                      }}>{rs.label}</span>
-                    )}
-                    {tab === 'meu-setor' && (
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 3,
-                        fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
-                        color: '#16A34A', background: '#F0FDF4', border: '1px solid #BBF7D0',
-                        lineHeight: '16px',
-                      }}>
-                        <Headset size={9} /> Atendente
-                      </span>
-                    )}
                     {tab === 'recepcao' && (
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 3,
-                        fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
-                        color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE',
-                        lineHeight: '16px',
-                      }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', lineHeight: '16px' }}>
                         <Sparkles size={9} /> IA
                       </span>
+                    )}
+                    {tab === 'meu-setor' && att && (
+                      <>
+                        {att.sector_name && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, color: '#fff', background: att.sector_color || '#6B7280', lineHeight: '16px' }}>
+                            {att.sector_name}
+                          </span>
+                        )}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 20, color: '#16A34A', background: '#F0FDF4', border: '1px solid #BBF7D0', lineHeight: '16px' }}>
+                          <Headset size={9} /> {att.attendant_name?.split(' ')[0]}
+                        </span>
+                      </>
+                    )}
+                    {tab === 'finalizados' && rs && (
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, color: rs.color, background: rs.bg, border: `1px solid ${rs.border}`, lineHeight: '16px' }}>{rs.label}</span>
                     )}
                   </div>
                   {tab === 'recepcao' && (
                     <button
                       onClick={e => handleAssume(c, e)}
                       disabled={isAssuming}
-                      style={{
-                        marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4,
-                        fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6,
-                        background: '#16A34A', color: '#fff', border: 'none', cursor: 'pointer',
-                        opacity: isAssuming ? 0.6 : 1,
-                      }}
+                      style={{ marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6, background: '#16A34A', color: '#fff', border: 'none', cursor: 'pointer', opacity: isAssuming ? 0.6 : 1 }}
                     >
                       <Headset size={10} />
                       {isAssuming ? 'Assumindo...' : 'Assumir atendimento'}
@@ -479,7 +512,7 @@ export default function CompanyConversations() {
             </div>
 
             {/* Banner Recepção: botão assumir */}
-            {!isClosed && !assumedSet.has(selected.session_id) && (
+            {!isClosed && !attendancesMap[selected.session_id] && (
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 background: '#EFF6FF', borderBottom: '1px solid #BFDBFE',

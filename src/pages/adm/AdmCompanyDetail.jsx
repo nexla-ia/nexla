@@ -1,10 +1,14 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, Plus, X, UserCheck, UserX, RefreshCw, Pencil, Settings } from 'lucide-react'
+import { ArrowLeft, Plus, X, UserCheck, UserX, RefreshCw, Pencil, Settings, Layers, UserMinus } from 'lucide-react'
 import './Adm.css'
+
+const SECTOR_COLORS = [
+  '#2563EB', '#16A34A', '#7C3AED', '#DC2626', '#D97706', '#0891B2',
+]
 
 function slugify(name) {
   return name
@@ -38,7 +42,32 @@ export default function AdmCompanyDetail() {
   const [err, setErr] = useState('')
   const [editErr, setEditErr] = useState('')
 
+  // Setores
+  const [sectors, setSectors] = useState([])
+  const [sectorMembers, setSectorMembers] = useState([]) // { id, sector_id, user_id }
+  const [sectorModal, setSectorModal] = useState(false)
+  const [sectorForm, setSectorForm] = useState({ name: '', color: SECTOR_COLORS[0] })
+  const [sectorErr, setSectorErr] = useState('')
+  const [assignModal, setAssignModal] = useState(null) // sector being assigned
+
   const company = db.companies.find(c => c.id === id)
+
+  // Carrega setores da empresa
+  useEffect(() => {
+    if (!company?.instance) return
+    supabase.from('sectors').select('*').eq('instancia', company.instance).order('created_at')
+      .then(({ data }) => { if (data) setSectors(data) })
+    supabase.from('sector_members').select('*')
+      .in('sector_id', []) // carregado depois que sectors chega
+      .then(() => {})
+  }, [company?.instance])
+
+  useEffect(() => {
+    if (!sectors.length) { setSectorMembers([]); return }
+    supabase.from('sector_members').select('*').in('sector_id', sectors.map(s => s.id))
+      .then(({ data }) => { if (data) setSectorMembers(data) })
+  }, [sectors])
+
   if (!company) return <div style={{ padding: '2rem', color: 'var(--text-muted)' }}>Empresa não encontrada.</div>
 
   const domain = slugify(company.name) + '.com'
@@ -98,6 +127,43 @@ export default function AdmCompanyDetail() {
     setSaving(false)
     if (!result?.ok) { setEditErr(result?.error || 'Erro ao salvar alterações.'); return }
     setEditModal(null)
+  }
+
+  async function handleCreateSector() {
+    if (!sectorForm.name.trim()) { setSectorErr('Nome é obrigatório.'); return }
+    setSaving(true)
+    const { data, error } = await supabase.from('sectors').insert({
+      name: sectorForm.name.trim(),
+      instancia: company.instance,
+      color: sectorForm.color,
+    }).select().single()
+    setSaving(false)
+    if (error) { setSectorErr('Erro: ' + error.message); return }
+    setSectors(prev => [...prev, data])
+    setSectorModal(false)
+    setSectorForm({ name: '', color: SECTOR_COLORS[0] })
+  }
+
+  async function handleDeleteSector(sectorId) {
+    await supabase.from('sectors').delete().eq('id', sectorId)
+    setSectors(prev => prev.filter(s => s.id !== sectorId))
+    setSectorMembers(prev => prev.filter(m => m.sector_id !== sectorId))
+  }
+
+  async function handleAssignUser(userId) {
+    if (!assignModal) return
+    // Remove de qualquer setor anterior
+    await supabase.from('sector_members').delete().eq('user_id', userId)
+    const { data } = await supabase.from('sector_members').insert({
+      sector_id: assignModal.id,
+      user_id: userId,
+    }).select().single()
+    if (data) setSectorMembers(prev => [...prev.filter(m => m.user_id !== userId), data])
+  }
+
+  async function handleRemoveMember(userId) {
+    await supabase.from('sector_members').delete().eq('user_id', userId)
+    setSectorMembers(prev => prev.filter(m => m.user_id !== userId))
   }
 
   async function handleAddUser() {
@@ -189,6 +255,74 @@ export default function AdmCompanyDetail() {
           )}
         </div>
       </div>
+
+      {/* Setores */}
+      {company.instance && (
+        <div className="page-body" style={{ marginTop: 0 }}>
+          <div className="section-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="section-title">Setores ({sectors.length})</div>
+            <button className="nx-btn-primary" style={{ fontSize: 12, padding: '6px 14px' }}
+              onClick={() => { setSectorForm({ name: '', color: SECTOR_COLORS[0] }); setSectorErr(''); setSectorModal(true) }}>
+              <Plus size={13} /> Novo setor
+            </button>
+          </div>
+
+          {!sectors.length ? (
+            <div className="nx-card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+              Nenhum setor criado. Crie setores e atribua funcionários.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+              {sectors.map(sector => {
+                const members = sectorMembers.filter(m => m.sector_id === sector.id)
+                const memberUsers = members.map(m => company.users?.find(u => u.id === m.user_id)).filter(Boolean)
+                const unassigned = (company.users || []).filter(u => !sectorMembers.find(m => m.user_id === u.id) || sectorMembers.find(m => m.user_id === u.id)?.sector_id === sector.id)
+                return (
+                  <div key={sector.id} className="nx-card" style={{ padding: '1rem 1.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: sector.color, flexShrink: 0 }} />
+                        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{sector.name}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="table-action" onClick={() => setAssignModal(sector)}>
+                          <Plus size={11} /> Atribuir
+                        </button>
+                        <button className="table-action danger" onClick={() => handleDeleteSector(sector.id)}>
+                          <X size={11} /> Excluir
+                        </button>
+                      </div>
+                    </div>
+                    {!memberUsers.length ? (
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Nenhum funcionário atribuído.</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {memberUsers.map(u => (
+                          <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC', borderRadius: 6, padding: '5px 8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12 }}>
+                              <div style={{
+                                width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                                background: sector.color + '20', border: `1px solid ${sector.color}40`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 10, fontWeight: 700, color: sector.color,
+                              }}>{u.name.charAt(0)}</div>
+                              {u.name}
+                            </div>
+                            <button className="table-action danger" style={{ padding: '2px 7px', fontSize: 10 }}
+                              onClick={() => handleRemoveMember(u.id)}>
+                              <UserMinus size={9} /> Remover
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {editModal && createPortal(
         <div style={{
@@ -372,6 +506,94 @@ export default function AdmCompanyDetail() {
                   {saving ? 'Salvando...' : 'Salvar'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      , document.body)}
+
+      {sectorModal && createPortal(
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(4px)', padding: '1.5rem' }}>
+          <div className="nx-card" style={{ width: '100%', maxWidth: 400 }}>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>Novo setor</div>
+              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => setSectorModal(false)}><X size={16} /></button>
+            </div>
+            <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={labelStyle}>Nome do setor</label>
+                <input className="nx-input" placeholder="Ex: Comercial, Suporte..." autoFocus
+                  value={sectorForm.name} onChange={e => setSectorForm(p => ({ ...p, name: e.target.value }))} />
+              </div>
+              <div>
+                <label style={labelStyle}>Cor</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {SECTOR_COLORS.map(c => (
+                    <button key={c} onClick={() => setSectorForm(p => ({ ...p, color: c }))}
+                      style={{
+                        width: 26, height: 26, borderRadius: '50%', background: c, border: 'none', cursor: 'pointer',
+                        outline: sectorForm.color === c ? `3px solid ${c}` : 'none',
+                        outlineOffset: 2,
+                      }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
+              {sectorErr && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#DC2626', marginBottom: 12 }}>{sectorErr}</div>}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="nx-btn-ghost" style={{ flex: 1 }} onClick={() => setSectorModal(false)}>Cancelar</button>
+                <button className="nx-btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={handleCreateSector} disabled={saving}>
+                  {saving ? 'Criando...' : 'Criar setor'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      , document.body)}
+
+      {assignModal && createPortal(
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(4px)', padding: '1.5rem' }}>
+          <div className="nx-card" style={{ width: '100%', maxWidth: 400 }}>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>Atribuir ao setor</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: assignModal.color }} />
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{assignModal.name}</span>
+                </div>
+              </div>
+              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => setAssignModal(null)}><X size={16} /></button>
+            </div>
+            <div style={{ padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
+              {(company.users || []).filter(u => u.role !== 'admin').map(u => {
+                const inThisSector = sectorMembers.find(m => m.user_id === u.id)?.sector_id === assignModal.id
+                return (
+                  <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, background: inThisSector ? '#F0FDF4' : '#F8FAFC', border: `1px solid ${inThisSector ? '#BBF7D0' : 'var(--border)'}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                      <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#EFF6FF', border: '1px solid #BFDBFE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: '#2563EB' }}>{u.name.charAt(0)}</div>
+                      <div>
+                        <div style={{ fontWeight: 500 }}>{u.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{u.email}</div>
+                      </div>
+                    </div>
+                    {inThisSector ? (
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#16A34A' }}>✓ Atribuído</span>
+                    ) : (
+                      <button className="nx-btn-primary" style={{ fontSize: 11, padding: '4px 12px' }} onClick={() => handleAssignUser(u.id)}>
+                        Atribuir
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+              {(company.users || []).filter(u => u.role !== 'admin').length === 0 && (
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>
+                  Nenhum operador cadastrado. Crie usuários com perfil Viewer/Operador.
+                </div>
+              )}
+            </div>
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
+              <button className="nx-btn-ghost" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setAssignModal(null)}>Fechar</button>
             </div>
           </div>
         </div>

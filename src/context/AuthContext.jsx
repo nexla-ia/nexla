@@ -138,7 +138,18 @@ export function AuthProvider({ children }) {
       return { ok: false, error: 'Empresa inativa. Contate o administrador.' }
     }
 
-    setSession({ role: 'company', user, company })
+    // Carrega setor do usuário (graceful: tabela pode não existir ainda)
+    let sector = null
+    try {
+      const { data: memberData } = await supabase
+        .from('sector_members')
+        .select('sector_id, sectors(id, name, color)')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      sector = memberData?.sectors || null
+    } catch {}
+
+    setSession({ role: 'company', user: { ...user, sector }, company })
     return { ok: true }
   }
 
