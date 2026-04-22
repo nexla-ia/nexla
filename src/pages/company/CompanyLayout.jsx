@@ -2,7 +2,7 @@ import React from 'react'
 import { Outlet } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import Sidebar from '../../components/Sidebar'
-import { MessageSquare, History, BellRing, BarChart2 } from 'lucide-react'
+import { MessageSquare, History, BellRing, BarChart2, Settings2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import './Company.css'
@@ -60,6 +60,8 @@ export default function CompanyLayout() {
     return () => supabase.removeChannel(ch)
   }, [instance])
 
+  const isAdmin = session?.user?.role === 'admin'
+
   const links = [
     { to: '/painel/conversas', icon: MessageSquare, label: 'Conversas',
       badge: activeCount > 0 ? activeCount : null, badgeColor: 'cyan' },
@@ -67,6 +69,7 @@ export default function CompanyLayout() {
     { to: '/painel/alertas',   icon: BellRing,      label: 'Alertas',
       badge: pendingAlerts > 0 ? pendingAlerts : null, badgeColor: 'amber' },
     { to: '/painel/metricas',  icon: BarChart2,     label: 'Métricas' },
+    ...(isAdmin ? [{ to: '/painel/admin', icon: Settings2, label: 'Administração' }] : []),
   ]
 
   return (

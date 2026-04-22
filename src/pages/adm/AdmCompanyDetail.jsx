@@ -90,6 +90,7 @@ export default function AdmCompanyDetail() {
       apiInstancia: company.api_instancia || '',
       historyTable: company.history_table || '',
       contactsTable: company.contacts_table || '',
+      maxUsers: company.max_users ?? 5,
     })
     setCompanyErr('')
     setCompanyModal(true)
@@ -107,6 +108,7 @@ export default function AdmCompanyDetail() {
       api_instancia: companyForm.apiInstancia || null,
       history_table: companyForm.historyTable || null,
       contacts_table: companyForm.contactsTable || null,
+      max_users: parseInt(companyForm.maxUsers) || 5,
     }).eq('id', company.id)
     setSaving(false)
     if (error) { setCompanyErr('Erro ao salvar: ' + error.message); return }
@@ -494,6 +496,11 @@ export default function AdmCompanyDetail() {
                   <label style={labelStyle}>Tabela de contatos</label>
                   <input className="nx-input" placeholder="Ex: contatos_clinica" value={companyForm.contactsTable} onChange={e => setCompanyForm(p => ({ ...p, contactsTable: e.target.value }))} />
                 </div>
+              </div>
+              <div style={{ maxWidth: 160 }}>
+                <label style={labelStyle}>Limite de usuários</label>
+                <input className="nx-input" type="number" min={1} max={100} value={companyForm.maxUsers}
+                  onChange={e => setCompanyForm(p => ({ ...p, maxUsers: e.target.value }))} />
               </div>
             </div>
             <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>

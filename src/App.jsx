@@ -11,6 +11,7 @@ import CompanyHistory from './pages/company/CompanyHistory'
 import CompanyAlerts from './pages/company/CompanyAlerts'
 import CompanyConversations from './pages/company/CompanyConversations'
 import CompanyMetrics from './pages/company/CompanyMetrics'
+import CompanyAdmin from './pages/company/CompanyAdmin'
 
 function PrivateAdm({ children }) {
   const { session } = useAuth()
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="historico" element={<CompanyHistory />} />
             <Route path="alertas" element={<CompanyAlerts />} />
             <Route path="metricas" element={<CompanyMetrics />} />
+            <Route path="admin" element={<CompanyAdmin />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
