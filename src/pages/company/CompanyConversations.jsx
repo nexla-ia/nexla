@@ -355,9 +355,9 @@ export default function CompanyConversations() {
   const finalizados = contacts.filter(c => closed.has(c.session_id))
 
   const tabList = [
-    { id: 'recepcao',    label: 'Recepção',    icon: Inbox,      count: recepcao.length },
-    { id: 'meu-setor',  label: 'Meu setor',   icon: UserCheck,  count: meuSetor.length },
-    { id: 'finalizados', label: 'Finalizados', icon: Archive,    count: finalizados.length },
+    { id: 'recepcao',    label: 'Recepção',              icon: Inbox,      count: recepcao.length },
+    { id: 'meu-setor',  label: isAdmin ? 'Setores' : 'Meu setor', icon: UserCheck, count: meuSetor.length },
+    { id: 'finalizados', label: 'Finalizados',            icon: Archive,    count: finalizados.length },
   ]
 
   const currentList = tab === 'recepcao' ? recepcao : tab === 'meu-setor' ? meuSetor : finalizados
