@@ -307,13 +307,24 @@ export default function CompanyAlerts() {
                   <Clock size={11} /> {formatTime(alert.created_at)}
                 </span>
                 {alert.numero && (
-                  <a
-                    href={`https://wa.me/${alert.numero.replace(/@.*$/, '').replace(/\D/g, '')}`}
-                    target="_blank" rel="noreferrer"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#16A34A', fontWeight: 500, textDecoration: 'none' }}
-                  >
-                    <MessageCircle size={11} /> Falar no WhatsApp
-                  </a>
+                  <>
+                    <a
+                      href={`https://wa.me/${alert.numero.replace(/@.*$/, '').replace(/\D/g, '')}`}
+                      target="_blank" rel="noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#16A34A', fontWeight: 500, textDecoration: 'none' }}
+                    >
+                      <MessageCircle size={11} /> WhatsApp
+                    </a>
+                    {session?.company?.digisac_url && (
+                      <a
+                        href={session.company.digisac_url}
+                        target="_blank" rel="noreferrer"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#7C3AED', fontWeight: 500, textDecoration: 'none' }}
+                      >
+                        <MessageCircle size={11} /> Digisac
+                      </a>
+                    )}
+                  </>
                 )}
               </div>
             </div>
