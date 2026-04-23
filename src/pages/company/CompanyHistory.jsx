@@ -170,6 +170,7 @@ export default function CompanyHistory() {
           for (const row of data) {
             const sid = getSessionId(row)
             if (!sid || seen.has(sid)) continue
+            if (sid.includes('@g.us')) continue  // ignora grupos do WhatsApp
             seen.add(sid)
             unique.push({
               session_id: sid,
@@ -223,7 +224,7 @@ export default function CompanyHistory() {
           if (!row) return
 
           const sid = getSessionId(row)
-          if (!sid) return
+          if (!sid || sid.includes('@g.us')) return
           const ts = getTimestamp(row)
           // Se sessão estava encerrada e chegou nova mensagem, remove o badge
           setClosedMap(prev => {
