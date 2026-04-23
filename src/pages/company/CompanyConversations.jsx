@@ -627,7 +627,19 @@ export default function CompanyConversations() {
                     <Send size={14} />
                   </button>
                 </div>
-                {session?.company?.digisac_url ? (
+                <a
+                  href={`https://wa.me/${selected.phone}`}
+                  target="_blank" rel="noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    background: '#25D366', color: '#fff', borderRadius: 8,
+                    padding: '9px 18px', fontSize: 13, fontWeight: 600,
+                    textDecoration: 'none', boxShadow: '0 1px 4px rgba(37,211,102,0.3)',
+                  }}
+                >
+                  <PhoneCall size={15} /> WhatsApp
+                </a>
+                {session?.company?.digisac_url && (
                   <a
                     href={session.company.digisac_url}
                     target="_blank" rel="noreferrer"
@@ -638,20 +650,7 @@ export default function CompanyConversations() {
                       textDecoration: 'none', boxShadow: '0 1px 4px rgba(124,58,237,0.3)',
                     }}
                   >
-                    <PhoneCall size={15} /> Abrir no Digisac
-                  </a>
-                ) : (
-                  <a
-                    href={`https://wa.me/${selected.phone}`}
-                    target="_blank" rel="noreferrer"
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 8,
-                      background: '#25D366', color: '#fff', borderRadius: 8,
-                      padding: '9px 18px', fontSize: 13, fontWeight: 600,
-                      textDecoration: 'none', boxShadow: '0 1px 4px rgba(37,211,102,0.3)',
-                    }}
-                  >
-                    <PhoneCall size={15} /> Ver conversa no WhatsApp
+                    <PhoneCall size={15} /> Digisac
                   </a>
                 )}
               </div>
