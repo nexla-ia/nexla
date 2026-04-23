@@ -67,11 +67,15 @@ function formatContactTime(ts) {
 }
 
 const REASONS = [
-  { value: 'agendado',    label: 'Agendado',    color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0' },
-  { value: 'resolvido',   label: 'Resolvido',   color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
-  { value: 'encaminhado', label: 'Encaminhado', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
-  { value: 'desistiu',    label: 'Desistiu',    color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+  { value: 'agendado',       label: 'Agendado',    color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0' },
+  { value: 'resolvido',      label: 'Resolvido',   color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
+  { value: 'encaminhado',    label: 'Encaminhado', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
+  { value: 'desistiu',       label: 'Desistiu',    color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+  { value: 'auto_encerrado', label: 'Expirado',    color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
 ]
+
+const AUTO_CLOSE_HOURS = 6
+const MANUAL_REASONS = REASONS.filter(r => r.value !== 'auto_encerrado')
 
 export default function CompanyConversations() {
   const { session } = useAuth()
@@ -97,8 +101,10 @@ export default function CompanyConversations() {
   const [toast, setToast]             = useState(null)
   const [msgText, setMsgText]         = useState('')
   const [sending, setSending]         = useState(false)
-  const bottomRef  = useRef(null)
-  const selectedRef = useRef(null)
+  const [closedLoaded, setClosedLoaded] = useState(false)
+  const bottomRef    = useRef(null)
+  const selectedRef  = useRef(null)
+  const autoCloseDone = useRef(false)
 
   useEffect(() => { selectedRef.current = selected }, [selected])
 
@@ -164,8 +170,44 @@ export default function CompanyConversations() {
           data.forEach(r => { map[r.session_id] = r.reason || 'resolvido' })
           setClosedMap(map)
         }
+        setClosedLoaded(true)
       })
   }, [instance])
+
+  // Auto-encerra tickets sem atividade após AUTO_CLOSE_HOURS horas
+  useEffect(() => {
+    if (autoCloseDone.current || loadingContacts || !closedLoaded || !instance || !contacts.length) return
+    autoCloseDone.current = true
+
+    const cutoff = Date.now() - AUTO_CLOSE_HOURS * 3600_000
+    const toClose = contacts.filter(c =>
+      !closedMap[c.session_id] &&
+      c.lastTs &&
+      new Date(c.lastTs).getTime() < cutoff
+    )
+    if (!toClose.length) return
+
+    toClose.forEach(c => {
+      supabase.from('conversations').insert({
+        session_id: c.session_id,
+        instancia: instance,
+        reason: 'auto_encerrado',
+        closed_at: new Date().toISOString(),
+      }).then(() => {})
+      supabase.from('attendances').delete().eq('numero', c.session_id).eq('instancia', instance).then(() => {})
+    })
+
+    setClosedMap(prev => {
+      const next = { ...prev }
+      toClose.forEach(c => { next[c.session_id] = 'auto_encerrado' })
+      return next
+    })
+    setAttendancesMap(prev => {
+      const next = { ...prev }
+      toClose.forEach(c => { delete next[c.session_id] })
+      return next
+    })
+  }, [loadingContacts, closedLoaded, contacts, closedMap, instance])
 
   // Realtime: nova mensagem
   useEffect(() => {
@@ -692,7 +734,7 @@ export default function CompanyConversations() {
             </div>
 
             <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {REASONS.map(r => (
+              {MANUAL_REASONS.map(r => (
                 <label key={r.value} style={{
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: '12px 16px', borderRadius: 8, cursor: 'pointer',
