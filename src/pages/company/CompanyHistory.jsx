@@ -27,6 +27,17 @@ function getTimestamp(row) { return row.data || row['horaLastMessage'] || row.cr
 
 const INJECTED_PROMPT_RE = /responda em portugu[eê]s|de forma objetiva|solicite\s|n[aã]o informar|indicar que|apresentaremos|breve explica[çc][aã]o|orienta[çc][õo]es gerais|avalia[çc][aã]o pr[eé]-operat/i
 
+function detectMedia(b64) {
+  if (!b64 || b64.length < 10) return null
+  if (b64.startsWith('T2dn')) return { type: 'audio', mime: 'audio/ogg' }
+  if (b64.startsWith('//uQ') || b64.startsWith('SUQz')) return { type: 'audio', mime: 'audio/mpeg' }
+  if (b64.startsWith('/9j/')) return { type: 'image', mime: 'image/jpeg' }
+  if (b64.startsWith('iVBOR')) return { type: 'image', mime: 'image/png' }
+  if (b64.startsWith('UklGR')) return { type: 'image', mime: 'image/webp' }
+  if (b64.startsWith('R0lGOD')) return { type: 'image', mime: 'image/gif' }
+  return null
+}
+
 function isToolMessage(row) {
   const type = getMessageType(row)
   const content = row.message?.content || row.mensagem || ''
@@ -184,6 +195,7 @@ export default function CompanyHistory() {
             id: row.id,
             type: getMessageType(row),
             content: getMessageContent(row),
+            base64: row.base64 || null,
             ts: getTimestamp(row),
           })))
         }
@@ -238,6 +250,7 @@ export default function CompanyHistory() {
                 id: row.id,
                 type: getMessageType(row),
                 content: getMessageContent(row),
+                base64: row.base64 || null,
                 ts,
               },
             ])
@@ -424,17 +437,28 @@ export default function CompanyHistory() {
                     </div>
                     <div className={`msg-row ${isHuman ? 'ai' : 'client'}`}>
                       <div className="msg-bubble">
-                        {isImage && (
+                        {(() => {
+                          const media = detectMedia(msg.base64)
+                          if (!media) return null
+                          const src = `data:${media.mime};base64,${msg.base64}`
+                          if (media.type === 'audio') return (
+                            <audio controls src={src} style={{ width: '100%', maxWidth: 260, display: 'block', marginBottom: 6 }} />
+                          )
+                          if (media.type === 'image') return (
+                            <img src={src} alt="mídia" style={{ maxWidth: 240, borderRadius: 8, display: 'block', marginBottom: 6, cursor: 'pointer' }}
+                              onClick={() => window.open(src, '_blank')} />
+                          )
+                          return null
+                        })()}
+                        {isImage && !msg.base64 && (
                           <div style={{
                             display: 'inline-flex', alignItems: 'center', gap: 5,
                             fontSize: 11, fontWeight: 600, color: '#6B7280',
                             background: '#F3F4F6', border: '1px solid #E5E7EB',
                             borderRadius: 6, padding: '2px 8px', marginBottom: 6,
-                          }}>
-                            🖼️ Imagem enviada
-                          </div>
+                          }}>🖼️ Imagem enviada</div>
                         )}
-                        <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
+                        {msg.content && <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>}
                       </div>
                     </div>
                     {msg.ts && (
