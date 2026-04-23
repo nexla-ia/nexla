@@ -163,6 +163,7 @@ export default function CompanyConversations() {
           for (const row of data) {
             const sid = row.numero
             if (!sid || seen.has(sid)) continue
+            if (sid.includes('@g.us')) continue  // ignora grupos do WhatsApp
             seen.add(sid)
             unique.push({ session_id: sid, phone: formatPhone(sid), lastTs: getTimestamp(row) })
           }
@@ -231,7 +232,7 @@ export default function CompanyConversations() {
           const row = p.new
           if (!row || isToolMessage(row)) return
           const sid = row.numero
-          if (!sid) return
+          if (!sid || sid.includes('@g.us')) return
           const ts = getTimestamp(row)
 
           // Reabre ticket encerrado: remove do closed e limpa attendance
