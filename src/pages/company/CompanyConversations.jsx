@@ -113,6 +113,7 @@ export default function CompanyConversations() {
   const [msgText, setMsgText]         = useState('')
   const [sending, setSending]         = useState(false)
   const [closedLoaded, setClosedLoaded] = useState(false)
+  const [lightbox, setLightbox]       = useState(null)
   const bottomRef    = useRef(null)
   const selectedRef  = useRef(null)
   const autoCloseDone = useRef(false)
@@ -647,8 +648,8 @@ export default function CompanyConversations() {
                             <audio controls src={src} style={{ width: '100%', maxWidth: 260, display: 'block', marginBottom: 6 }} />
                           )
                           if (media.type === 'image') return (
-                            <img src={src} alt="mídia" style={{ maxWidth: 240, borderRadius: 8, display: 'block', marginBottom: 6, cursor: 'pointer' }}
-                              onClick={() => window.open(src, '_blank')} />
+                            <img src={src} alt="mídia" style={{ maxWidth: 280, width: '100%', borderRadius: 8, display: 'block', marginBottom: 6, cursor: 'zoom-in' }}
+                              onClick={() => setLightbox(src)} />
                           )
                           return null
                         })()}
@@ -726,6 +727,15 @@ export default function CompanyConversations() {
           </>
         )}
       </div>
+
+      {lightbox && createPortal(
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, cursor: 'zoom-out' }}
+          onClick={() => setLightbox(null)}
+        >
+          <img src={lightbox} alt="mídia" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 10, boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }} />
+        </div>
+      , document.body)}
 
       {toast && createPortal(
         <div style={{
