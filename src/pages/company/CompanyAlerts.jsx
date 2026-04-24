@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { BellRing, CheckCircle2, Clock, MessageCircle, Forward, X } from 'lucide-react'
+import { BellRing, CheckCircle2, Clock, MessageCircle, Forward, X, Copy, User, Phone } from 'lucide-react'
 import './Company.css'
 
 let _audioCtx = null
@@ -73,6 +73,15 @@ export default function CompanyAlerts() {
   const [forwardAlert, setForwardAlert] = useState(null)
   const [forwardTarget, setForwardTarget] = useState('')
   const [forwarding, setForwarding] = useState(false)
+  const [copiedId, setCopiedId] = useState(null)
+
+  function copyNumber(id, num) {
+    const clean = (num || '').replace(/@.*$/, '').replace(/\D/g, '')
+    navigator.clipboard.writeText(clean).then(() => {
+      setCopiedId(id)
+      setTimeout(() => setCopiedId(null), 1800)
+    })
+  }
 
   function enableAudio() {
     try {
@@ -296,6 +305,43 @@ export default function CompanyAlerts() {
                     ? `Encaminhado para você por ${alert.forwarded_by_name}`
                     : `Encaminhado para ${alert.forwarded_to_name}`
                   }
+                </div>
+              )}
+
+              {(alert.nome || alert.numero) && (
+                <div style={{
+                  display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8,
+                  background: '#F8FAFC', border: '1px solid var(--border)',
+                  borderRadius: 8, padding: '6px 10px', marginBottom: 8,
+                  fontSize: 12,
+                }}>
+                  {alert.nome && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--text-primary)', fontWeight: 600 }}>
+                      <User size={12} style={{ color: '#6B7280' }} />
+                      {alert.nome}
+                    </span>
+                  )}
+                  {alert.numero && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--text-primary)', fontFamily: 'monospace' }}>
+                      <Phone size={12} style={{ color: '#6B7280' }} />
+                      {alert.numero.replace(/@.*$/, '')}
+                      <button
+                        onClick={() => copyNumber(alert.id, alert.numero)}
+                        title="Copiar número"
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 3,
+                          background: copiedId === alert.id ? '#F0FDF4' : 'transparent',
+                          border: `1px solid ${copiedId === alert.id ? '#BBF7D0' : 'var(--border)'}`,
+                          color: copiedId === alert.id ? '#16A34A' : '#6B7280',
+                          borderRadius: 6, padding: '2px 7px', fontSize: 11, fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Copy size={10} />
+                        {copiedId === alert.id ? 'Copiado' : 'Copiar'}
+                      </button>
+                    </span>
+                  )}
                 </div>
               )}
 
