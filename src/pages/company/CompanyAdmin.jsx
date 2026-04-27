@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { Plus, X, UserMinus, RefreshCw, UserCheck, UserX } from 'lucide-react'
+import { Plus, X, UserMinus, RefreshCw, UserCheck, UserX, Pencil } from 'lucide-react'
 import './Company.css'
 
 const SECTOR_COLORS = ['#2563EB', '#16A34A', '#7C3AED', '#DC2626', '#D97706', '#0891B2']
@@ -42,6 +42,9 @@ export default function CompanyAdmin() {
   const [userModal, setUserModal]       = useState(false)
   const [userForm, setUserForm]         = useState({ name: '', email: '', password: '', role: 'viewer' })
   const [userErr, setUserErr]           = useState('')
+  const [editUserModal, setEditUserModal] = useState(null) // user being edited
+  const [editUserForm, setEditUserForm] = useState({ name: '', email: '', password: '', role: 'viewer' })
+  const [editUserErr, setEditUserErr]   = useState('')
 
   useEffect(() => {
     if (!companyId) return
@@ -97,6 +100,36 @@ export default function CompanyAdmin() {
   async function handleToggleUser(userId, active) {
     await supabase.from('users').update({ active: !active }).eq('id', userId)
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, active: !active } : u))
+  }
+
+  function openEditUser(user) {
+    setEditUserForm({ name: user.name, email: user.email, password: '', role: user.role })
+    setEditUserErr('')
+    setEditUserModal(user)
+  }
+
+  async function handleEditUser() {
+    if (!editUserForm.name || !editUserForm.email) { setEditUserErr('Nome e e-mail são obrigatórios.'); return }
+    setSaving(true)
+    const { error } = await supabase.from('users').update({
+      name: editUserForm.name,
+      email: editUserForm.email,
+      role: editUserForm.role,
+    }).eq('id', editUserModal.id)
+    if (error) { setSaving(false); setEditUserErr(error.message); return }
+
+    if (editUserForm.password?.trim()) {
+      const { error: pwErr } = await supabase.rpc('update_user_password', {
+        p_user_id: editUserModal.id,
+        p_password: editUserForm.password,
+      })
+      if (pwErr) { setSaving(false); setEditUserErr('Erro ao atualizar senha: ' + pwErr.message); return }
+    }
+    setSaving(false)
+    setUsers(prev => prev.map(u => u.id === editUserModal.id
+      ? { ...u, name: editUserForm.name, email: editUserForm.email, role: editUserForm.role }
+      : u))
+    setEditUserModal(null)
   }
 
   async function handleCreateUser() {
@@ -259,10 +292,15 @@ export default function CompanyAdmin() {
                         </span>
                       </td>
                       <td>
-                        <button className={`table-action ${u.active !== false ? 'danger' : ''}`}
-                          onClick={() => handleToggleUser(u.id, u.active !== false)}>
-                          {u.active !== false ? <><UserX size={12} /> Desativar</> : <><UserCheck size={12} /> Ativar</>}
-                        </button>
+                        <div style={{ display: 'inline-flex', gap: 6 }}>
+                          <button className="table-action" onClick={() => openEditUser(u)}>
+                            <Pencil size={12} /> Editar
+                          </button>
+                          <button className={`table-action ${u.active !== false ? 'danger' : ''}`}
+                            onClick={() => handleToggleUser(u.id, u.active !== false)}>
+                            {u.active !== false ? <><UserX size={12} /> Desativar</> : <><UserCheck size={12} /> Ativar</>}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -356,6 +394,62 @@ export default function CompanyAdmin() {
             </div>
             <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
               <button className="nx-btn-ghost" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setAssignModal(null)}>Fechar</button>
+            </div>
+          </div>
+        </div>
+      , document.body)}
+
+      {/* Modal editar usuário */}
+      {editUserModal && createPortal(
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(4px)', padding: '1.5rem' }}>
+          <div className="nx-card" style={{ width: '100%', maxWidth: 440 }}>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>Editar usuário</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{editUserModal.name}</div>
+              </div>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setEditUserModal(null)}><X size={16} /></button>
+            </div>
+            <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={labelStyle}>Nome</label>
+                <input className="nx-input" autoFocus value={editUserForm.name}
+                  onChange={e => setEditUserForm(p => ({ ...p, name: e.target.value }))} />
+              </div>
+              <div>
+                <label style={labelStyle}>E-mail</label>
+                <input className="nx-input" type="email" value={editUserForm.email}
+                  onChange={e => setEditUserForm(p => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div>
+                <label style={labelStyle}>Nova senha <span style={{ fontWeight: 400, textTransform: 'none' }}>(deixe em branco para não alterar)</span></label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input className="nx-input" placeholder="Nova senha..."
+                    value={editUserForm.password}
+                    onChange={e => setEditUserForm(p => ({ ...p, password: e.target.value }))} />
+                  <button type="button" className="nx-btn-ghost" style={{ flexShrink: 0, padding: '0 12px' }}
+                    onClick={() => setEditUserForm(p => ({ ...p, password: generatePassword(p.name || 'user') }))}>
+                    <RefreshCw size={13} />
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Perfil de acesso</label>
+                <select className="nx-select" value={editUserForm.role}
+                  onChange={e => setEditUserForm(p => ({ ...p, role: e.target.value }))}>
+                  <option value="viewer">Operador — acesso ao painel de conversas</option>
+                  <option value="admin">Admin — acesso completo + configurações</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
+              {editUserErr && <div style={{ color: '#DC2626', fontSize: 12, marginBottom: 10 }}>{editUserErr}</div>}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="nx-btn-ghost" style={{ flex: 1 }} onClick={() => setEditUserModal(null)}>Cancelar</button>
+                <button className="nx-btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={handleEditUser} disabled={saving}>
+                  {saving ? 'Salvando...' : 'Salvar alterações'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
