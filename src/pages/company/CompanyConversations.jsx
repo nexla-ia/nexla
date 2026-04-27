@@ -452,12 +452,14 @@ export default function CompanyConversations() {
         : file
           ? (text || (file.kind === 'image' ? '🖼️ ' + file.name : file.kind === 'pdf' ? '📄 ' + file.name : '📎 ' + file.name))
           : text
+      const mediaBase64 = audio?.base64 || file?.base64 || null
       const { error: insErr } = await supabase.rpc('send_mensagem_geral', {
         p_instancia: instance,
         p_numero: selected.session_id,
         p_mensagem: mensagemPayload,
         p_type: 'atendente',
         p_hora: new Date().toISOString(),
+        p_base64: mediaBase64,
       })
       if (insErr) console.error('send_mensagem_geral:', insErr)
 
