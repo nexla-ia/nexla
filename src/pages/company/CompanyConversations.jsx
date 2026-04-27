@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon } from 'lucide-react'
@@ -92,6 +93,7 @@ const MANUAL_REASONS = REASONS.filter(r => r.value !== 'auto_encerrado')
 
 export default function CompanyConversations() {
   const { session } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const instance     = session?.company?.instance
   const apiInstancia = session?.company?.api_instancia
 
@@ -158,6 +160,29 @@ export default function CompanyConversations() {
       .subscribe()
     return () => supabase.removeChannel(ch)
   }, [instance])
+
+  // Abre conversa via ?contact=xxxx (vindo da página Contatos)
+  useEffect(() => {
+    const target = searchParams.get('contact')
+    if (!target || loadingContacts) return
+    const cleanTarget = target.replace(/\D/g, '')
+    const sessionId = `${cleanTarget}@s.whatsapp.net`
+    const existing = contacts.find(c => c.session_id === sessionId || c.phone === cleanTarget)
+    if (existing) {
+      setSelected(existing)
+      // Se está finalizada, força aba certa para visualizar
+      if (closedMap[existing.session_id]) setTab('finalizados')
+      else if (attendancesMap[existing.session_id]) setTab('meu-setor')
+      else setTab('recepcao')
+    } else {
+      const synthetic = { session_id: sessionId, phone: cleanTarget, lastTs: null }
+      setContacts(prev => [synthetic, ...prev])
+      setSelected(synthetic)
+      setTab('recepcao')
+    }
+    searchParams.delete('contact')
+    setSearchParams(searchParams, { replace: true })
+  }, [searchParams, loadingContacts])
 
   // Fecha menu de contexto ao clicar fora
   useEffect(() => {

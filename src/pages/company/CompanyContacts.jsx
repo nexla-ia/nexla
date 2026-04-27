@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { Contact2, Search, Pencil, Trash2, X, Plus, Phone, Copy, Check } from 'lucide-react'
+import { Contact2, Search, Pencil, Trash2, X, Plus, Phone, Copy, Check, MessageSquare } from 'lucide-react'
 import './Company.css'
 
 export default function CompanyContacts() {
   const { session } = useAuth()
   const instance = session?.company?.instance
+  const navigate = useNavigate()
 
   const [contacts, setContacts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -174,6 +176,11 @@ export default function CompanyContacts() {
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'inline-flex', gap: 6 }}>
+                      <button className="table-action"
+                        style={{ background: '#16A34A', color: '#fff', border: 'none' }}
+                        onClick={() => navigate(`/painel/conversas?contact=${c.numero}`)}>
+                        <MessageSquare size={11} /> Conversar
+                      </button>
                       <button className="table-action" onClick={() => openEdit(c)}>
                         <Pencil size={11} /> Editar
                       </button>
