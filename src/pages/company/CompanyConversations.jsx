@@ -35,10 +35,12 @@ function detectMedia(b64) {
   if (!b64 || b64.length < 10) return null
   if (b64.startsWith('T2dn')) return { type: 'audio', mime: 'audio/ogg' }
   if (b64.startsWith('//uQ') || b64.startsWith('SUQz')) return { type: 'audio', mime: 'audio/mpeg' }
+  if (b64.startsWith('GkXf')) return { type: 'audio', mime: 'audio/webm' }
   if (b64.startsWith('/9j/')) return { type: 'image', mime: 'image/jpeg' }
   if (b64.startsWith('iVBOR')) return { type: 'image', mime: 'image/png' }
   if (b64.startsWith('UklGR')) return { type: 'image', mime: 'image/webp' }
   if (b64.startsWith('R0lGOD')) return { type: 'image', mime: 'image/gif' }
+  if (b64.startsWith('JVBERi')) return { type: 'pdf', mime: 'application/pdf' }
   return null
 }
 
@@ -367,19 +369,9 @@ export default function CompanyConversations() {
           ? 'audio/ogg;codecs=opus'
           : 'audio/webm'
       const mr = new MediaRecorder(stream, { mimeType })
+      mr._stream = stream
       audioChunksRef.current = []
       mr.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
-      mr.onstop = async () => {
-        const blob = new Blob(audioChunksRef.current, { type: mimeType })
-        const buf = await blob.arrayBuffer()
-        const bytes = new Uint8Array(buf)
-        let bin = ''
-        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i])
-        const base64 = btoa(bin)
-        const duration = Math.floor((Date.now() - recordStartRef.current) / 1000)
-        setRecordedAudio({ base64, mime: mimeType, duration })
-        stream.getTracks().forEach(t => t.stop())
-      }
       mediaRecorderRef.current = mr
       recordStartRef.current = Date.now()
       mr.start()
@@ -395,11 +387,28 @@ export default function CompanyConversations() {
     }
   }
 
-  function stopRecording() {
-    if (!recording) return
-    mediaRecorderRef.current?.stop()
-    if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null }
-    setRecording(false)
+  function stopRecording({ persistPreview = true } = {}) {
+    return new Promise(resolve => {
+      const mr = mediaRecorderRef.current
+      if (!mr) return resolve(null)
+      mr.onstop = async () => {
+        const mimeType = mr.mimeType
+        const blob = new Blob(audioChunksRef.current, { type: mimeType })
+        const buf = await blob.arrayBuffer()
+        const bytes = new Uint8Array(buf)
+        let bin = ''
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i])
+        const base64 = btoa(bin)
+        const duration = Math.floor((Date.now() - recordStartRef.current) / 1000)
+        const audioData = { base64, mime: mimeType, duration }
+        if (persistPreview) setRecordedAudio(audioData)
+        mr._stream?.getTracks().forEach(t => t.stop())
+        resolve(audioData)
+      }
+      mr.stop()
+      if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null }
+      setRecording(false)
+    })
   }
 
   function discardAudio() {
@@ -436,11 +445,15 @@ export default function CompanyConversations() {
   }
 
   async function handleSend() {
-    if ((!msgText.trim() && !recordedAudio && !attachedFile) || !selected || sending) return
+    if (sending || !selected) return
+    let audio = recordedAudio
+    if (recording) {
+      audio = await stopRecording({ persistPreview: false })
+    }
+    if (!msgText.trim() && !audio && !attachedFile) return
     setSending(true)
     try {
       const text = msgText.trim()
-      const audio = recordedAudio
       const file = attachedFile
       setMsgText('')
       setRecordedAudio(null)
@@ -853,7 +866,7 @@ export default function CompanyConversations() {
                   }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#DC2626', animation: 'pulse-dot 1.2s infinite' }} />
                     Gravando... {String(Math.floor(recordTime / 60)).padStart(2, '0')}:{String(recordTime % 60).padStart(2, '0')}
-                    <button onClick={stopRecording} style={{
+                    <button onClick={() => stopRecording()} style={{
                       marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5,
                       background: '#DC2626', color: '#fff', border: 'none',
                       borderRadius: 6, padding: '5px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer',
@@ -915,7 +928,7 @@ export default function CompanyConversations() {
                     className="nx-btn-primary"
                     style={{ padding: '0 16px', flexShrink: 0 }}
                     onClick={handleSend}
-                    disabled={(!msgText.trim() && !recordedAudio && !attachedFile) || sending || recording}
+                    disabled={(!msgText.trim() && !recordedAudio && !attachedFile && !recording) || sending}
                   >
                     <Send size={14} />
                   </button>

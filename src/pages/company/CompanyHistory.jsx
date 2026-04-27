@@ -32,10 +32,12 @@ function detectMedia(b64) {
   if (!b64 || b64.length < 10) return null
   if (b64.startsWith('T2dn')) return { type: 'audio', mime: 'audio/ogg' }
   if (b64.startsWith('//uQ') || b64.startsWith('SUQz')) return { type: 'audio', mime: 'audio/mpeg' }
+  if (b64.startsWith('GkXf')) return { type: 'audio', mime: 'audio/webm' }
   if (b64.startsWith('/9j/')) return { type: 'image', mime: 'image/jpeg' }
   if (b64.startsWith('iVBOR')) return { type: 'image', mime: 'image/png' }
   if (b64.startsWith('UklGR')) return { type: 'image', mime: 'image/webp' }
   if (b64.startsWith('R0lGOD')) return { type: 'image', mime: 'image/gif' }
+  if (b64.startsWith('JVBERi')) return { type: 'pdf', mime: 'application/pdf' }
   return null
 }
 
