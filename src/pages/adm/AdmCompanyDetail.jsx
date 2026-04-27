@@ -92,6 +92,7 @@ export default function AdmCompanyDetail() {
       contactsTable: company.contacts_table || '',
       maxUsers: company.max_users ?? 5,
       digisacUrl: company.digisac_url || '',
+      aiEnabled: company.ai_enabled !== false,
     })
     setCompanyErr('')
     setCompanyModal(true)
@@ -111,6 +112,7 @@ export default function AdmCompanyDetail() {
       contacts_table: companyForm.contactsTable || null,
       max_users: parseInt(companyForm.maxUsers) || 5,
       digisac_url: companyForm.digisacUrl?.trim() || null,
+      ai_enabled: !!companyForm.aiEnabled,
     }).eq('id', company.id)
     setSaving(false)
     if (error) { setCompanyErr('Erro ao salvar: ' + error.message); return }
@@ -508,6 +510,28 @@ export default function AdmCompanyDetail() {
                 <label style={labelStyle}>URL Digisac <span style={{ fontWeight: 400, textTransform: 'none' }}>(deixe vazio se não usa)</span></label>
                 <input className="nx-input" placeholder="Ex: https://suaempresa.digisac.com.br" value={companyForm.digisacUrl}
                   onChange={e => setCompanyForm(p => ({ ...p, digisacUrl: e.target.value }))} />
+              </div>
+              <div>
+                <label style={labelStyle}>Atendimento por IA</label>
+                <label style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
+                  border: `1.5px solid ${companyForm.aiEnabled ? '#BFDBFE' : 'var(--border)'}`,
+                  background: companyForm.aiEnabled ? '#EFF6FF' : 'var(--bg-surface)',
+                  transition: 'all 0.15s',
+                }}>
+                  <input type="checkbox" checked={!!companyForm.aiEnabled}
+                    onChange={e => setCompanyForm(p => ({ ...p, aiEnabled: e.target.checked }))}
+                    style={{ width: 16, height: 16 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: companyForm.aiEnabled ? '#1E40AF' : 'var(--text-primary)' }}>
+                      {companyForm.aiEnabled ? 'IA ativa — responde automaticamente' : 'IA desativada — apenas atendimento humano'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                      Quando desativada, todas as mensagens do cliente vão direto para a Recepção.
+                    </div>
+                  </div>
+                </label>
               </div>
             </div>
             <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>

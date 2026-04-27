@@ -585,6 +585,7 @@ export default function CompanyConversations() {
           phone: selected.phone,
           instancia: instance,
           api_instancia: apiInstancia,
+          ai_enabled: session?.company?.ai_enabled !== false,
           company: session?.company?.name,
           sender_name: session?.user?.name,
           sender_email: session?.user?.email,
