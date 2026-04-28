@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import LoginPage from './pages/LoginPage'
+import Landing from './pages/Landing'
 import AdmLayout from './pages/adm/AdmLayout'
 import AdmDashboard from './pages/adm/AdmDashboard'
 import AdmCompanies from './pages/adm/AdmCompanies'
@@ -33,9 +34,7 @@ function PrivateCompany({ children }) {
 }
 
 function RootRedirect() {
-  const { session } = useAuth()
-  if (!session) return <Navigate to="/login" replace />
-  return session.role === 'adm' ? <Navigate to="/adm" replace /> : <Navigate to="/painel" replace />
+  return <Landing />
 }
 
 export default function App() {

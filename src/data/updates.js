@@ -5,6 +5,22 @@
 export const UPDATES = [
   {
     date: '2026-04-28',
+    title: 'Landing page comercial',
+    type: 'feature',
+    tags: ['Geral', 'Marketing'],
+    items: [
+      'Tela inicial agora é uma landing page comercial editorial focada no segmento de saúde',
+      'Hero com título serif, mockup interativo do dashboard e indicadores de confiança (LGPD, uptime, setup)',
+      'Marquee infinito com segmentos atendidos (Cardiologia, Odontologia, Estética, etc.)',
+      'Stats de impacto: 3.2x mais agendamentos, 68% redução de tempo, IA 24/7',
+      'Seção de recursos com card destaque e tags por canal',
+      'Como funciona em 3 passos com estética cream/dark',
+      'Depoimento em destaque, planos (Starter / Pro / Business) e CTA final',
+      'Aesthetic editorial-medical: tipografia Instrument Serif + Onest, paleta deep navy + verde médico + cream',
+    ],
+  },
+  {
+    date: '2026-04-28',
     title: 'Horário de intervalo no profissional',
     type: 'improvement',
     tags: ['Catálogo', 'Agenda'],
