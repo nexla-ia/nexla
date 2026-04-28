@@ -463,6 +463,26 @@ function PricingCard({ name, price, tagline, features, cta, featured, badge, cus
 }
 
 function DashboardMock() {
+  const [view, setView] = useState('conversas')
+
+  const VIEWS = [
+    { key: 'conversas',  icon: MessageSquare, label: 'Conversas' },
+    { key: 'agenda',     icon: Calendar,      label: 'Agenda' },
+    { key: 'metricas',   icon: BarChart3,     label: 'Métricas' },
+    { key: 'catalogo',   icon: Stethoscope,   label: 'Catálogo' },
+    { key: 'equipe',     icon: Users,         label: 'Equipe' },
+  ]
+
+  const FLOATING = {
+    conversas: { left: { icon: Zap, label: 'Tempo médio:', value: '2min 14s' }, right: { icon: TrendingUp, label: 'Conversão:', value: '+47%', green: true } },
+    agenda:    { left: { icon: Calendar, label: 'Hoje:', value: '14 consultas' }, right: { icon: TrendingUp, label: 'Ocupação:', value: '92%', green: true } },
+    metricas:  { left: { icon: TrendingUp, label: 'Faturado:', value: 'R$ 38,4k' }, right: { icon: Sparkles, label: 'Ticket médio:', value: 'R$ 280', green: true } },
+    catalogo:  { left: { icon: Stethoscope, label: 'Profissionais:', value: '8 ativos' }, right: { icon: Activity, label: 'Procedimentos:', value: '47', green: true } },
+    equipe:    { left: { icon: Headset, label: 'Online agora:', value: '5 atendentes' }, right: { icon: Sparkles, label: 'Resp. média:', value: '1min 22s', green: true } },
+  }
+
+  const float = FLOATING[view]
+
   return (
     <div className="lp-mock">
       <div className="lp-mock-glow" />
@@ -471,79 +491,270 @@ function DashboardMock() {
           <div className="lp-mock-dots">
             <span /><span /><span />
           </div>
-          <div className="lp-mock-url">app.medicinamkt.com</div>
+          <div className="lp-mock-url">app.medicinamkt.com / {view}</div>
         </div>
         <div className="lp-mock-body">
           <div className="lp-mock-side">
             <div className="lp-mock-logo">M</div>
-            <div className="lp-mock-nav-item active"><MessageSquare size={11} /></div>
-            <div className="lp-mock-nav-item"><Calendar size={11} /></div>
-            <div className="lp-mock-nav-item"><BarChart3 size={11} /></div>
-            <div className="lp-mock-nav-item"><Stethoscope size={11} /></div>
-            <div className="lp-mock-nav-item"><Users size={11} /></div>
+            {VIEWS.map(v => (
+              <button
+                key={v.key}
+                onClick={() => setView(v.key)}
+                title={v.label}
+                className={`lp-mock-nav-item ${view === v.key ? 'active' : ''}`}
+              >
+                <v.icon size={11} />
+              </button>
+            ))}
           </div>
-          <div className="lp-mock-list">
-            <div className="lp-mock-list-header">Conversas <span>14</span></div>
-            <div className="lp-mock-msg">
-              <div className="lp-mock-avatar" style={{ background: '#FEF3C7' }}>M</div>
-              <div className="lp-mock-msg-content">
-                <div className="lp-mock-msg-name">Maria Silva</div>
-                <div className="lp-mock-msg-text">Quero marcar uma consulta...</div>
-              </div>
-              <div className="lp-mock-tag">📅</div>
-            </div>
-            <div className="lp-mock-msg active">
-              <div className="lp-mock-avatar" style={{ background: '#DBEAFE' }}>R</div>
-              <div className="lp-mock-msg-content">
-                <div className="lp-mock-msg-name">Roberto Alves</div>
-                <div className="lp-mock-msg-text">Tem horário sexta?</div>
-              </div>
-              <div className="lp-mock-tag green">✓</div>
-            </div>
-            <div className="lp-mock-msg">
-              <div className="lp-mock-avatar" style={{ background: '#FCE7F3' }}>P</div>
-              <div className="lp-mock-msg-content">
-                <div className="lp-mock-msg-name">Patrícia Souza</div>
-                <div className="lp-mock-msg-text">Obrigada! Até amanhã.</div>
-              </div>
-            </div>
-            <div className="lp-mock-msg">
-              <div className="lp-mock-avatar" style={{ background: '#D1FAE5' }}>F</div>
-              <div className="lp-mock-msg-content">
-                <div className="lp-mock-msg-name">Fernando R.</div>
-                <div className="lp-mock-msg-text">Confirmado às 14h</div>
-              </div>
-            </div>
-          </div>
-          <div className="lp-mock-chat">
-            <div className="lp-mock-chat-header">
-              <div>
-                <div className="lp-mock-chat-name">Roberto Alves</div>
-                <div className="lp-mock-chat-meta">Recepção · sob atendimento da IA</div>
-              </div>
-            </div>
-            <div className="lp-mock-bubble client">Tem horário sexta de manhã?</div>
-            <div className="lp-mock-bubble ai">
-              <div className="lp-mock-bubble-tag"><Sparkles size={9} /> IA</div>
-              Tenho terça e quinta às 9h ou 10h. Qual prefere?
-            </div>
-            <div className="lp-mock-bubble client small">Quinta às 10h</div>
-            <div className="lp-mock-bubble ai">
-              <div className="lp-mock-bubble-tag"><Sparkles size={9} /> IA</div>
-              ✅ Agendado! Quinta 28/04 às 10h com Dra. Camila
-            </div>
+
+          <div className="lp-mock-scene" key={view}>
+            {view === 'conversas'  && <SceneConversas />}
+            {view === 'agenda'     && <SceneAgenda />}
+            {view === 'metricas'   && <SceneMetricas />}
+            {view === 'catalogo'   && <SceneCatalogo />}
+            {view === 'equipe'     && <SceneEquipe />}
           </div>
         </div>
       </div>
-      <div className="lp-mock-floating">
+
+      <div className="lp-mock-floating" key={`fl-${view}`}>
         <div className="lp-mock-stat">
-          <Zap size={14} /> Tempo médio: <strong>2min 14s</strong>
+          <float.left.icon size={14} /> {float.left.label} <strong>{float.left.value}</strong>
         </div>
       </div>
-      <div className="lp-mock-floating-2">
-        <div className="lp-mock-stat green">
-          <TrendingUp size={14} /> Conversão: <strong>+47%</strong>
+      <div className="lp-mock-floating-2" key={`fr-${view}`}>
+        <div className={`lp-mock-stat ${float.right.green ? 'green' : ''}`}>
+          <float.right.icon size={14} /> {float.right.label} <strong>{float.right.value}</strong>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function SceneConversas() {
+  return (
+    <>
+      <div className="lp-mock-list">
+        <div className="lp-mock-list-header">Conversas <span>14</span></div>
+        <div className="lp-mock-msg">
+          <div className="lp-mock-avatar" style={{ background: '#FEF3C7' }}>M</div>
+          <div className="lp-mock-msg-content">
+            <div className="lp-mock-msg-name">Maria Silva</div>
+            <div className="lp-mock-msg-text">Quero marcar uma consulta...</div>
+          </div>
+          <div className="lp-mock-tag">📅</div>
+        </div>
+        <div className="lp-mock-msg active">
+          <div className="lp-mock-avatar" style={{ background: '#DBEAFE' }}>R</div>
+          <div className="lp-mock-msg-content">
+            <div className="lp-mock-msg-name">Roberto Alves</div>
+            <div className="lp-mock-msg-text">Tem horário sexta?</div>
+          </div>
+          <div className="lp-mock-tag green">✓</div>
+        </div>
+        <div className="lp-mock-msg">
+          <div className="lp-mock-avatar" style={{ background: '#FCE7F3' }}>P</div>
+          <div className="lp-mock-msg-content">
+            <div className="lp-mock-msg-name">Patrícia Souza</div>
+            <div className="lp-mock-msg-text">Obrigada! Até amanhã.</div>
+          </div>
+        </div>
+        <div className="lp-mock-msg">
+          <div className="lp-mock-avatar" style={{ background: '#D1FAE5' }}>F</div>
+          <div className="lp-mock-msg-content">
+            <div className="lp-mock-msg-name">Fernando R.</div>
+            <div className="lp-mock-msg-text">Confirmado às 14h</div>
+          </div>
+        </div>
+      </div>
+      <div className="lp-mock-chat">
+        <div className="lp-mock-chat-header">
+          <div>
+            <div className="lp-mock-chat-name">Roberto Alves</div>
+            <div className="lp-mock-chat-meta">Recepção · sob atendimento da IA</div>
+          </div>
+        </div>
+        <div className="lp-mock-bubble client">Tem horário sexta de manhã?</div>
+        <div className="lp-mock-bubble ai">
+          <div className="lp-mock-bubble-tag"><Sparkles size={9} /> IA</div>
+          Tenho terça e quinta às 9h ou 10h. Qual prefere?
+        </div>
+        <div className="lp-mock-bubble client small">Quinta às 10h</div>
+        <div className="lp-mock-bubble ai">
+          <div className="lp-mock-bubble-tag"><Sparkles size={9} /> IA</div>
+          ✅ Agendado! Quinta 28/04 às 10h com Dra. Camila
+        </div>
+      </div>
+    </>
+  )
+}
+
+function SceneAgenda() {
+  const days = ['Seg 27', 'Ter 28', 'Qua 29', 'Qui 30', 'Sex 01']
+  const slots = ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00', '16:00']
+  const appts = {
+    '09:00-1': { name: 'Maria S.', color: '#FCD34D' },
+    '10:00-2': { name: 'Roberto A.', color: '#4ADE80' },
+    '11:00-0': { name: 'Patrícia', color: '#A78BFA' },
+    '14:00-3': { name: 'Fernando', color: '#F472B6' },
+    '15:00-1': { name: 'Camila N.', color: '#22D3EE' },
+    '16:00-4': { name: 'Lucas M.', color: '#FB923C' },
+    '08:00-2': { name: 'Júlia P.', color: '#4ADE80' },
+  }
+  return (
+    <div className="lp-scene-agenda">
+      <div className="lp-scene-header">
+        <div>
+          <div className="lp-scene-title">Agenda da semana</div>
+          <div className="lp-scene-sub">Dra. Camila · Cardiologia</div>
+        </div>
+        <div className="lp-scene-pill">Hoje</div>
+      </div>
+      <div className="lp-cal">
+        <div className="lp-cal-row lp-cal-head">
+          <div />
+          {days.map(d => <div key={d} className={d === 'Ter 28' ? 'today' : ''}>{d}</div>)}
+        </div>
+        {slots.map(s => (
+          <div key={s} className="lp-cal-row">
+            <div className="lp-cal-time">{s}</div>
+            {[0, 1, 2, 3, 4].map(i => {
+              const a = appts[`${s}-${i}`]
+              return (
+                <div key={i} className="lp-cal-slot">
+                  {a && (
+                    <div className="lp-cal-appt" style={{ background: a.color }}>
+                      {a.name}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SceneMetricas() {
+  const bars = [
+    { label: 'Seg', value: 60, color: '#FCD34D' },
+    { label: 'Ter', value: 85, color: '#4ADE80' },
+    { label: 'Qua', value: 45, color: '#22D3EE' },
+    { label: 'Qui', value: 95, color: '#A78BFA' },
+    { label: 'Sex', value: 75, color: '#F472B6' },
+    { label: 'Sáb', value: 35, color: '#FB923C' },
+  ]
+  return (
+    <div className="lp-scene-metricas">
+      <div className="lp-scene-header">
+        <div>
+          <div className="lp-scene-title">Faturamento</div>
+          <div className="lp-scene-sub">Esta semana</div>
+        </div>
+        <div className="lp-scene-pill green">+24%</div>
+      </div>
+      <div className="lp-kpi-row">
+        <div className="lp-kpi-card" style={{ background: '#FEF3C7' }}>
+          <div className="lp-kpi-label">Faturado</div>
+          <div className="lp-kpi-value">R$ 38.4k</div>
+        </div>
+        <div className="lp-kpi-card" style={{ background: '#DCFCE7' }}>
+          <div className="lp-kpi-label">Concluídos</div>
+          <div className="lp-kpi-value">137</div>
+        </div>
+        <div className="lp-kpi-card" style={{ background: '#FCE7F3' }}>
+          <div className="lp-kpi-label">No-show</div>
+          <div className="lp-kpi-value">4%</div>
+        </div>
+      </div>
+      <div className="lp-bars">
+        {bars.map((b, i) => (
+          <div key={b.label} className="lp-bar-col">
+            <div className="lp-bar-track">
+              <div
+                className="lp-bar-fill"
+                style={{ height: `${b.value}%`, background: b.color, animationDelay: `${i * 0.06}s` }}
+              />
+            </div>
+            <div className="lp-bar-label">{b.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SceneCatalogo() {
+  const procs = [
+    { name: 'Consulta cardiológica', price: 'R$ 350', type: 'Consulta', color: '#A78BFA' },
+    { name: 'Eletrocardiograma',     price: 'R$ 180', type: 'Exame',    color: '#4ADE80' },
+    { name: 'Ecocardiograma',        price: 'R$ 420', type: 'Exame',    color: '#4ADE80' },
+    { name: 'Holter 24h',            price: 'R$ 580', type: 'Procedimento', color: '#FB923C' },
+    { name: 'Teste ergométrico',     price: 'R$ 320', type: 'Procedimento', color: '#FB923C' },
+  ]
+  return (
+    <div className="lp-scene-catalogo">
+      <div className="lp-scene-header">
+        <div>
+          <div className="lp-scene-title">Procedimentos</div>
+          <div className="lp-scene-sub">Catálogo da clínica</div>
+        </div>
+        <div className="lp-scene-pill">Cardiologia</div>
+      </div>
+      <div className="lp-proc-list">
+        {procs.map(p => (
+          <div key={p.name} className="lp-proc-row">
+            <div className="lp-proc-icon" style={{ background: `${p.color}33`, color: p.color }}>
+              <Stethoscope size={11} />
+            </div>
+            <div className="lp-proc-content">
+              <div className="lp-proc-name">{p.name}</div>
+              <div className="lp-proc-meta">
+                <span style={{ color: p.color, background: `${p.color}22`, padding: '1px 6px', borderRadius: 4, fontWeight: 700, fontSize: 8, textTransform: 'uppercase' }}>{p.type}</span>
+              </div>
+            </div>
+            <div className="lp-proc-price">{p.price}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SceneEquipe() {
+  const team = [
+    { name: 'Dra. Camila', role: 'Cardiologia',  status: 'online',  load: 4, color: '#A78BFA' },
+    { name: 'Dr. Lucas',   role: 'Pediatria',    status: 'online',  load: 6, color: '#4ADE80' },
+    { name: 'Dra. Bia',    role: 'Dermatologia', status: 'busy',    load: 8, color: '#F472B6' },
+    { name: 'Dr. Hugo',    role: 'Ortopedia',    status: 'online',  load: 3, color: '#FB923C' },
+    { name: 'Dra. Lara',   role: 'Endocrino',    status: 'offline', load: 0, color: '#94A3B8' },
+  ]
+  return (
+    <div className="lp-scene-equipe">
+      <div className="lp-scene-header">
+        <div>
+          <div className="lp-scene-title">Equipe</div>
+          <div className="lp-scene-sub">5 profissionais</div>
+        </div>
+        <div className="lp-scene-pill green">4 online</div>
+      </div>
+      <div className="lp-team-list">
+        {team.map(t => (
+          <div key={t.name} className="lp-team-row">
+            <div className="lp-team-avatar" style={{ background: t.color }}>{t.name.split(' ')[1]?.[0] || t.name[0]}</div>
+            <div className="lp-team-content">
+              <div className="lp-team-name">{t.name}</div>
+              <div className="lp-team-role">{t.role}</div>
+            </div>
+            <div className={`lp-team-status ${t.status}`}>
+              {t.status === 'online' ? 'Online' : t.status === 'busy' ? 'Ocupado' : 'Offline'}
+            </div>
+            <div className="lp-team-load">{t.load} {t.load === 1 ? 'ticket' : 'tickets'}</div>
+          </div>
+        ))}
       </div>
     </div>
   )
