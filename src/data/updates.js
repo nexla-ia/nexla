@@ -5,6 +5,21 @@
 export const UPDATES = [
   {
     date: '2026-04-28',
+    title: 'Métricas reformuladas com 6 abas de análise',
+    type: 'feature',
+    tags: ['Métricas'],
+    items: [
+      'Nova estrutura por abas: Visão Geral, Atendimento, Equipe, Agenda, Leads e Atividades',
+      'Visão Geral: KPIs principais (tickets novos, ativos, finalizados, agendamentos hoje, alertas, atividades atrasadas) + volume diário de mensagens',
+      'Atendimento: tempo médio até primeiro atendimento, duração de ticket, taxa de atendimento humano, motivos de encerramento (gráfico donut), tipos de mensagem, mensagens por hora',
+      'Equipe: ranking de atendentes (com troféu pro top 1) e distribuição de atendimentos por setor',
+      'Agenda: KPIs de confirmação/no-show/cancelamento, distribuição por status, por agenda e por dia da semana',
+      'Atividades: total de cards, atrasados, urgentes, sem atribuição, distribuição por coluna, atendente e prioridade',
+      'Tudo respeitando o filtro de período (Hoje, Ontem, Semana, Mês, Todos)',
+    ],
+  },
+  {
+    date: '2026-04-28',
     title: 'Quadro de Atividades (Kanban)',
     type: 'feature',
     tags: ['Atividades', 'Novo'],
