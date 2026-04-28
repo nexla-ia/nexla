@@ -5,6 +5,18 @@
 export const UPDATES = [
   {
     date: '2026-04-28',
+    title: 'Horário de intervalo no profissional',
+    type: 'improvement',
+    tags: ['Catálogo', 'Agenda'],
+    items: [
+      'Cadastro do profissional ganhou campo opcional de intervalo (almoço/pausa)',
+      'Lista de profissionais mostra o intervalo destacado em laranja',
+      'Agendamentos dentro do intervalo do profissional são bloqueados com mensagem clara',
+      'Botão "Limpar" remove o intervalo configurado',
+    ],
+  },
+  {
+    date: '2026-04-28',
     title: 'Validação de horários e conflitos no agendamento',
     type: 'improvement',
     tags: ['Catálogo', 'Agenda'],

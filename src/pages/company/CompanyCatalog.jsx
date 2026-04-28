@@ -85,6 +85,8 @@ export default function CompanyCatalog() {
       working_days: [1, 2, 3, 4, 5],
       start_time: '08:00',
       end_time: '18:00',
+      break_start: '',
+      break_end: '',
     })
     setErr('')
   }
@@ -101,6 +103,8 @@ export default function CompanyCatalog() {
       working_days: proModal.working_days || [1, 2, 3, 4, 5],
       start_time: proModal.start_time || '08:00',
       end_time: proModal.end_time || '18:00',
+      break_start: proModal.break_start || null,
+      break_end: proModal.break_end || null,
       instancia: instance,
     }
     const { data, error } = proModal.id
@@ -270,6 +274,11 @@ export default function CompanyCatalog() {
                           <div>
                             <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{dayLabels}</div>
                             <div>{p.start_time?.slice(0, 5) || '08:00'} – {p.end_time?.slice(0, 5) || '18:00'}</div>
+                            {p.break_start && p.break_end && (
+                              <div style={{ fontSize: 10, color: '#D97706', marginTop: 1 }}>
+                                Intervalo: {p.break_start.slice(0, 5)} – {p.break_end.slice(0, 5)}
+                              </div>
+                            )}
                           </div>
                         ) : '—'}
                       </td>
@@ -441,6 +450,31 @@ export default function CompanyCatalog() {
                   value={proModal.end_time?.slice(0, 5) || '18:00'}
                   onChange={e => setProModal(p => ({ ...p, end_time: e.target.value }))} />
               </Field>
+            </div>
+            <div>
+              <label style={labelStyle}>Intervalo (almoço/pausa)</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10, alignItems: 'end' }}>
+                <Field label="Início do intervalo">
+                  <input className="nx-input" type="time"
+                    value={proModal.break_start?.slice(0, 5) || ''}
+                    onChange={e => setProModal(p => ({ ...p, break_start: e.target.value }))} />
+                </Field>
+                <Field label="Fim do intervalo">
+                  <input className="nx-input" type="time"
+                    value={proModal.break_end?.slice(0, 5) || ''}
+                    onChange={e => setProModal(p => ({ ...p, break_end: e.target.value }))} />
+                </Field>
+                {(proModal.break_start || proModal.break_end) && (
+                  <button onClick={() => setProModal(p => ({ ...p, break_start: '', break_end: '' }))}
+                    title="Remover intervalo"
+                    style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', borderRadius: 8, padding: '8px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                    Limpar
+                  </button>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                Deixe em branco se o profissional não tem intervalo fixo.
+              </div>
             </div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer' }}>
               <input type="checkbox" checked={proModal.active !== false} onChange={e => setProModal(p => ({ ...p, active: e.target.checked }))} style={{ width: 16, height: 16 }} />

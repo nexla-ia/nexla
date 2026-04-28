@@ -312,6 +312,15 @@ export default function CompanyAgenda() {
           setApptErr(`${pro.name} atende das ${pro.start_time?.slice(0,5)} às ${pro.end_time?.slice(0,5)}. Horário fora do expediente.`)
           return
         }
+        // Validação: intervalo (pausa/almoço)
+        if (pro.break_start && pro.break_end) {
+          const breakStart = parseInt(pro.break_start.split(':')[0]) * 60 + parseInt(pro.break_start.split(':')[1] || 0)
+          const breakEnd = parseInt(pro.break_end.split(':')[0]) * 60 + parseInt(pro.break_end.split(':')[1] || 0)
+          if (apptStart < breakEnd && breakStart < apptEnd) {
+            setApptErr(`${pro.name} está em intervalo das ${pro.break_start.slice(0,5)} às ${pro.break_end.slice(0,5)}. Escolha outro horário.`)
+            return
+          }
+        }
       }
 
       // Validação: conflito com outro agendamento do mesmo profissional
