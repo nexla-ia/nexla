@@ -5,6 +5,22 @@
 export const UPDATES = [
   {
     date: '2026-04-28',
+    title: 'Landing page redesenhada — vibrante e moderna',
+    type: 'improvement',
+    tags: ['Marketing'],
+    items: [
+      'Tema claro com fundos pastel suaves (lavanda, creme, menta, céu, amarelo, rosa)',
+      'Tipografia trocada para Bricolage Grotesque (variável e moderna) + DM Sans no body',
+      'Gradiente vibrante amarelo → verde → ciano nos botões e elementos de destaque',
+      'Cards de stats em pastel com hover de inclinação playful',
+      'Cards de features com cores diferentes em cada um e rotação sutil no hover',
+      'Citação com aspas gigantes em gradiente cálido (amarelo → laranja → rosa)',
+      'CTA final com gradiente animado de fundo',
+      'Visual mais energético, mais "Kommo-vibe" mas com identidade própria',
+    ],
+  },
+  {
+    date: '2026-04-28',
     title: 'Landing page comercial',
     type: 'feature',
     tags: ['Geral', 'Marketing'],
