@@ -5,6 +5,23 @@
 export const UPDATES = [
   {
     date: '2026-04-28',
+    title: 'Catálogo Clínico — gestão completa de profissionais, procedimentos e convênios',
+    type: 'feature',
+    tags: ['Catálogo', 'Agenda', 'Financeiro', 'Novo'],
+    items: [
+      'Nova aba "Catálogo Clínico" no menu lateral (apenas admin) com 3 seções: Profissionais, Procedimentos e Convênios',
+      'Cadastre médicos com nome, especialidade, registro (CRM/CRO) e cor identificadora',
+      'Cadastre procedimentos/exames/consultas com tipo, duração padrão e valor particular',
+      'Procedimentos podem ser de toda clínica ou específicos de um profissional',
+      'Cadastre convênios (Unimed, Bradesco Saúde, etc.) e defina valor diferenciado por procedimento',
+      'Modal de agenda agora permite vincular um profissional à agenda',
+      'Modal de agendamento integrado: selecione profissional, procedimento (auto-preenche duração e valor), forma de pagamento (Particular ou convênio cadastrado) e status de pagamento',
+      'Status "Concluído" no agendamento marca pagamento como pago automaticamente',
+      'Nova aba "Financeiro" nas Métricas: faturamento total, a receber, ticket médio, perdido em faltas, ranking de profissionais e procedimentos, distribuição por forma de pagamento',
+    ],
+  },
+  {
+    date: '2026-04-28',
     title: 'Diálogos de confirmação estilizados',
     type: 'improvement',
     tags: ['Geral'],

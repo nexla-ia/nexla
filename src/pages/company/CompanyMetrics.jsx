@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import {
   Users, MessageSquare, TrendingUp, Clock, Inbox, BarChart2, RefreshCw,
   Calendar, BellRing, Kanban, Headset, CheckCircle2, XCircle, AlertCircle,
-  Phone, Bot, ListChecks, Flag, ChevronRight, Layers,
+  Phone, Bot, ListChecks, Flag, ChevronRight, Layers, DollarSign, Stethoscope,
 } from 'lucide-react'
 import './Company.css'
 
@@ -87,9 +87,14 @@ const TABS = [
   { key: 'atendimento', label: 'Atendimento',  icon: MessageSquare },
   { key: 'equipe',      label: 'Equipe',       icon: Users },
   { key: 'agenda',      label: 'Agenda',       icon: Calendar },
+  { key: 'financeiro',  label: 'Financeiro',   icon: DollarSign },
   { key: 'leads',       label: 'Leads',        icon: TrendingUp },
   { key: 'atividades',  label: 'Atividades',   icon: Kanban },
 ]
+
+function fmtMoney(v) {
+  return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
 
 // ─── Página principal ────────────────────────────────────────────────────────
 export default function CompanyMetrics() {
@@ -115,6 +120,9 @@ export default function CompanyMetrics() {
   const [sectors, setSectors]           = useState([])
   const [sectorMembers, setSectorMembers] = useState([])
   const [leads, setLeads]               = useState([])
+  const [professionals, setProfessionals] = useState([])
+  const [procedures, setProcedures]     = useState([])
+  const [insurancePlans, setInsurancePlans] = useState([])
 
   async function load() {
     if (!instance) return
@@ -130,6 +138,9 @@ export default function CompanyMetrics() {
       supabase.from('users').select('id, name, email, role, active').eq('company_id', companyId),
       supabase.from('sectors').select('*').eq('instancia', instance),
       supabase.from('sector_members').select('*'),
+      supabase.from('professionals').select('*').eq('instancia', instance),
+      supabase.from('procedures').select('*').eq('instancia', instance),
+      supabase.from('insurance_plans').select('*').eq('instancia', instance),
     ]
     if (contactsTable) queries.push(supabase.from(contactsTable).select('*').eq('instancia', instance))
 
@@ -144,7 +155,10 @@ export default function CompanyMetrics() {
     setUsers((results[7].data || []).filter(u => u.active !== false))
     setSectors(results[8].data || [])
     setSectorMembers(results[9].data || [])
-    setLeads(contactsTable ? (results[10].data || []) : [])
+    setProfessionals(results[10].data || [])
+    setProcedures(results[11].data || [])
+    setInsurancePlans(results[12].data || [])
+    setLeads(contactsTable ? (results[13].data || []) : [])
     setLastRefresh(new Date())
     setLoading(false)
   }
@@ -205,6 +219,7 @@ export default function CompanyMetrics() {
       {tab === 'atendimento' && <AtendimentoTab {...{ msgs, convs, atts, range, period, loading }} />}
       {tab === 'equipe'      && <EquipeTab      {...{ msgs, convs, atts, users, sectors, sectorMembers, range, period, loading }} />}
       {tab === 'agenda'      && <AgendaTab      {...{ appts, range, period, loading }} />}
+      {tab === 'financeiro'  && <FinanceiroTab  {...{ appts, professionals, procedures, insurancePlans, range, period, loading }} />}
       {tab === 'leads'       && <LeadsTab       {...{ leads, range, period, loading, contactsTable }} />}
       {tab === 'atividades'  && <AtividadesTab  {...{ kanbanCards, kanbanColumns, users, range, period, loading }} />}
     </div>
@@ -612,6 +627,143 @@ function AgendaTab({ appts, range, period, loading }) {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Tab: Financeiro ────────────────────────────────────────────────────────
+function FinanceiroTab({ appts, professionals, procedures, insurancePlans, range, period, loading }) {
+  const { from, to } = range
+  const inRange = appts.filter(a => inPeriod(a.starts_at, from, to))
+
+  // KPIs
+  const faturado = inRange.filter(a => a.payment_status === 'pago').reduce((s, a) => s + Number(a.price || 0), 0)
+  const aReceber = inRange.filter(a => a.payment_status === 'pendente' && a.status !== 'cancelado' && a.status !== 'faltou').reduce((s, a) => s + Number(a.price || 0), 0)
+  const perdidoFaltas = inRange.filter(a => a.status === 'faltou').reduce((s, a) => s + Number(a.price || 0), 0)
+  const concluidos = inRange.filter(a => a.payment_status === 'pago').length
+  const ticketMedio = concluidos ? faturado / concluidos : 0
+
+  // Faturamento por profissional
+  const byProfessional = useMemo(() => {
+    const map = {}
+    inRange.filter(a => a.payment_status === 'pago').forEach(a => {
+      const id = a.professional_id || 'sem'
+      const pro = professionals.find(p => p.id === id)
+      const name = pro?.name || (id === 'sem' ? 'Sem profissional' : 'Removido')
+      const color = pro?.color || '#6B7280'
+      if (!map[id]) map[id] = { name, color, value: 0, count: 0 }
+      map[id].value += Number(a.price || 0)
+      map[id].count++
+    })
+    return Object.values(map).sort((a, b) => b.value - a.value)
+  }, [inRange, professionals])
+
+  // Faturamento por procedimento
+  const byProcedure = useMemo(() => {
+    const map = {}
+    inRange.filter(a => a.payment_status === 'pago').forEach(a => {
+      const id = a.procedure_id || 'sem'
+      const proc = procedures.find(p => p.id === id)
+      const name = proc?.name || (id === 'sem' ? 'Sem procedimento' : 'Removido')
+      if (!map[id]) map[id] = { name, value: 0, count: 0 }
+      map[id].value += Number(a.price || 0)
+      map[id].count++
+    })
+    return Object.values(map).sort((a, b) => b.value - a.value).slice(0, 10)
+  }, [inRange, procedures])
+
+  // Faturamento por convênio (Particular = null)
+  const byInsurance = useMemo(() => {
+    const map = {}
+    inRange.filter(a => a.payment_status === 'pago').forEach(a => {
+      const id = a.insurance_plan_id || 'particular'
+      const plan = insurancePlans.find(p => p.id === id)
+      const name = plan?.name || 'Particular'
+      if (!map[id]) map[id] = { name, value: 0, count: 0 }
+      map[id].value += Number(a.price || 0)
+      map[id].count++
+    })
+    return Object.values(map).sort((a, b) => b.value - a.value)
+  }, [inRange, insurancePlans])
+
+  const totalIns = byInsurance.reduce((s, x) => s + x.value, 0) || 1
+  const maxPro   = Math.max(1, ...byProfessional.map(x => x.value))
+  const maxProc  = Math.max(1, ...byProcedure.map(x => x.value))
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14, marginBottom: 18 }}>
+        <KpiCard icon={<DollarSign size={18} color="#16A34A" />} bg="#F0FDF4" value={fmtMoney(faturado)} label="Faturado" sub={periodLabel(period)} loading={loading} />
+        <KpiCard icon={<Clock size={18} color="#D97706" />} bg="#FFFBEB" value={fmtMoney(aReceber)} label="A receber" sub="agendamentos pendentes" loading={loading} alert={aReceber > 0} />
+        <KpiCard icon={<TrendingUp size={18} color="#2563EB" />} bg="#EFF6FF" value={fmtMoney(ticketMedio)} label="Ticket médio" sub={`${concluidos} pagamentos`} loading={loading} />
+        <KpiCard icon={<XCircle size={18} color="#DC2626" />} bg="#FEF2F2" value={fmtMoney(perdidoFaltas)} label="Perdido em faltas" sub="pacientes que faltaram" loading={loading} alert={perdidoFaltas > 0} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+        <div className="nx-card" style={{ padding: '1.25rem' }}>
+          <SectionTitle icon={Stethoscope} text="Faturamento por profissional" right={periodLabel(period)} />
+          {byProfessional.length === 0 ? <Empty /> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {byProfessional.map((p, i) => (
+                <div key={i}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                    <span style={{ fontWeight: 500 }}>{p.name}</span>
+                    <span style={{ fontWeight: 700, color: p.color }}>{fmtMoney(p.value)} <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 400 }}>· {p.count}x</span></span>
+                  </div>
+                  <div style={{ height: 7, background: '#F1F5F9', borderRadius: 10, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${(p.value / maxPro) * 100}%`, background: p.color }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="nx-card" style={{ padding: '1.25rem' }}>
+          <SectionTitle icon={ListChecks} text="Top procedimentos" right={periodLabel(period)} />
+          {byProcedure.length === 0 ? <Empty /> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {byProcedure.map((p, i) => (
+                <div key={i}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                    <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: 8 }}>{p.name}</span>
+                    <span style={{ fontWeight: 700, color: '#16A34A', flexShrink: 0 }}>{fmtMoney(p.value)} <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 400 }}>· {p.count}x</span></span>
+                  </div>
+                  <div style={{ height: 7, background: '#F1F5F9', borderRadius: 10, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${(p.value / maxProc) * 100}%`, background: '#16A34A' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="nx-card" style={{ padding: '1.25rem' }}>
+        <SectionTitle icon={Layers} text="Faturamento por forma de pagamento" right={periodLabel(period)} />
+        {byInsurance.length === 0 ? <Empty /> : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <DonutChart data={byInsurance.map((p, i) => ({
+              value: p.value,
+              color: p.name === 'Particular' ? '#16A34A' : ORIGEM_COLORS[(i + 1) % ORIGEM_COLORS.length],
+              label: p.name,
+            }))} />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {byInsurance.map((p, i) => {
+                const color = p.name === 'Particular' ? '#16A34A' : ORIGEM_COLORS[(i + 1) % ORIGEM_COLORS.length]
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+                    <span style={{ flex: 1, color: 'var(--text-secondary)' }}>{p.name}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{fmtMoney(p.value)}</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-muted)', minWidth: 40, textAlign: 'right' }}>{Math.round(p.value / totalIns * 100)}%</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

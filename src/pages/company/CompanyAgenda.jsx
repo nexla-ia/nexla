@@ -83,6 +83,10 @@ export default function CompanyAgenda() {
   const [agendas, setAgendas]         = useState([])
   const [appointments, setAppointments] = useState([])
   const [savedContacts, setSavedContacts] = useState([])
+  const [professionals, setProfessionals] = useState([])
+  const [procedures, setProcedures]   = useState([])
+  const [insurancePlans, setInsurancePlans] = useState([])
+  const [procedurePrices, setProcedurePrices] = useState([])
   const [selectedAgendaId, setSelectedAgendaId] = useState(null)
   const [weekStart, setWeekStart]     = useState(getMonday(new Date()))
   const [loading, setLoading]         = useState(true)
@@ -107,12 +111,20 @@ export default function CompanyAgenda() {
     Promise.all([
       supabase.from('agendas').select('*').eq('instancia', instance).order('name'),
       supabase.from('saved_contacts').select('id, nome, numero').eq('instancia', instance).order('nome'),
-    ]).then(([{ data: ag }, { data: sc }]) => {
+      supabase.from('professionals').select('*').eq('instancia', instance).order('name'),
+      supabase.from('procedures').select('*').eq('instancia', instance).order('name'),
+      supabase.from('insurance_plans').select('*').eq('instancia', instance).order('name'),
+      supabase.from('procedure_prices').select('*'),
+    ]).then(([{ data: ag }, { data: sc }, { data: pros }, { data: procs }, { data: plans }, { data: prices }]) => {
       if (ag) {
         setAgendas(ag)
         if (!selectedAgendaId && ag.length) setSelectedAgendaId(ag[0].id)
       }
       if (sc) setSavedContacts(sc)
+      if (pros) setProfessionals(pros.filter(p => p.active !== false))
+      if (procs) setProcedures(procs.filter(p => p.active !== false))
+      if (plans) setInsurancePlans(plans.filter(p => p.active !== false))
+      if (prices) setProcedurePrices(prices)
       setLoading(false)
     })
   }, [instance])
@@ -155,6 +167,7 @@ export default function CompanyAgenda() {
       working_days: [1, 2, 3, 4, 5],
       start_time: '08:00', end_time: '18:00',
       slot_minutes: 30,
+      professional_id: null,
     })
     setAgendaErr('')
   }
@@ -178,6 +191,7 @@ export default function CompanyAgenda() {
       start_time: agendaModal.start_time,
       end_time: agendaModal.end_time,
       slot_minutes: agendaModal.slot_minutes,
+      professional_id: agendaModal.professional_id || null,
       instancia: instance,
     }
     const { data, error } = agendaModal.id
@@ -221,6 +235,11 @@ export default function CompanyAgenda() {
       duration_minutes: ag?.slot_minutes || 30,
       status: 'agendado',
       notes: '',
+      professional_id: ag?.professional_id || null,
+      procedure_id: null,
+      insurance_plan_id: null,
+      price: 0,
+      payment_status: 'pendente',
     })
     setApptErr('')
     setPatientHistory([])
@@ -284,6 +303,21 @@ export default function CompanyAgenda() {
       notes: apptModal.notes?.trim() || null,
       created_by_email: session?.user?.email,
     }
+    // Auto-marcar como pago se status virou 'concluido'
+    let paymentStatus = apptModal.payment_status || 'pendente'
+    let paidAt = apptModal.paid_at || null
+    if (apptModal.status === 'concluido' && paymentStatus !== 'pago') {
+      paymentStatus = 'pago'
+      paidAt = new Date().toISOString()
+    }
+
+    payload.professional_id = apptModal.professional_id || null
+    payload.procedure_id = apptModal.procedure_id || null
+    payload.insurance_plan_id = apptModal.insurance_plan_id || null
+    payload.price = parseFloat(apptModal.price) || 0
+    payload.payment_status = paymentStatus
+    payload.paid_at = paidAt
+
     const isNew = !apptModal.id
     const prevStatus = apptModal._prevStatus
     const { error } = isNew
@@ -661,6 +695,19 @@ export default function CompanyAgenda() {
                   </select>
                 </div>
               </div>
+              {professionals.length > 0 && (
+                <div>
+                  <label style={labelStyle}>Profissional vinculado (opcional)</label>
+                  <select className="nx-select" value={agendaModal.professional_id || ''}
+                    onChange={e => setAgendaModal(p => ({ ...p, professional_id: e.target.value || null }))}>
+                    <option value="">Sem profissional vinculado</option>
+                    {professionals.map(p => <option key={p.id} value={p.id}>{p.name}{p.specialty ? ` — ${p.specialty}` : ''}</option>)}
+                  </select>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                    Quando vinculado, os procedimentos do profissional + da clínica ficam disponíveis no agendamento.
+                  </div>
+                </div>
+              )}
             </div>
             <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
               {agendaErr && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#DC2626', marginBottom: 12 }}>{agendaErr}</div>}
@@ -749,6 +796,100 @@ export default function CompanyAgenda() {
                     onChange={e => setApptModal(p => ({ ...p, duration_minutes: e.target.value }))} />
                 </div>
               </div>
+
+              {professionals.length > 0 && (
+                <div>
+                  <label style={labelStyle}>Profissional</label>
+                  <select className="nx-select" value={apptModal.professional_id || ''}
+                    onChange={e => setApptModal(p => ({ ...p, professional_id: e.target.value || null, procedure_id: null }))}>
+                    <option value="">— Selecione —</option>
+                    {professionals.map(p => <option key={p.id} value={p.id}>{p.name}{p.specialty ? ` — ${p.specialty}` : ''}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {procedures.length > 0 && (
+                <div>
+                  <label style={labelStyle}>Procedimento / Consulta / Exame</label>
+                  <select className="nx-select" value={apptModal.procedure_id || ''}
+                    onChange={e => {
+                      const procId = e.target.value || null
+                      const proc = procedures.find(x => x.id === procId)
+                      // Auto-preenche valor (do convênio se houver, senão particular) e duração
+                      let newPrice = apptModal.price
+                      let newDuration = apptModal.duration_minutes
+                      if (proc) {
+                        newDuration = proc.duration_minutes || newDuration
+                        const planId = apptModal.insurance_plan_id
+                        const priceRow = planId ? procedurePrices.find(pr => pr.procedure_id === procId && pr.insurance_plan_id === planId) : null
+                        newPrice = priceRow?.price ?? proc.price_particular ?? 0
+                      }
+                      setApptModal(p => ({ ...p, procedure_id: procId, price: newPrice, duration_minutes: newDuration }))
+                    }}>
+                    <option value="">— Selecione —</option>
+                    {procedures
+                      .filter(pr => !apptModal.professional_id || !pr.professional_id || pr.professional_id === apptModal.professional_id)
+                      .map(pr => <option key={pr.id} value={pr.id}>{pr.name} ({pr.duration_minutes} min)</option>)}
+                  </select>
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={labelStyle}>Forma</label>
+                  <select className="nx-select" value={apptModal.insurance_plan_id || ''}
+                    onChange={e => {
+                      const planId = e.target.value || null
+                      const procId = apptModal.procedure_id
+                      let newPrice = apptModal.price
+                      if (procId) {
+                        const proc = procedures.find(x => x.id === procId)
+                        const priceRow = planId ? procedurePrices.find(pr => pr.procedure_id === procId && pr.insurance_plan_id === planId) : null
+                        newPrice = priceRow?.price ?? proc?.price_particular ?? 0
+                      }
+                      setApptModal(p => ({ ...p, insurance_plan_id: planId, price: newPrice }))
+                    }}>
+                    <option value="">Particular</option>
+                    {insurancePlans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Valor (R$)</label>
+                  <input className="nx-input" type="number" step="0.01" min={0}
+                    value={apptModal.price ?? 0}
+                    onChange={e => setApptModal(p => ({ ...p, price: e.target.value }))} />
+                </div>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Pagamento</label>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {[
+                    { value: 'pendente', label: 'Pendente', color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+                    { value: 'pago',     label: 'Pago',     color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0' },
+                    { value: 'cancelado', label: 'Cancelado', color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+                  ].map(s => {
+                    const active = apptModal.payment_status === s.value
+                    return (
+                      <button key={s.value}
+                        onClick={() => setApptModal(p => ({ ...p, payment_status: s.value, paid_at: s.value === 'pago' ? new Date().toISOString() : null }))}
+                        style={{
+                          flex: 1, padding: '7px 11px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                          border: `1.5px solid ${active ? s.color : 'var(--border)'}`,
+                          background: active ? s.bg : 'transparent',
+                          color: active ? s.color : 'var(--text-secondary)',
+                          cursor: 'pointer',
+                        }}>
+                        {s.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                  Marcar status do agendamento como "Concluído" também marca o pagamento como Pago automaticamente.
+                </div>
+              </div>
+
               <div>
                 <label style={labelStyle}>Status</label>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

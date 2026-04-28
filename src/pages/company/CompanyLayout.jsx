@@ -2,7 +2,7 @@ import React from 'react'
 import { Outlet } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import Sidebar from '../../components/Sidebar'
-import { MessageSquare, History, BellRing, BarChart2, Settings2, Contact2, Calendar, Sparkles, Kanban } from 'lucide-react'
+import { MessageSquare, History, BellRing, BarChart2, Settings2, Contact2, Calendar, Sparkles, Kanban, Stethoscope } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { latestUpdateDate } from '../../data/updates'
@@ -80,8 +80,9 @@ export default function CompanyLayout() {
     { to: '/painel/novidades', icon: Sparkles,      label: 'Novidades',
       badge: hasNewUpdate ? 'Novo' : null, badgeColor: 'violet' },
     ...(isAdmin ? [
-      { to: '/painel/metricas', icon: BarChart2, label: 'Métricas' },
-      { to: '/painel/admin',    icon: Settings2, label: 'Administração' },
+      { to: '/painel/metricas', icon: BarChart2,    label: 'Métricas' },
+      { to: '/painel/catalogo', icon: Stethoscope,  label: 'Catálogo Clínico' },
+      { to: '/painel/admin',    icon: Settings2,    label: 'Administração' },
     ] : []),
   ]
 
