@@ -19,7 +19,7 @@ export default function Sidebar({ links, role }) {
       <div className="sidebar-brand">
         <BrandMark size={36} color="#C9A074" strokeWidth={1.5} />
         <div>
-          <div className="sidebar-brand-name">Medicina Marketing</div>
+          <div className="sidebar-brand-name">MedicinaMKT</div>
           <div className="sidebar-brand-tag">{role === 'adm' ? 'ADM Global' : 'Painel'}</div>
         </div>
       </div>

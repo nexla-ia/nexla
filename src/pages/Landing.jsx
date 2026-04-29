@@ -38,7 +38,7 @@ export default function Landing() {
             <div className="lp-brand-mark">
               <BrandMark size={32} color="#0F0E1B" strokeWidth={1.6} />
             </div>
-            <span className="lp-brand-text">Medicina Marketing</span>
+            <span className="lp-brand-text">MedicinaMKT</span>
           </Link>
 
           <div className="lp-nav-links">
@@ -426,7 +426,7 @@ export default function Landing() {
                   <BrandMark size={32} color="#C9A074" strokeWidth={1.6} />
                 </div>
                 <div>
-                  <span className="lp-brand-text">Medicina Marketing</span>
+                  <span className="lp-brand-text">MedicinaMKT</span>
                   <span className="lp-brand-tagline">Lucro e ética andam juntos</span>
                 </div>
               </Link>
@@ -451,11 +451,11 @@ export default function Landing() {
             <div className="lp-footer-col">
               <h4>Falar com a gente</h4>
               <a href="https://wa.me/5561999999999"><Phone size={12} /> WhatsApp</a>
-              <a href="mailto:contato@medicinamarketing.com.br"><Mail size={12} /> contato@medicinamarketing.com.br</a>
+              <a href="mailto:contato@medicinamkt.com"><Mail size={12} /> contato@medicinamkt.com</a>
             </div>
           </div>
           <div className="lp-footer-bottom">
-            <span>© 2026 Medicina Marketing · Todos os direitos reservados</span>
+            <span>© 2026 MedicinaMKT · Todos os direitos reservados</span>
             <span className="lp-footer-made">Lucro e ética andam juntos.</span>
           </div>
         </div>

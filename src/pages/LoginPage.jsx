@@ -45,7 +45,7 @@ export default function LoginPage() {
           <Link to="/" className="login-brand">
             <BrandMark size={32} color="#0F0E1B" strokeWidth={1.6} />
             <div className="login-brand-text">
-              <span>Medicina Marketing</span>
+              <span>MedicinaMKT</span>
               <small>Lucro e ética andam juntos</small>
             </div>
           </Link>
