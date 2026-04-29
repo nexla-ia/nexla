@@ -85,7 +85,7 @@ export default function CompanyLayout() {
       badge: activeCount > 0 ? activeCount : null, badgeColor: 'cyan' },
     ...(aiEnabled ? [{ to: '/painel/historico', icon: History, label: 'Conversas IA' }] : []),
     { to: '/painel/instagram', icon: Instagram,     label: 'Instagram', badge: 'Em breve', badgeColor: 'pink' },
-    { to: '/painel/contatos',  icon: Contact2,      label: 'Contatos' },
+    { to: '/painel/contatos',  icon: Contact2,      label: 'Pacientes' },
     { to: '/painel/agenda',    icon: Calendar,      label: 'Agenda' },
     { to: '/painel/atividades', icon: Kanban,       label: 'Atividades' },
     { to: '/painel/alertas',   icon: BellRing,      label: 'Alertas',

@@ -5,6 +5,19 @@
 export const UPDATES = [
   {
     date: '2026-04-28',
+    title: 'A aba "Contatos" virou "Pacientes" — agora com cadastro completo',
+    type: 'feature',
+    tags: ['Pacientes'],
+    items: [
+      'Vocês não estão atendendo contato — estão atendendo paciente. Mudamos o nome pra refletir isso.',
+      'Agora vocês cadastram nome completo, CPF, data de nascimento, e-mail, endereço, plano de convênio, número da carteirinha e notas privadas. Tudo num modal só.',
+      'O telefone (que era o "contato") virou só mais um campo dentro do cadastro. Continua sendo o que liga o paciente ao chat e à agenda.',
+      'A busca agora cobre nome, telefone, CPF e e-mail. Encontrem qualquer um em segundos.',
+      'Botão "Conversar" continua lá, abrindo o chat direto. Botão direito numa conversa também — só que agora ele diz "Salvar paciente".',
+    ],
+  },
+  {
+    date: '2026-04-28',
     title: 'A nossa cara nova chegou',
     type: 'improvement',
     tags: ['Marca'],

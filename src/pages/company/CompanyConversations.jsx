@@ -1293,7 +1293,7 @@ export default function CompanyConversations() {
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
                 <User size={13} />
-                {saved ? 'Editar contato' : 'Salvar contato'}
+                {saved ? 'Editar paciente' : 'Salvar paciente'}
               </button>
             )
           })()}
@@ -1310,7 +1310,7 @@ export default function CompanyConversations() {
             <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>
-                  {saveContactModal.id ? 'Editar contato' : 'Salvar contato'}
+                  {saveContactModal.id ? 'Editar paciente' : 'Salvar paciente'}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'monospace' }}>
                   {saveContactModal.numero}
