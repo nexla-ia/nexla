@@ -1,5 +1,259 @@
 /* ─── MedicinaMKT — Landing Page (Light & Vibrant) ────────────────────────── */
 
+/* ─────────────────────────────────────────────────────────────────────────
+   ATRIBUIÇÃO DE LEAD (seção nova)
+   ───────────────────────────────────────────────────────────────────────── */
+.lp-attr {
+  padding: 100px 0 80px;
+  background: linear-gradient(180deg, #FAFAFC 0%, #FFFFFF 60%);
+  position: relative;
+}
+.lp-attr-intro {
+  text-align: center;
+  font-size: 17px;
+  line-height: 1.6;
+  color: #475569;
+  max-width: 720px;
+  margin: -8px auto 40px;
+}
+.lp-attr-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  max-width: 1080px;
+  margin: 0 auto 48px;
+}
+.lp-attr-card {
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 18px;
+  padding: 26px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+}
+.lp-attr-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+}
+.lp-attr-card-featured {
+  background: linear-gradient(180deg, #FFFBF4 0%, #FFFFFF 100%);
+  border-color: rgba(201, 160, 116, 0.4);
+  position: relative;
+  overflow: hidden;
+}
+.lp-attr-card-featured::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -40px;
+  width: 180px; height: 180px;
+  background: radial-gradient(circle, rgba(201, 160, 116, 0.18), transparent 65%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.lp-attr-ico {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+.lp-attr-card-title {
+  font-family: 'Bricolage Grotesque', 'DM Sans', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0F172A;
+  letter-spacing: -0.01em;
+  margin-top: 4px;
+  position: relative;
+}
+.lp-attr-card p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #475569;
+  margin: 0;
+  position: relative;
+}
+.lp-attr-tag {
+  align-self: flex-start;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: #F1F5F9;
+  color: #475569;
+  padding: 3px 9px;
+  border-radius: 999px;
+  margin-top: 6px;
+  position: relative;
+}
+.lp-attr-card-featured .lp-attr-tag {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803D;
+}
+
+/* Funil mockup */
+.lp-attr-funnel {
+  max-width: 1080px;
+  margin: 0 auto;
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+  border-radius: 22px;
+  padding: 28px 32px;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+.lp-attr-funnel::before {
+  content: '';
+  position: absolute;
+  top: -120px; left: 30%;
+  width: 360px; height: 360px;
+  background: radial-gradient(circle, rgba(201, 160, 116, 0.18), transparent 65%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.lp-attr-funnel-head {
+  margin-bottom: 24px;
+  position: relative;
+}
+.lp-attr-funnel-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.lp-attr-funnel-sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.lp-attr-funnel-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  position: relative;
+}
+.lp-attr-step {
+  flex: 1;
+  min-width: 100px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 16px 14px;
+  text-align: center;
+  transition: transform 0.15s, background 0.15s;
+}
+.lp-attr-step:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.1);
+}
+.lp-attr-step-num {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.lp-attr-step-lbl {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 6px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.lp-attr-s5 {
+  background: linear-gradient(135deg, #16A34A 0%, #15803D 100%);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+.lp-attr-s5 .lp-attr-step-lbl { color: rgba(255, 255, 255, 0.85); }
+
+.lp-attr-arrow {
+  color: rgba(201, 160, 116, 0.6);
+  font-size: 22px;
+  font-weight: 300;
+  user-select: none;
+}
+
+@media (max-width: 880px) {
+  .lp-attr-grid { grid-template-columns: 1fr; }
+  .lp-attr-funnel-row { flex-direction: column; }
+  .lp-attr-arrow { transform: rotate(90deg); }
+  .lp-attr-step { width: 100%; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   ICP — "Pra quem é"
+   ───────────────────────────────────────────────────────────────────────── */
+.lp-icp {
+  padding: 100px 0 80px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #FAFAFC 100%);
+}
+.lp-icp-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.lp-icp-card {
+  border-radius: 18px;
+  padding: 26px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: transform 0.18s, box-shadow 0.18s;
+  border: 1px solid transparent;
+}
+.lp-icp-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+}
+.lp-icp-yellow { background: linear-gradient(180deg, #FFFBEB 0%, #FEF3C7 100%); border-color: #FDE68A; }
+.lp-icp-green  { background: linear-gradient(180deg, #F0FDF4 0%, #DCFCE7 100%); border-color: #BBF7D0; }
+.lp-icp-blue   { background: linear-gradient(180deg, #EFF6FF 0%, #DBEAFE 100%); border-color: #BFDBFE; }
+.lp-icp-pink   { background: linear-gradient(180deg, #FDF2F8 0%, #FCE7F3 100%); border-color: #FBCFE8; }
+
+.lp-icp-num {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  color: #0F172A;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  opacity: 0.4;
+}
+.lp-icp-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0F172A;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+.lp-icp-card p {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #475569;
+  margin: 0;
+}
+
+@media (max-width: 980px) {
+  .lp-icp-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 540px) {
+  .lp-icp-grid { grid-template-columns: 1fr; }
+}
+
+
+
 :root {
   --lp-bg: #FAF8FF;
   --lp-bg-cream: #FFF7ED;

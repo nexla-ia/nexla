@@ -43,10 +43,10 @@ export default function Landing() {
 
           <div className="lp-nav-links">
             <a href="#recursos">Recursos</a>
+            <a href="#atribuicao">Atribuição</a>
             <a href="#como-funciona">Como funciona</a>
             <a href="#vs-digisac">vs Digisac</a>
             <a href="#planos">Planos</a>
-            <a href="#contato">Contato</a>
           </div>
 
           <div className="lp-nav-cta">
@@ -73,17 +73,17 @@ export default function Landing() {
               </div>
 
               <h1 className="lp-h1">
-                A central de <span className="lp-h1-em">atendimento</span>,
+                Onde paciente <span className="lp-h1-em">fala</span>,
                 <br />
-                <span className="lp-h1-accent">agenda e gestão</span>
+                sua clínica <span className="lp-h1-accent">responde</span>.
                 <br />
-                que sua clínica precisa.
+                WhatsApp, Instagram Direct e IA — numa só inbox.
               </h1>
 
               <p className="lp-hero-sub">
-                Centralize WhatsApp, Instagram e Digisac numa caixa única.
-                <strong> Atenda com IA, agende com inteligência e meça cada real</strong> que entra
-                — tudo em um só lugar.
+                Centralize WhatsApp e Instagram Direct numa caixa única.
+                <strong> Atenda com IA, agende com inteligência</strong> e descubra de onde
+                cada paciente veio — do anúncio até a consulta.
               </p>
 
               <div className="lp-hero-actions">
@@ -302,6 +302,82 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ATRIBUIÇÃO DE LEAD */}
+      <section className="lp-attr" id="atribuicao">
+        <div className="lp-container">
+          <SectionHeader
+            kicker="Atribuição de lead"
+            title={<>Saiba exatamente de onde<br /><em>cada paciente veio</em></>}
+          />
+          <p className="lp-attr-intro">
+            Pare de pagar ad sem saber se trouxe paciente. A MedicinaMKT
+            rastreia origem do lead automaticamente — do clique no anúncio
+            até a consulta realizada.
+          </p>
+
+          <div className="lp-attr-grid">
+            <div className="lp-attr-card">
+              <div className="lp-attr-ico" style={{ background: '#DBEAFE', color: '#2563EB' }}>
+                <ScanLine size={20} />
+              </div>
+              <div className="lp-attr-card-title">Rastreio técnico nativo</div>
+              <p>Captura origem via UTM, parâmetros de URL e contextInfo do Meta. Lead chega já marcado com a campanha que clicou.</p>
+              <span className="lp-attr-tag">UTM · contextInfo</span>
+            </div>
+            <div className="lp-attr-card lp-attr-card-featured">
+              <div className="lp-attr-ico" style={{ background: 'rgba(201, 160, 116, 0.18)', color: '#C9A074' }}>
+                <Bot size={20} />
+              </div>
+              <div className="lp-attr-card-title">Qualificação por IA</div>
+              <p>A IA pergunta naturalmente "como nos conheceu?" durante a conversa e classifica a resposta automaticamente. Cruzamento com o rastreio técnico pra eliminar dúvida.</p>
+              <span className="lp-attr-tag">No ar</span>
+            </div>
+            <div className="lp-attr-card">
+              <div className="lp-attr-ico" style={{ background: '#D1FAE5', color: '#16A34A' }}>
+                <TrendingUp size={20} />
+              </div>
+              <div className="lp-attr-card-title">Atribuição até a consulta</div>
+              <p>Acompanhe o lead do anúncio ao agendamento confirmado. Saiba qual ad gerou paciente que efetivamente compareceu — e quanto cada real investido virou receita.</p>
+              <span className="lp-attr-tag">Roadmap Q3</span>
+            </div>
+          </div>
+
+          {/* Mockup do funil */}
+          <div className="lp-attr-funnel">
+            <div className="lp-attr-funnel-head">
+              <div className="lp-attr-funnel-title">Campanha Botox · Out/2026</div>
+              <div className="lp-attr-funnel-sub">Atribuição completa · receita por origem</div>
+            </div>
+            <div className="lp-attr-funnel-row">
+              <div className="lp-attr-step lp-attr-s1">
+                <div className="lp-attr-step-num">847</div>
+                <div className="lp-attr-step-lbl">Cliques no ad</div>
+              </div>
+              <div className="lp-attr-arrow">→</div>
+              <div className="lp-attr-step lp-attr-s2">
+                <div className="lp-attr-step-num">126</div>
+                <div className="lp-attr-step-lbl">Mensagens (lead)</div>
+              </div>
+              <div className="lp-attr-arrow">→</div>
+              <div className="lp-attr-step lp-attr-s3">
+                <div className="lp-attr-step-num">38</div>
+                <div className="lp-attr-step-lbl">Agendamentos</div>
+              </div>
+              <div className="lp-attr-arrow">→</div>
+              <div className="lp-attr-step lp-attr-s4">
+                <div className="lp-attr-step-num">31</div>
+                <div className="lp-attr-step-lbl">Consultas realizadas</div>
+              </div>
+              <div className="lp-attr-arrow">→</div>
+              <div className="lp-attr-step lp-attr-s5">
+                <div className="lp-attr-step-num">R$ 9.3k</div>
+                <div className="lp-attr-step-lbl">Receita atribuída</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* COMO FUNCIONA */}
       <section className="lp-how" id="como-funciona">
         <div className="lp-container">
@@ -314,8 +390,8 @@ export default function Landing() {
           <div className="lp-steps">
             <StepCard
               number="01"
-              title="Conecte seu WhatsApp"
-              description="Escaneou o QR Code, está dentro. Sua instância fica online em segundos e começa a receber as mensagens automaticamente."
+              title="Conecte seus canais"
+              description="Escaneie o QR Code do WhatsApp e conecte sua conta do Instagram Business. Em segundos, ambos começam a chegar na mesma inbox."
             />
             <StepCard
               number="02"
@@ -324,8 +400,8 @@ export default function Landing() {
             />
             <StepCard
               number="03"
-              title="Deixe a IA trabalhar"
-              description="A IA atende, qualifica, agenda e te avisa quando precisa de atenção humana. Você foca no que importa: cuidar dos pacientes."
+              title="Deixe a IA trabalhar (e medir)"
+              description="A IA atende, qualifica, agenda e te avisa quando precisa de atenção humana. E ainda registra de onde cada paciente veio — você foca em cuidar dos pacientes e tomar decisões com dado real."
             />
           </div>
         </div>
@@ -369,6 +445,38 @@ export default function Landing() {
               Ver política de privacidade completa
               <ArrowRight size={14} />
             </a>
+          </div>
+        </div>
+      </section>
+
+      {/* PARA QUEM É */}
+      <section className="lp-icp" id="para-quem">
+        <div className="lp-container">
+          <SectionHeader
+            kicker="Pra quem é"
+            title={<>Feita pra clínicas que levam<br /><em>crescimento a sério</em></>}
+          />
+          <div className="lp-icp-grid">
+            <div className="lp-icp-card lp-icp-yellow">
+              <div className="lp-icp-num">01</div>
+              <div className="lp-icp-title">Investe em marketing</div>
+              <p>Faz tráfego pago no Meta e Google. Quer saber qual ad trouxe paciente, não só lead.</p>
+            </div>
+            <div className="lp-icp-card lp-icp-green">
+              <div className="lp-icp-num">02</div>
+              <div className="lp-icp-title">Recebe paciente por múltiplos canais</div>
+              <p>WhatsApp, Instagram Direct, indicação, site. Hoje gerencia tudo separado, perdendo conversa.</p>
+            </div>
+            <div className="lp-icp-card lp-icp-blue">
+              <div className="lp-icp-num">03</div>
+              <div className="lp-icp-title">Tem 2 ou mais profissionais</div>
+              <p>Agenda complexa, múltiplas especialidades, setores diferentes. Excel e WhatsApp Web não dão mais conta.</p>
+            </div>
+            <div className="lp-icp-card lp-icp-pink">
+              <div className="lp-icp-num">04</div>
+              <div className="lp-icp-title">Quer controle, não só ferramenta</div>
+              <p>Métrica real de cada profissional, taxa de no-show, atribuição de marketing. Decisão por dado, não achismo.</p>
+            </div>
           </div>
         </div>
       </section>
@@ -438,6 +546,7 @@ export default function Landing() {
                 'Até 3 profissionais cadastrados',
                 'Até 5 usuários na equipe',
                 'WhatsApp + IA de atendimento 24/7',
+                'Rastreamento de origem do lead (básico)',
                 'Ficha completa do paciente (foto, saúde, timeline)',
                 'Catálogo: profissionais, procedimentos, convênios',
                 'Setores e distribuição de conversas',
@@ -457,6 +566,8 @@ export default function Landing() {
                 'Até 20 usuários na equipe',
                 'Tudo do Starter, e mais:',
                 '+ Instagram Direct unificado com IA',
+                '+ Rastreamento de origem completo (UTM + IA)',
+                '+ Atribuição (lead → agendamento → consulta)',
                 '+ Distribuição automática de tickets (round-robin)',
                 '+ Templates HSM (lembrete de consulta automatizado)',
                 '+ Agendas ilimitadas',
@@ -523,7 +634,8 @@ export default function Landing() {
                 Sua clínica merece <em>uma operação digital</em> de alta performance.
               </h2>
               <p>
-                Pare de perder paciente no WhatsApp. Pare de depender de planilha.
+                Pare de perder paciente no WhatsApp e no Direct.
+                Pare de pagar ad sem saber se trouxe consulta.
                 Comece agora — sem cartão de crédito.
               </p>
             </div>
