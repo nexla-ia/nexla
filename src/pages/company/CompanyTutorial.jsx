@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  GraduationCap, MessageSquare, History, Contact2, Calendar, Kanban, BellRing,
+  GraduationCap, MessageSquare, History, Calendar, Kanban, BellRing,
   BarChart3, Stethoscope, Settings2, Sparkles, Check, ArrowRight, Lightbulb,
   PartyPopper, BookOpen, ChevronRight, Bot, Headset, Phone, Star, Zap,
   Mic, Paperclip, FileText, Trophy, Inbox, Users, Flag, Clock, ShieldCheck,
+  Camera, Cake, Heart, Instagram, UserPlus, ClipboardList,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import ConfirmModal from '../../components/ConfirmModal'
@@ -39,14 +40,19 @@ const MODULES = [
       },
       {
         title: 'Salvar contato com botão direito',
-        desc: 'Clica com o botão direito num número e salva o nome dele. Da próxima vez aparece como "Maria Silva" em vez do telefone.',
+        desc: 'Clica com o botão direito num número e salva o nome dele. Da próxima vez aparece como "Maria Silva" em vez do telefone — e a foto do paciente vira o avatar do chat.',
+      },
+      {
+        title: 'Abrir ficha do paciente em 1 clique',
+        desc: 'Clica no nome ou na foto do paciente no header do chat e abre a ficha completa: cadastro, histórico clínico, timeline de atendimentos e mais.',
+        chips: [{ icon: Camera, label: 'Foto' }, { icon: ClipboardList, label: 'Ficha' }],
       },
       {
         title: 'Finalizar com motivo',
         desc: 'Ao terminar, clica em "Finalizar conversa" e escolhe: Agendado, Resolvido, Encaminhado ou Desistiu. Isso vai virar métrica depois.',
       },
     ],
-    tip: 'Tickets sem atividade por 6h fecham automaticamente como "Expirado". Se o paciente voltar, o ticket reabre na Recepção sozinho.',
+    tip: 'Tickets sem atividade por 2h fecham automaticamente como "Expirado". Se o paciente voltar, o ticket reabre na Recepção sozinho — sem trabalho manual pra equipe.',
     cta: { label: 'Abrir Conversas', to: '/painel/conversas' },
   },
   {
@@ -76,30 +82,46 @@ const MODULES = [
     cta: { label: 'Abrir Conversas IA', to: '/painel/historico' },
   },
   {
-    key: 'contatos',
-    icon: Contact2,
+    key: 'pacientes',
+    icon: Users,
     color: '#16A34A',
     bg: '#DCFCE7',
-    emoji: '📇',
-    title: 'Contatos',
-    subtitle: 'Sua agenda telefônica inteligente',
-    intro: 'Salve pacientes que você atende com frequência. Eles aparecem com nome em vez de número e dão acesso rápido para iniciar conversa.',
+    emoji: '🧑‍⚕️',
+    title: 'Pacientes',
+    subtitle: 'Ficha completa de cada paciente',
+    intro: 'A antiga aba "Contatos" virou Pacientes — agora com ficha clínica completa, foto, timeline de atendimentos e tudo que uma clínica precisa pra acompanhar quem é atendido ali.',
     steps: [
       {
-        title: 'Salvar pelo botão direito',
-        desc: 'Na lista de Conversas, clica com botão direito no contato → "Salvar contato". Coloca nome e notas opcionais.',
+        title: 'Cadastro novo com autocomplete',
+        desc: 'Clica em "Novo paciente" e o sistema sugere números que já conversaram com vocês mas ainda não foram cadastrados. Um clique e o telefone vai pro formulário.',
+        chips: [{ icon: UserPlus, label: 'Cadastro rápido' }, { icon: Phone, label: 'Sugere telefone' }],
       },
       {
-        title: 'Botão "Conversar"',
-        desc: 'Na aba Contatos, cada paciente tem botão verde "Conversar" que abre o ticket existente ou cria um novo se não houver.',
+        title: 'Foto no perfil',
+        desc: 'Cada paciente pode ter uma foto. Ela aparece como avatar nas Conversas, no header do chat, nos cards de agendamento — toda a plataforma fica com cara de gente.',
+        chips: [{ icon: Camera, label: 'Avatar em todo lugar' }],
       },
       {
-        title: 'Notas privadas',
-        desc: 'Use as notas para anotar coisas tipo "alergia a penicilina", "prefere ser atendida pela tarde" — só sua equipe vê.',
+        title: 'Ficha em 4 abas',
+        desc: 'Resumo (visão geral) · Cadastro (dados pessoais, contato, convênio) · Saúde (alergias, medicações, condições, histórico) · Histórico (timeline de atendimentos e agendamentos).',
+        chips: [{ icon: ClipboardList, label: 'Resumo' }, { icon: FileText, label: 'Cadastro' }, { icon: Heart, label: 'Saúde' }, { icon: History, label: 'Histórico' }],
+      },
+      {
+        title: 'Banner de aniversário',
+        desc: 'Quando o paciente faz aniversário nos próximos 7 dias, a ficha mostra um banner dourado lembrando — perfeito pra mandar mensagem carinhosa e fortalecer relacionamento.',
+        chips: [{ icon: Cake, label: 'Lembrete automático' }],
+      },
+      {
+        title: 'Edição em formulário guiado',
+        desc: 'Clica em "Editar" e abre um modal com sub-abas: Identificação, Contato, Convênio, Saúde, Notas. Cada campo no lugar certo, sem se perder.',
+      },
+      {
+        title: 'Atalho pra Conversar',
+        desc: 'Em qualquer card de paciente, botão verde "Conversar" abre o ticket existente ou cria um novo. E clicando na linha, abre direto a ficha completa.',
       },
     ],
-    tip: 'O nome salvo aparece também na lista de conversas, no header do chat e nos cards de agendamento. Vale investir 30s para nomear cada paciente recorrente.',
-    cta: { label: 'Abrir Contatos', to: '/painel/contatos' },
+    tip: 'Use a aba Saúde pra registrar alergias, condições crônicas e medicações em uso — esses campos ficam visíveis no Resumo da ficha, ajudando profissionais a tomar decisão rápida durante o atendimento.',
+    cta: { label: 'Abrir Pacientes', to: '/painel/contatos' },
   },
   {
     key: 'agenda',
@@ -194,6 +216,32 @@ const MODULES = [
     ],
     tip: 'Empresas com IA desativada veem só encaminhamentos — alertas gerais da IA não aparecem.',
     cta: { label: 'Abrir Alertas', to: '/painel/alertas' },
+  },
+  {
+    key: 'instagram',
+    icon: Instagram,
+    color: '#E11D48',
+    bg: '#FFE4E6',
+    emoji: '📸',
+    title: 'Instagram',
+    subtitle: 'Em breve · DMs unificadas + IA criando posts',
+    intro: 'A aba Instagram já existe no menu (com badge "Em breve") como teaser do que tá vindo. A ideia é centralizar tudo do Insta da clínica dentro da plataforma.',
+    steps: [
+      {
+        title: 'DMs do Instagram nas Conversas',
+        desc: 'Mesma caixa de entrada do WhatsApp — DM cai como ticket, IA filtra, equipe assume. Sem precisar abrir o app do celular.',
+      },
+      {
+        title: 'IA gera posts pra clínica',
+        desc: 'Conta pra IA o tema (ex: "5 dúvidas sobre clareamento dental") e ela monta carrossel completo: copy, sugestão visual, hashtags. Você só revisa e aprova.',
+      },
+      {
+        title: 'Calendário editorial integrado',
+        desc: 'Programa post pra sair na quarta às 18h. A plataforma publica e ainda mede engajamento dentro da própria aba de Métricas.',
+      },
+    ],
+    tip: 'Esse módulo ainda não está liberado — a aba mostra uma página teaser editorial. Assine a newsletter dentro da página pra ser avisado quando entrar em produção.',
+    cta: { label: 'Ver teaser', to: '/painel/instagram' },
   },
   {
     key: 'metricas',
