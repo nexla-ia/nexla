@@ -44,6 +44,7 @@ export default function Landing() {
           <div className="lp-nav-links">
             <a href="#recursos">Recursos</a>
             <a href="#como-funciona">Como funciona</a>
+            <a href="#vs-digisac">vs Digisac</a>
             <a href="#planos">Planos</a>
             <a href="#contato">Contato</a>
           </div>
@@ -372,12 +373,56 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* VS DIGISAC */}
+      <section className="lp-vs" id="vs-digisac">
+        <div className="lp-container">
+          <SectionHeader
+            kicker="Pra quem hoje usa Digisac"
+            title={<>Digisac fala com seu paciente.<br /><em>MedicinaMKT atende, agenda, fatura e mede.</em></>}
+          />
+          <p className="lp-vs-intro">
+            Digisac é uma boa caixa de mensagens — só que é genérica. Sua clínica precisa de mais que conversa: precisa de prontuário, agenda médica, cálculo por convênio, métricas de no-show. Tudo isso a gente nasceu fazendo.
+          </p>
+
+          <div className="lp-vs-table">
+            <div className="lp-vs-row lp-vs-head">
+              <div className="lp-vs-cell-feature"></div>
+              <div className="lp-vs-cell">Digisac</div>
+              <div className="lp-vs-cell lp-vs-us">MedicinaMKT</div>
+            </div>
+            {[
+              ['WhatsApp + Instagram unificados na mesma caixa', true,  true],
+              ['IA respondendo 24/7',                           true,  true],
+              ['Distribuição automática de tickets',            true,  true],
+              ['Templates HSM (mensagem fora da janela 24h)',   true,  true],
+              ['Ficha clínica do paciente (foto, alergias, histórico)', false, true],
+              ['Agenda médica com validação automática de conflito',    false, true],
+              ['Cálculo automático procedimento × convênio',            false, true],
+              ['Catálogo clínico (médicos, exames, valores particular/convênio)', false, true],
+              ['Métricas verticais (no-show, ticket por convênio, faturamento por médico)', false, true],
+              ['Banner de aniversário do paciente pra pós-venda',       false, true],
+              ['LGPD focado em dado de saúde',                          false, true],
+            ].map((r, i) => (
+              <div key={i} className="lp-vs-row">
+                <div className="lp-vs-cell-feature">{r[0]}</div>
+                <div className="lp-vs-cell">{r[1] ? <Check size={14} className="lp-vs-yes" /> : <span className="lp-vs-no">—</span>}</div>
+                <div className="lp-vs-cell lp-vs-us">{r[2] ? <Check size={14} className="lp-vs-yes" /> : <span className="lp-vs-no">—</span>}</div>
+              </div>
+            ))}
+          </div>
+
+          <p className="lp-vs-foot">
+            Você pode <strong>plugar o Digisac dentro da MedicinaMKT</strong> se já tiver — a gente integra. Mas a maioria descobre que não precisa mais dele depois de 30 dias.
+          </p>
+        </div>
+      </section>
+
       {/* PLANOS */}
       <section className="lp-pricing" id="planos">
         <div className="lp-container">
           <p className="lp-pricing-anchor">
             Uma secretária CLT custa <strong>R$ 3.500+/mês</strong>.<br />
-            A MedicinaMKT atende 24/7 a partir de <strong>R$ 297</strong>.
+            A MedicinaMKT atende 24/7 a partir de <strong>R$ 247</strong>.
           </p>
           <SectionHeader
             kicker="Escolha seu plano"
@@ -387,14 +432,17 @@ export default function Landing() {
           <div className="lp-pricing-grid">
             <PricingCard
               name="Starter"
-              price="297"
-              tagline="Para consultórios em começo de jornada"
+              price="247"
+              tagline="Pra consultórios solos (até 3 profissionais)"
               features={[
-                'Até 3 usuários',
-                'IA de atendimento 24/7',
-                '1 agenda profissional',
-                'Catálogo de procedimentos',
-                'Métricas básicas',
+                'Até 3 profissionais cadastrados',
+                'Até 5 usuários na equipe',
+                'WhatsApp + IA de atendimento 24/7',
+                'Ficha completa do paciente (foto, saúde, timeline)',
+                'Catálogo: profissionais, procedimentos, convênios',
+                'Setores e distribuição de conversas',
+                '1 agenda · Kanban · Conversas IA',
+                'Métricas: visão geral, atendimento e agenda',
                 'Suporte por e-mail',
               ]}
               cta="Começar Starter"
@@ -403,15 +451,17 @@ export default function Landing() {
               featured
               name="Pro"
               price="597"
-              tagline="Para clínicas com 2-5 profissionais"
+              tagline="Pra clínicas em crescimento (até 25 profissionais)"
               features={[
-                'Até 10 usuários',
-                'IA de atendimento 24/7',
-                'Agendas ilimitadas',
-                'Convênios + financeiro completo',
-                'Quadro Kanban de tarefas',
-                'Métricas avançadas',
-                'Suporte prioritário',
+                'Até 25 profissionais cadastrados',
+                'Até 20 usuários na equipe',
+                'Tudo do Starter, e mais:',
+                '+ Instagram Direct unificado com IA',
+                '+ Distribuição automática de tickets (round-robin)',
+                '+ Templates HSM (lembrete de consulta automatizado)',
+                '+ Agendas ilimitadas',
+                '+ Métricas completas (Equipe, Financeiro, Leads)',
+                'Suporte prioritário (resposta em 2h úteis)',
               ]}
               cta="Começar Pro"
               badge="Mais escolhido"
@@ -419,20 +469,30 @@ export default function Landing() {
             <PricingCard
               name="Business"
               price="Sob medida"
-              tagline="Para grupos clínicos e operadoras"
+              tagline="Pra grupos clínicos, franquias e redes"
               features={[
-                'Usuários ilimitados',
-                'Múltiplas instâncias WhatsApp',
-                'Integrações personalizadas',
-                'Onboarding dedicado',
-                'SLA de resposta',
-                'Gerente de conta exclusivo',
-                'Treinamento da equipe',
+                'Profissionais e usuários ilimitados',
+                'Múltiplas instâncias WhatsApp + Instagram',
+                'IA criando posts (Em breve)',
+                'IA gerando laudos / relatórios (Em breve)',
+                'Comparativo consolidado entre filiais',
+                'API + integrações personalizadas',
+                'Onboarding presencial · SLA contratual',
+                'Gerente de conta dedicado',
               ]}
               cta="Falar com vendas"
               custom
             />
           </div>
+
+          {/* Tabela completa de comparação */}
+          <details className="lp-compare">
+            <summary className="lp-compare-toggle">
+              <span>Ver tabela completa de comparação</span>
+              <ChevronRight size={16} />
+            </summary>
+            <ComparisonTable />
+          </details>
 
           <p className="lp-pricing-note">
             Valores em BRL. Não cobramos por mensagem enviada. Você pode cancelar quando quiser.
@@ -766,6 +826,79 @@ function renderQuote(t) {
     parts.push(txt)
   }
   return parts
+}
+
+function ComparisonTable() {
+  const groups = [
+    { title: 'Plano e equipe', rows: [
+      ['Profissionais cadastrados',     'Até 3',         'Até 25',          'Ilimitado'],
+      ['Usuários (equipe)',             '5',             '20',              'Ilimitado'],
+      ['Pacientes cadastrados',         'Ilimitado',     'Ilimitado',       'Ilimitado'],
+      ['Agendas',                       '1',             'Ilimitadas',      'Ilimitadas'],
+    ]},
+    { title: 'Canais e atendimento', rows: [
+      ['WhatsApp',                      '1 instância',   '1 instância',     'Multi-instância'],
+      ['Instagram Direct',              false,           '1 conta',         'Multi-conta'],
+      ['Digisac (integração)',          true,            true,              true],
+      ['IA atendimento 24/7',           'WhatsApp',      'WhatsApp + Insta','Todos os canais'],
+      ['Distribuição automática (round-robin)', false,   true,              true],
+      ['Templates HSM (fora da janela 24h)',    false,   true,              true],
+      ['Setores e atribuição',          true,            true,              true],
+      ['Encaminhar conversa entre atendentes', true,     true,              true],
+      ['Conversas IA (auditoria)',      true,            true,              true],
+    ]},
+    { title: 'Pacientes e operação', rows: [
+      ['Ficha completa (foto, timeline, saúde)', true,   true,              true],
+      ['Catálogo (profissionais, procedimentos, convênios)', true, true,    true],
+      ['Cálculo automático procedimento × convênio',  true, true,           true],
+      ['Banner de aniversário',         true,            true,              true],
+      ['Kanban de atividades',          '1 quadro',      'Ilimitado',       'Ilimitado'],
+    ]},
+    { title: 'Métricas', rows: [
+      ['Visão geral · Atendimento · Agenda', true,       true,              true],
+      ['Equipe · Financeiro · Leads',   false,           true,              true],
+      ['Comparativo entre filiais',     false,           false,             true],
+    ]},
+    { title: 'IA avançada', rows: [
+      ['IA criando posts no Instagram', false,           false,             'Em breve'],
+      ['IA gerando laudos / relatórios',false,           false,             'Em breve'],
+    ]},
+    { title: 'Integrações e suporte', rows: [
+      ['API + integrações custom',      false,           false,             true],
+      ['Onboarding',                    'Tutorial auto', 'Setup em 24h',    'Presencial dedicado'],
+      ['Suporte',                       'E-mail',        'Prioritário (2h)','Gerente + SLA'],
+    ]},
+  ]
+
+  function cell(v) {
+    if (v === true)  return <Check size={14} className="lp-cmp-yes" />
+    if (v === false) return <span className="lp-cmp-no">—</span>
+    return <span className="lp-cmp-text">{v}</span>
+  }
+
+  return (
+    <div className="lp-cmp">
+      <div className="lp-cmp-row lp-cmp-head">
+        <div className="lp-cmp-cell-feature"></div>
+        <div className="lp-cmp-cell-plan">Starter<span>R$ 247</span></div>
+        <div className="lp-cmp-cell-plan featured">Pro<span>R$ 597</span></div>
+        <div className="lp-cmp-cell-plan">Business<span>Sob medida</span></div>
+      </div>
+      {groups.map(g => (
+        <div key={g.title} className="lp-cmp-group">
+          <div className="lp-cmp-group-title">{g.title}</div>
+          {g.rows.map((r, i) => (
+            <div key={i} className="lp-cmp-row">
+              <div className="lp-cmp-cell-feature">{r[0]}</div>
+              <div className="lp-cmp-cell">{cell(r[1])}</div>
+              <div className="lp-cmp-cell featured">{cell(r[2])}</div>
+              <div className="lp-cmp-cell">{cell(r[3])}</div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
 }
 
 function PricingCard({ name, price, tagline, features, cta, featured, badge, custom }) {
