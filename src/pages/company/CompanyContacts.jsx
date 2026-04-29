@@ -209,15 +209,21 @@ export default function CompanyContacts() {
                 const plan = insurancePlans.find(p => p.id === c.insurance_plan_id)
                 const age = calcAge(c.birth_date)
                 return (
-                  <tr key={c.id}>
+                  <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/painel/contatos/${c.id}`)}>
                     <td className="td-name">
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{
                           width: 34, height: 34, borderRadius: '50%',
-                          background: '#EFF6FF', border: '1px solid #BFDBFE',
+                          background: c.photo ? 'transparent' : '#EFF6FF',
+                          border: c.photo ? 'none' : '1px solid #BFDBFE',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           fontSize: 12, fontWeight: 700, color: '#2563EB', flexShrink: 0,
-                        }}>{c.nome?.charAt(0).toUpperCase()}</div>
+                          overflow: 'hidden',
+                        }}>
+                          {c.photo
+                            ? <img src={c.photo} alt={c.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : c.nome?.charAt(0).toUpperCase()}
+                        </div>
                         <div>
                           <div style={{ fontWeight: 600 }}>{c.nome}</div>
                           <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 8 }}>
@@ -232,7 +238,7 @@ export default function CompanyContacts() {
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'monospace' }}>
                           <Phone size={11} style={{ color: '#6B7280' }} />
                           {c.numero}
-                          <button onClick={() => copyNumber(c.id, c.numero)}
+                          <button onClick={(e) => { e.stopPropagation(); copyNumber(c.id, c.numero) }}
                             title="Copiar número"
                             style={{
                               display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -270,7 +276,7 @@ export default function CompanyContacts() {
                     <td style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {c.notes || '—'}
                     </td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td style={{ textAlign: 'right' }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'inline-flex', gap: 6 }}>
                         {c.numero && (
                           <button className="table-action"
@@ -279,8 +285,8 @@ export default function CompanyContacts() {
                             <MessageSquare size={11} /> Conversar
                           </button>
                         )}
-                        <button className="table-action" onClick={() => openEdit(c)}>
-                          <Pencil size={11} /> Editar
+                        <button className="table-action" onClick={() => navigate(`/painel/contatos/${c.id}`)}>
+                          <Pencil size={11} /> Abrir
                         </button>
                         <button className="table-action danger" onClick={() => handleDelete(c)}>
                           <Trash2 size={11} /> Excluir

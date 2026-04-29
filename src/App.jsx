@@ -12,6 +12,7 @@ import CompanyHistory from './pages/company/CompanyHistory'
 import CompanyAlerts from './pages/company/CompanyAlerts'
 import CompanyConversations from './pages/company/CompanyConversations'
 import CompanyContacts from './pages/company/CompanyContacts'
+import CompanyPatientDetail from './pages/company/CompanyPatientDetail'
 import CompanyAgenda from './pages/company/CompanyAgenda'
 import CompanyKanban from './pages/company/CompanyKanban'
 import CompanyCatalog from './pages/company/CompanyCatalog'
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="conversas" element={<CompanyConversations />} />
             <Route path="historico" element={<CompanyHistory />} />
             <Route path="contatos" element={<CompanyContacts />} />
+            <Route path="contatos/:id" element={<CompanyPatientDetail />} />
             <Route path="agenda" element={<CompanyAgenda />} />
             <Route path="atividades" element={<CompanyKanban />} />
             <Route path="catalogo" element={<CompanyCatalog />} />

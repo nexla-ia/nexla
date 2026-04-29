@@ -5,6 +5,21 @@
 export const UPDATES = [
   {
     date: '2026-04-28',
+    title: 'Ficha de paciente completa — prontuário, foto e linha do tempo',
+    type: 'feature',
+    tags: ['Pacientes', 'Saúde'],
+    items: [
+      'Cliquem em qualquer paciente da lista e vocês caem numa ficha completa, estilo prontuário. Fica bonito.',
+      'Foto do paciente: subam uma JPG/PNG até 500 KB e ela aparece no avatar do cabeçalho, na lista e onde mais aparecer aquele paciente.',
+      'Cadastro expandido: identificação completa (nome, CPF, RG, nascimento, gênero, profissão), contatos múltiplos (telefone principal/secundário, e-mail, endereço, contato de emergência), convênio e carteirinha.',
+      'Aba Saúde com alergias, condições crônicas, medicamentos em uso e observações clínicas — tudo separado, fácil de bater o olho na hora da consulta.',
+      'Linha do tempo do paciente: cadastro, todas as consultas (passadas e futuras) ordenadas por data, com status colorido. Vocês veem a história inteira numa rolada só.',
+      'Aniversário do paciente está chegando? Banner colorido aparece automaticamente na ficha — vocês conseguem fazer aquele follow-up especial.',
+      'Resumo no topo: próxima consulta, total de consultas realizadas, valor total pago e data de cadastro. Tudo num piscar de olhos.',
+    ],
+  },
+  {
+    date: '2026-04-28',
     title: 'A aba "Contatos" virou "Pacientes" — agora com cadastro completo',
     type: 'feature',
     tags: ['Pacientes'],
