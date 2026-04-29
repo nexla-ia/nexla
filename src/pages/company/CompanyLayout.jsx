@@ -2,6 +2,9 @@ import React from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import Sidebar from '../../components/Sidebar'
+import BillingBanner from '../../components/BillingBanner'
+import BlockedScreen from '../../components/BlockedScreen'
+import { shouldBlockAccess } from '../../lib/billing'
 import { MessageSquare, History, BellRing, BarChart2, Settings2, Contact2, Calendar, Sparkles, Kanban, Stethoscope, GraduationCap, Instagram } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -9,9 +12,10 @@ import { latestUpdateDate } from '../../data/updates'
 import './Company.css'
 
 export default function CompanyLayout() {
-  const { session } = useAuth()
+  const { session, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+  const blocked = shouldBlockAccess(session?.company)
   const instance = session?.company?.instance
   const [activeCount, setActiveCount] = useState(0)
   const [pendingAlerts, setPendingAlerts] = useState(0)
@@ -100,6 +104,10 @@ export default function CompanyLayout() {
     ] : []),
   ]
 
+  if (blocked) {
+    return <BlockedScreen company={session?.company} onLogout={logout} />
+  }
+
   return (
     <div className="company-root">
       <Sidebar links={links} role="company" />
@@ -110,6 +118,7 @@ export default function CompanyLayout() {
             {session?.company?.plan}
           </span>
         </div>
+        <BillingBanner company={session?.company} />
         <main className="company-main">
           <Outlet />
         </main>

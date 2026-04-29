@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ArrowLeft, Plus, X, UserCheck, UserX, RefreshCw, Pencil, Settings, Layers, UserMinus, Trash2 } from 'lucide-react'
+import AdmCompanyBilling from './AdmCompanyBilling'
 import './Adm.css'
 
 const SECTOR_COLORS = [
@@ -294,6 +295,11 @@ export default function AdmCompanyDetail() {
             </table>
           )}
         </div>
+      </div>
+
+      {/* Financeiro / Mensalidade */}
+      <div className="page-body" style={{ marginTop: 0 }}>
+        <AdmCompanyBilling company={company} onUpdate={loadDB} />
       </div>
 
       {/* Setores */}
