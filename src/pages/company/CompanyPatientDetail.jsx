@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 import ConfirmModal from '../../components/ConfirmModal'
 import {
   ArrowLeft, Pencil, Camera, Phone, Mail, MapPin, Calendar, ShieldCheck,
-  AlertTriangle, Pill, Heart, Cake, MessageSquare, X, Trash2, IdCard,
+  AlertTriangle, Pill, Heart, Cake, MessageSquare, X, Trash2, CreditCard,
   Activity, Briefcase, Users, Clock, CheckCircle2, XCircle, Clipboard,
   FileText, Plus, AlertCircle,
 } from 'lucide-react'
@@ -357,7 +357,7 @@ export default function CompanyPatientDetail() {
       {tab === 'cadastro' && (
         <div className="pat-resumo">
           <div className="pat-section-card">
-            <SectionTitle icon={IdCard} title="Identificação" />
+            <SectionTitle icon={CreditCard} title="Identificação" />
             <FieldGrid>
               <Field label="Nome completo" value={patient.nome} large />
               {patient.nome_social && <Field label="Nome social" value={patient.nome_social} large />}
