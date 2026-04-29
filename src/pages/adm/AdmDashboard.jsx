@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import {
   Building2, Users, MessageSquare, AlertTriangle, Activity, Wifi, WifiOff,
   Calendar, BarChart3, Clock, TrendingUp, RefreshCw, Sparkles, Bot,
-  CircleDollarSign, Zap, Stethoscope, ArrowUpRight, ChevronRight,
+  CircleDollarSign, Zap, Stethoscope, ArrowUpRight, ChevronRight, X, Bell,
 } from 'lucide-react'
 import './AdmDashboard.css'
 
@@ -44,6 +44,57 @@ export default function AdmDashboard() {
   const [loading, setLoading] = useState(true)
   const [lastRefresh, setLastRefresh] = useState(null)
   const [evolutionStatuses, setEvolutionStatuses] = useState({}) // instance → 'open'|'close'|'unknown'
+  const [offlineSince, setOfflineSince] = useState({}) // instance → timestamp ms quando ficou offline
+  const [bannerDismissed, setBannerDismissed] = useState(false)
+  const prevStatusesRef = useRef({})
+
+  function checkAllInstances() {
+    db.companies.forEach(c => {
+      if (!c.instance || !c.api_instancia) return
+      const baseUrl = c.evolution_url || 'https://evolutionapi.nexladesenvolvimento.com.br'
+      fetch(`${baseUrl}/instance/connectionState/${c.instance}`, {
+        headers: { apikey: c.api_instancia },
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(j => {
+          const state = j?.instance?.state || j?.state || 'unknown'
+          setEvolutionStatuses(prev => {
+            const previous = prev[c.instance]
+            // Detectou transição open → close: notifica
+            if (previous === 'open' && state === 'close') {
+              notifyDisconnect(c)
+              setBannerDismissed(false) // re-mostra banner se estava fechado
+              setOfflineSince(o => ({ ...o, [c.instance]: Date.now() }))
+            }
+            // Voltou online: limpa offlineSince
+            if (state === 'open' && previous !== 'open') {
+              setOfflineSince(o => { const n = { ...o }; delete n[c.instance]; return n })
+            }
+            // Primeira leitura e está offline: marca momento
+            if (!previous && state === 'close') {
+              setOfflineSince(o => o[c.instance] ? o : { ...o, [c.instance]: Date.now() })
+            }
+            return { ...prev, [c.instance]: state }
+          })
+        })
+        .catch(() => {
+          setEvolutionStatuses(prev => ({ ...prev, [c.instance]: 'unknown' }))
+        })
+    })
+  }
+
+  function notifyDisconnect(company) {
+    if (typeof Notification === 'undefined') return
+    if (Notification.permission === 'granted') {
+      try {
+        new Notification('⚠️ WhatsApp desconectado', {
+          body: `${company.name} (${company.instance}) caiu agora. Verifica e reconecta o quanto antes.`,
+          icon: '/favicon.ico',
+          tag: `wpp-offline-${company.instance}`,
+        })
+      } catch {}
+    }
+  }
 
   async function loadAll() {
     setLoading(true)
@@ -69,31 +120,26 @@ export default function AdmDashboard() {
     })
     setLastRefresh(new Date())
     setLoading(false)
-
-    // Checa status WhatsApp das instâncias em paralelo (Evolution API)
-    db.companies.forEach(c => {
-      if (!c.instance || !c.api_instancia) return
-      const baseUrl = c.evolution_url || 'https://evolutionapi.nexladesenvolvimento.com.br'
-      fetch(`${baseUrl}/instance/connectionState/${c.instance}`, {
-        headers: { apikey: c.api_instancia },
-      })
-        .then(r => r.ok ? r.json() : null)
-        .then(j => {
-          const state = j?.instance?.state || j?.state || 'unknown'
-          setEvolutionStatuses(prev => ({ ...prev, [c.instance]: state }))
-        })
-        .catch(() => {
-          setEvolutionStatuses(prev => ({ ...prev, [c.instance]: 'unknown' }))
-        })
-    })
+    checkAllInstances()
   }
 
   useEffect(() => {
     loadDB()
+    // Pede permissão de notificação 1 vez
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {})
+    }
   }, [loadDB])
 
   useEffect(() => {
     if (db.companies?.length) loadAll()
+  }, [db.companies?.length])
+
+  // Polling de status do WhatsApp a cada 30 segundos
+  useEffect(() => {
+    if (!db.companies?.length) return
+    const id = setInterval(checkAllInstances, 30000)
+    return () => clearInterval(id)
   }, [db.companies?.length])
 
   // ─── Cálculos por empresa ─────────────────────────────────────────────────
@@ -185,8 +231,63 @@ export default function AdmDashboard() {
     })
   }, [companyStats])
 
+  // Lista de empresas com WhatsApp offline (state 'close')
+  const offlineCompanies = useMemo(() => {
+    return companyStats.filter(c => c.instance && c.api_instancia && c.wppState === 'close')
+  }, [companyStats])
+
   return (
     <div className="adm-cmd">
+      {/* Banner de alerta de WhatsApp desconectado */}
+      {offlineCompanies.length > 0 && !bannerDismissed && (
+        <div className="adm-wpp-alert">
+          <div className="adm-wpp-alert-icon">
+            <WifiOff size={18} />
+          </div>
+          <div className="adm-wpp-alert-body">
+            <div className="adm-wpp-alert-title">
+              <Bell size={13} />
+              {offlineCompanies.length === 1
+                ? '1 instância WhatsApp desconectada'
+                : `${offlineCompanies.length} instâncias WhatsApp desconectadas`}
+            </div>
+            <div className="adm-wpp-alert-list">
+              {offlineCompanies.slice(0, 5).map(c => {
+                const since = offlineSince[c.instance]
+                const minutes = since ? Math.floor((Date.now() - since) / 60000) : null
+                return (
+                  <button
+                    key={c.id}
+                    className="adm-wpp-alert-item"
+                    onClick={() => navigate(`/adm/empresas/${c.id}`)}>
+                    <span className="adm-wpp-dot" />
+                    <strong>{c.name}</strong>
+                    <span className="adm-wpp-instance">{c.instance}</span>
+                    {minutes !== null && (
+                      <span className="adm-wpp-since">
+                        offline há {minutes < 60 ? `${minutes || '<1'}min` : `${Math.floor(minutes / 60)}h ${minutes % 60}min`}
+                      </span>
+                    )}
+                    <ChevronRight size={13} />
+                  </button>
+                )
+              })}
+              {offlineCompanies.length > 5 && (
+                <div className="adm-wpp-alert-more">+ {offlineCompanies.length - 5} outras na tabela abaixo</div>
+              )}
+            </div>
+          </div>
+          <div className="adm-wpp-alert-actions">
+            <button className="adm-wpp-alert-refresh" onClick={checkAllInstances} title="Verificar agora">
+              <RefreshCw size={13} />
+            </button>
+            <button className="adm-wpp-alert-close" onClick={() => setBannerDismissed(true)} title="Fechar">
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Hero strip */}
       <div className="adm-cmd-hero">
         <div>
