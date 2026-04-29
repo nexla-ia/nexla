@@ -5,7 +5,7 @@ import {
   Users, Bot, Stethoscope, Headset, Check, ChevronRight, ChevronLeft, Star, Zap, ShieldCheck,
   Phone, Mail, Activity, Clock, TrendingUp, Lock, FileText, Trash2, Server, Quote,
   Building2, Network, Wallet, Bot as BotIcon, Instagram, BookUser, Image as ImageIcon,
-  ScanLine, FileSearch,
+  ScanLine, FileSearch, Camera, Cake, MapPin, Heart, Pill, AlertTriangle, Pencil,
 } from 'lucide-react'
 import BrandMark from '../components/BrandMark'
 import './Landing.css'
@@ -243,6 +243,60 @@ export default function Landing() {
               title="Gestão de equipe e setores"
               description="Convide atendentes, atribua a setores, defina permissões. Cada conversa fica com quem deve atender."
             />
+          </div>
+        </div>
+      </section>
+
+      {/* FICHA DO PACIENTE */}
+      <section className="lp-ficha" id="ficha">
+        <div className="lp-container">
+          <SectionHeader
+            kicker="Ficha do paciente"
+            title={<>Cada paciente, <em>uma ficha de prontuário</em><br />que respira com sua clínica</>}
+          />
+
+          <div className="lp-ficha-stage">
+            <FichaMock />
+
+            {/* Callouts flutuantes */}
+            <div className="lp-ficha-callout lp-callout-1">
+              <div className="lp-callout-icon" style={{ background: '#FCE7F3', color: '#DB2777' }}><Camera size={16} /></div>
+              <div>
+                <div className="lp-callout-title">Foto vira avatar</div>
+                <div className="lp-callout-desc">A foto cadastrada aparece como ícone do paciente nas conversas, na agenda e em qualquer canto.</div>
+              </div>
+            </div>
+            <div className="lp-ficha-callout lp-callout-2">
+              <div className="lp-callout-icon" style={{ background: '#FEF3C7', color: '#D97706' }}><Cake size={16} /></div>
+              <div>
+                <div className="lp-callout-title">Aniversário sozinho</div>
+                <div className="lp-callout-desc">Banner colorido aparece automaticamente na semana do aniversário do paciente.</div>
+              </div>
+            </div>
+            <div className="lp-ficha-callout lp-callout-3">
+              <div className="lp-callout-icon" style={{ background: '#DBEAFE', color: '#2563EB' }}><Activity size={16} /></div>
+              <div>
+                <div className="lp-callout-title">Antropometria + IMC</div>
+                <div className="lp-callout-desc">Tipo sanguíneo, peso, altura — IMC calculado automaticamente.</div>
+              </div>
+            </div>
+            <div className="lp-ficha-callout lp-callout-4">
+              <div className="lp-callout-icon" style={{ background: '#DCFCE7', color: '#16A34A' }}><Clock size={16} /></div>
+              <div>
+                <div className="lp-callout-title">Linha do tempo</div>
+                <div className="lp-callout-desc">Todas as consultas passadas e futuras, com status e valor — histórico que não some.</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Linha de pílulas com mais features */}
+          <div className="lp-ficha-pills">
+            <span><BookUser size={13} /> Identificação completa (CPF, RG, gênero, estado civil)</span>
+            <span><MapPin size={13} /> Endereço e contato de emergência</span>
+            <span><ShieldCheck size={13} /> Convênio com carteirinha</span>
+            <span><Heart size={13} /> Alergias, crônicas e medicamentos</span>
+            <span><Stethoscope size={13} /> Notas clínicas privadas da equipe</span>
+            <span><TrendingUp size={13} /> Origem do paciente (Indicação, Instagram, Google...)</span>
           </div>
         </div>
       </section>
@@ -512,6 +566,104 @@ function StepCard({ number, title, description }) {
       <div className="lp-step-number">{number}</div>
       <h3 className="lp-step-title">{title}</h3>
       <p className="lp-step-desc">{description}</p>
+    </div>
+  )
+}
+
+function FichaMock() {
+  return (
+    <div className="lp-ficha-mock">
+      <div className="lp-ficha-mock-glow" />
+
+      {/* Banner aniversário */}
+      <div className="lp-ficha-bday">
+        <Cake size={13} /> <strong>Aniversariante!</strong> Faltam 3 dias para Maria.
+      </div>
+
+      {/* Cabeçalho */}
+      <div className="lp-ficha-head">
+        <div className="lp-ficha-photo">M</div>
+        <div className="lp-ficha-info">
+          <div className="lp-ficha-name">Maria Silva Santos</div>
+          <div className="lp-ficha-meta">42 anos · Feminino · Particular · Professora</div>
+          <div className="lp-ficha-actions">
+            <span className="lp-ficha-btn primary"><MessageSquare size={10} /> Conversar</span>
+            <span className="lp-ficha-btn"><Calendar size={10} /> Agendar</span>
+            <span className="lp-ficha-btn"><Pencil size={10} /> Editar</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="lp-ficha-tabs">
+        <span className="active">Resumo</span>
+        <span>Cadastro</span>
+        <span>Saúde</span>
+        <span>Histórico (12)</span>
+      </div>
+
+      {/* KPIs */}
+      <div className="lp-ficha-kpis">
+        <div className="lp-ficha-kpi" style={{ background: '#EFF6FF' }}>
+          <div className="lp-ficha-kpi-label">Próxima</div>
+          <div className="lp-ficha-kpi-value">02/05 · 14:30</div>
+        </div>
+        <div className="lp-ficha-kpi" style={{ background: '#F0FDF4' }}>
+          <div className="lp-ficha-kpi-label">Realizadas</div>
+          <div className="lp-ficha-kpi-value">11</div>
+        </div>
+        <div className="lp-ficha-kpi" style={{ background: '#F5F3FF' }}>
+          <div className="lp-ficha-kpi-label">Total pago</div>
+          <div className="lp-ficha-kpi-value">R$ 4.380</div>
+        </div>
+        <div className="lp-ficha-kpi" style={{ background: '#FFFBEB' }}>
+          <div className="lp-ficha-kpi-label">Cadastrado</div>
+          <div className="lp-ficha-kpi-value">10/03/24</div>
+        </div>
+      </div>
+
+      {/* Saúde resumo */}
+      <div className="lp-ficha-health">
+        <div className="lp-ficha-health-tag pat-allergy"><AlertTriangle size={11} /> <strong>Alergias:</strong> dipirona, AAS</div>
+        <div className="lp-ficha-health-tag pat-chronic"><Activity size={11} /> <strong>Crônicas:</strong> hipertensão controlada</div>
+        <div className="lp-ficha-health-tag pat-meds"><Pill size={11} /> <strong>Em uso:</strong> Losartana 50mg</div>
+      </div>
+
+      {/* Antropometria */}
+      <div className="lp-ficha-antro">
+        <div><strong>A+</strong><span>Sangue</span></div>
+        <div><strong>72 kg</strong><span>Peso</span></div>
+        <div><strong>1.68 m</strong><span>Altura</span></div>
+        <div><strong>25.5</strong><span>IMC</span></div>
+      </div>
+
+      {/* Mini timeline */}
+      <div className="lp-ficha-timeline">
+        <div className="lp-ficha-tl-line" />
+        <div className="lp-ficha-tl-event">
+          <div className="lp-ficha-tl-dot" style={{ background: '#2563EB' }} />
+          <div>
+            <div className="lp-ficha-tl-date">02/05/2026 · 14:30</div>
+            <div className="lp-ficha-tl-title">Consulta cardiológica · Dr. Hugo</div>
+          </div>
+          <span className="lp-ficha-tl-pill" style={{ color: '#2563EB', background: '#DBEAFE' }}>Confirmado</span>
+        </div>
+        <div className="lp-ficha-tl-event">
+          <div className="lp-ficha-tl-dot" style={{ background: '#0891B2' }} />
+          <div>
+            <div className="lp-ficha-tl-date">22/04/2026 · 10:00</div>
+            <div className="lp-ficha-tl-title">Eletrocardiograma · Dra. Lara</div>
+          </div>
+          <span className="lp-ficha-tl-pill" style={{ color: '#0891B2', background: '#CFFAFE' }}>Concluído</span>
+        </div>
+        <div className="lp-ficha-tl-event">
+          <div className="lp-ficha-tl-dot" style={{ background: '#9CA3AF' }} />
+          <div>
+            <div className="lp-ficha-tl-date">10/03/2024</div>
+            <div className="lp-ficha-tl-title">Cadastrada na clínica</div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
