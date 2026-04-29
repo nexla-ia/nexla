@@ -1,5 +1,5 @@
 import React from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import Sidebar from '../../components/Sidebar'
 import { MessageSquare, History, BellRing, BarChart2, Settings2, Contact2, Calendar, Sparkles, Kanban, Stethoscope, GraduationCap, Instagram } from 'lucide-react'
@@ -10,9 +10,21 @@ import './Company.css'
 
 export default function CompanyLayout() {
   const { session } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
   const instance = session?.company?.instance
   const [activeCount, setActiveCount] = useState(0)
   const [pendingAlerts, setPendingAlerts] = useState(0)
+
+  // Onboarding obrigatório: força usuário novo para o tutorial até concluir
+  useEffect(() => {
+    const userKey = session?.user?.email
+    if (!userKey) return
+    const done = localStorage.getItem(`nx_onboarding_done_${userKey}`) === 'true'
+    if (!done && location.pathname !== '/painel/tutorial') {
+      navigate('/painel/tutorial', { replace: true })
+    }
+  }, [session?.user?.email, location.pathname, navigate])
 
   // Garante que a tabela conversations está no Realtime
   useEffect(() => {

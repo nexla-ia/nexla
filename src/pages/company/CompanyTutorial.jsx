@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   GraduationCap, MessageSquare, History, Contact2, Calendar, Kanban, BellRing,
   BarChart3, Stethoscope, Settings2, Sparkles, Check, ArrowRight, Lightbulb,
@@ -289,6 +289,9 @@ const MODULES = [
 // ─── COMPONENTE ──────────────────────────────────────────────────────────────
 export default function CompanyTutorial() {
   const { session } = useAuth()
+  const navigate = useNavigate()
+  const userKey = session?.user?.email
+  const onboardingDone = userKey && localStorage.getItem(`nx_onboarding_done_${userKey}`) === 'true'
   const [completed, setCompleted] = useState(() => {
     try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '[]') } catch { return [] }
   })
@@ -296,6 +299,19 @@ export default function CompanyTutorial() {
   const isAdmin = session?.user?.role === 'admin'
   const aiEnabled = session?.company?.ai_enabled !== false
   const contentRef = useRef(null)
+
+  function finishOnboarding() {
+    if (!userKey) return
+    localStorage.setItem(`nx_onboarding_done_${userKey}`, 'true')
+    navigate('/painel/conversas', { replace: true })
+  }
+
+  function skipOnboarding() {
+    if (!userKey) return
+    if (!confirm('Tem certeza que quer pular o tutorial? Você pode voltar aqui a qualquer momento pelo menu lateral.')) return
+    localStorage.setItem(`nx_onboarding_done_${userKey}`, 'true')
+    navigate('/painel/conversas', { replace: true })
+  }
 
   // Filtra módulos pelo perfil
   const visibleModules = useMemo(() => {
@@ -327,6 +343,22 @@ export default function CompanyTutorial() {
 
   return (
     <div className="tut-root">
+      {/* Banner de onboarding obrigatório */}
+      {!onboardingDone && (
+        <div className="tut-onboard-banner">
+          <div className="tut-onboard-icon">
+            <Sparkles size={16} />
+          </div>
+          <div className="tut-onboard-text">
+            <strong>Bem-vindo à plataforma!</strong>
+            <span>Conhece todos os capítulos antes de começar — assim você aproveita o máximo desde o primeiro dia.</span>
+          </div>
+          <button className="tut-onboard-skip" onClick={skipOnboarding}>
+            Pular por agora
+          </button>
+        </div>
+      )}
+
       {/* Hero */}
       <div className="tut-hero">
         <div className="tut-hero-bg" />
@@ -355,6 +387,14 @@ export default function CompanyTutorial() {
               )}
             </div>
           </div>
+
+          {allDone && !onboardingDone && (
+            <button className="tut-finish-btn" onClick={finishOnboarding}>
+              <PartyPopper size={16} />
+              Concluir tutorial e ir para o painel
+              <ArrowRight size={16} />
+            </button>
+          )}
         </div>
       </div>
 

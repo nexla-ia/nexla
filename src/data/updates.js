@@ -5,6 +5,20 @@
 export const UPDATES = [
   {
     date: '2026-04-28',
+    title: 'Onboarding obrigatório no primeiro acesso',
+    type: 'feature',
+    tags: ['Onboarding', 'Tutorial'],
+    items: [
+      'Novos usuários são direcionados automaticamente para o tutorial no primeiro login',
+      'Banner gradiente no topo do tutorial dá boas-vindas e explica o motivo',
+      'Botão "Pular por agora" disponível para quem não quer fazer agora (com confirmação)',
+      'Botão grande "Concluir tutorial e ir para o painel" aparece quando todos os capítulos são marcados como concluídos',
+      'Status salvo por usuário (e-mail), não por navegador — cada um tem seu próprio onboarding',
+      'Após concluir, o tutorial continua acessível pelo menu lateral a qualquer momento',
+    ],
+  },
+  {
+    date: '2026-04-28',
     title: 'Instagram — em breve no menu',
     type: 'feature',
     tags: ['Instagram', 'Em breve'],

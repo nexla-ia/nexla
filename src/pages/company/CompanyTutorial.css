@@ -8,6 +8,102 @@
   padding-bottom: 60px;
 }
 
+/* ─── BANNER DE ONBOARDING ────────────────────────────────────────────────── */
+.tut-onboard-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 28px;
+  background: linear-gradient(110deg, #FDE047 0%, #4ADE80 50%, #22D3EE 100%);
+  background-size: 200% 200%;
+  animation: gradLoop 8s ease-in-out infinite;
+  font-size: 14px;
+  color: #0F0E1B;
+  border-bottom: 1px solid rgba(15, 14, 27, 0.1);
+}
+@keyframes gradLoop {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.tut-onboard-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #DB2777;
+  box-shadow: 0 4px 10px -4px rgba(15, 14, 27, 0.2);
+}
+.tut-onboard-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.tut-onboard-text strong {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+.tut-onboard-text span {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(15, 14, 27, 0.75);
+}
+.tut-onboard-skip {
+  background: rgba(15, 14, 27, 0.1);
+  border: 1px solid rgba(15, 14, 27, 0.2);
+  color: #0F0E1B;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s;
+  flex-shrink: 0;
+  backdrop-filter: blur(8px);
+}
+.tut-onboard-skip:hover {
+  background: rgba(15, 14, 27, 0.15);
+  border-color: rgba(15, 14, 27, 0.4);
+}
+
+/* Botão concluir tutorial */
+.tut-finish-btn {
+  margin-top: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px;
+  background: #0F0E1B;
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: all 0.22s ease;
+  box-shadow: 0 8px 24px -10px rgba(15, 14, 27, 0.4);
+  animation: finishPulse 1.6s ease-in-out infinite;
+}
+.tut-finish-btn:hover {
+  transform: translateY(-2px);
+  background: #1F1D33;
+  box-shadow: 0 12px 32px -10px rgba(15, 14, 27, 0.5);
+}
+@keyframes finishPulse {
+  0%, 100% { box-shadow: 0 8px 24px -10px rgba(15, 14, 27, 0.4), 0 0 0 0 rgba(74, 222, 128, 0.4); }
+  50% { box-shadow: 0 8px 24px -10px rgba(15, 14, 27, 0.4), 0 0 0 10px rgba(74, 222, 128, 0); }
+}
+
 /* ─── HERO ────────────────────────────────────────────────────────────────── */
 .tut-hero {
   position: relative;
