@@ -76,12 +76,52 @@ function formatDuration(ms) {
   return `${d}d ${h % 24}h`
 }
 
+// Status de lead — agora computado automaticamente pela posição no funil
+// Mantém os labels antigos (Curioso/Quente/Interessado/Cliente/Inativo) pra não quebrar
+// dados antigos. Novos leads recebem os valores em snake_case abaixo.
 const CLASSIF_COLORS = {
+  // ── Auto (preferidos)
+  'novo':            { color: '#64748B', bg: '#F1F5F9', border: '#CBD5E1', label: 'Novo' },
+  'em_atendimento':  { color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', label: 'Em atendimento' },
+  'agendado':        { color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0', label: 'Agendado' },
+  'encerrado':       { color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE', label: 'Encerrado' },
+  'perdido':         { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', label: 'Perdido' },
+  // ── Legados (mantidos pra retro-compat)
   'Curioso':    { color: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB' },
   'Interessado':{ color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
   'Quente':     { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
   'Cliente':    { color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0' },
   'Inativo':    { color: '#9CA3AF', bg: '#F9FAFB', border: '#E5E7EB' },
+}
+
+const STATUS_ORDER = ['novo', 'em_atendimento', 'agendado', 'encerrado', 'perdido']
+
+// Computa status do lead automaticamente. Ordem importa:
+//   1. Tem appointment ativo (não cancelado) → 'agendado'
+//   2. Conversa encerrada com 'desistiu' ou 'auto_encerrado' → 'perdido'
+//   3. Outras conversas encerradas (resolvido, encaminhado) → 'encerrado'
+//   4. Alguém respondeu (IA ou humano) → 'em_atendimento'
+//   5. Default → 'novo'
+function computeLeadStatus({ lead, msgsByPhone, apptsByPhone, convBySession }) {
+  const phone = (lead.numero || '').replace(/@.*$/, '').replace(/\D/g, '')
+  const myAppts = apptsByPhone[phone] || []
+  const hasActiveAppt = myAppts.some(a => a.status && a.status !== 'cancelado')
+  if (hasActiveAppt) return 'agendado'
+
+  const conv = convBySession[lead.numero] || convBySession[phone]
+  if (conv) {
+    if (conv.reason === 'desistiu' || conv.reason === 'auto_encerrado') return 'perdido'
+    return 'encerrado'
+  }
+
+  const myMsgs = msgsByPhone[phone] || []
+  const hasResponse = myMsgs.some(m => {
+    const t = (m.type || '').toLowerCase()
+    return t === 'ia' || t === 'humano'
+  })
+  if (hasResponse) return 'em_atendimento'
+
+  return 'novo'
 }
 const ORIGEM_COLORS = ['#2563EB','#16A34A','#F59E0B','#7C3AED','#DC2626','#0891B2','#D97706','#059669']
 
@@ -217,6 +257,49 @@ export default function CompanyMetrics() {
             return u ? { ...l, origem: u.origem } : l
           }))
         }
+      }
+
+      // Classificação automática de status (novo / em_atendimento / agendado / encerrado / perdido)
+      // Roda em todos os leads, atualiza só onde o valor mudou.
+      const allMsgs  = results[0].data || []
+      const allConvs = results[1].data || []
+      const allAppts = results[3].data || []
+
+      const msgsByPhone = {}
+      allMsgs.forEach(m => {
+        const p = (m.numero || '').replace(/@.*$/, '').replace(/\D/g, '')
+        if (!p) return
+        if (!msgsByPhone[p]) msgsByPhone[p] = []
+        msgsByPhone[p].push(m)
+      })
+      const apptsByPhone = {}
+      allAppts.forEach(a => {
+        const p = (a.patient_phone || '').replace(/@.*$/, '').replace(/\D/g, '')
+        if (!p) return
+        if (!apptsByPhone[p]) apptsByPhone[p] = []
+        apptsByPhone[p].push(a)
+      })
+      const convBySession = {}
+      allConvs.forEach(c => { convBySession[c.session_id] = c })
+
+      const statusUpdates = []
+      for (const lead of leadsData) {
+        const newStatus = computeLeadStatus({ lead, msgsByPhone, apptsByPhone, convBySession })
+        const current = lead.classificacao_lead
+        // Só atualiza se diferente E (status atual está vazio OU é um valor auto)
+        const isAutoValue = !current || STATUS_ORDER.includes(current)
+        if (isAutoValue && current !== newStatus) {
+          statusUpdates.push({ id: lead.id, classificacao_lead: newStatus })
+        }
+      }
+      if (statusUpdates.length) {
+        await Promise.all(statusUpdates.map(u =>
+          supabase.from(contactsTable).update({ classificacao_lead: u.classificacao_lead }).eq('id', u.id)
+        ))
+        setLeads(prev => prev.map(l => {
+          const u = statusUpdates.find(x => x.id === l.id)
+          return u ? { ...l, classificacao_lead: u.classificacao_lead } : l
+        }))
       }
     }
   }
@@ -928,13 +1011,22 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
     return Object.values(map).sort((a, b) => b.total - a.total)
   }, [leadsWithAppt])
 
-  // Classificação
+  // Classificação — mostra todos os 5 status auto na ordem do funil, mesmo zerados
   const classifMap = useMemo(() => {
     const map = {}
-    filtered.forEach(l => { const k = l.classificacao_lead || 'Sem classificação'; map[k] = (map[k] || 0) + 1 })
-    return Object.entries(map).sort((a, b) => b[1] - a[1])
+    filtered.forEach(l => {
+      const k = l.classificacao_lead || 'novo'
+      map[k] = (map[k] || 0) + 1
+    })
+    // Garante que os 5 status auto apareçam mesmo com 0 (na ordem do funil)
+    const ordered = STATUS_ORDER.map(s => [s, map[s] || 0])
+    // Adiciona valores legados (Curioso, Quente, etc) no final
+    Object.entries(map).forEach(([k, v]) => {
+      if (!STATUS_ORDER.includes(k)) ordered.push([k, v])
+    })
+    return ordered
   }, [filtered])
-  const maxClassif = classifMap[0]?.[1] || 1
+  const maxClassif = Math.max(1, ...classifMap.map(([, v]) => v))
 
   // Volume diário (últimos 14 dias ou range completo)
   const dailyVolume = useMemo(() => {
@@ -1109,18 +1201,23 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
       {/* Classificação + Sem resposta — 2 colunas */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 14 }}>
         <div className="nx-card" style={{ padding: '1.25rem' }}>
-          <SectionTitle icon={Flag} text="Classificação dos leads" right={periodLabel(period)} />
+          <SectionTitle
+            icon={Flag}
+            text="Status do lead (auto)"
+            right={<span title="Classificação automática baseada no fluxo: novo (sem resposta) → em atendimento (IA/humano respondeu) → agendado → encerrado/perdido" style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>auto</span>}
+          />
           {classifMap.length === 0 ? <Empty /> : classifMap.map(([k, v]) => {
             const cs = CLASSIF_COLORS[k] || { color: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB' }
+            const label = cs.label || k
             const pct = totalLeads ? (v / totalLeads * 100) : 0
             return (
-              <div key={k} style={{ marginBottom: 10 }}>
+              <div key={k} style={{ marginBottom: 10, opacity: v === 0 ? 0.5 : 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginBottom: 4 }}>
-                  <span style={{ fontWeight: 600, color: cs.color, background: cs.bg, border: `1px solid ${cs.border}`, borderRadius: 20, padding: '1px 10px', fontSize: 11 }}>{k}</span>
+                  <span style={{ fontWeight: 600, color: cs.color, background: cs.bg, border: `1px solid ${cs.border}`, borderRadius: 20, padding: '2px 10px', fontSize: 11 }}>{label}</span>
                   <span style={{ fontWeight: 700 }}>{v} <span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: 11 }}>({pct.toFixed(0)}%)</span></span>
                 </div>
                 <div style={{ height: 7, background: '#F1F5F9', borderRadius: 10, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${(v / maxClassif) * 100}%`, background: cs.color }} />
+                  <div style={{ height: '100%', width: `${(v / maxClassif) * 100}%`, background: cs.color, transition: 'width 0.3s ease' }} />
                 </div>
               </div>
             )
