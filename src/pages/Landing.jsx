@@ -55,7 +55,7 @@ export default function Landing() {
             <a href="#recursos">Recursos</a>
             <a href="#atribuicao">Atribuição</a>
             <a href="#como-funciona">Como funciona</a>
-            <a href="#vs-digisac">vs Digisac</a>
+            <a href="#para-quem">Pra quem é</a>
             <a href="#planos">Planos</a>
           </div>
 
@@ -79,7 +79,7 @@ export default function Landing() {
           <a href="#recursos" onClick={closeMobile}>Recursos <ChevronRight size={16} /></a>
           <a href="#atribuicao" onClick={closeMobile}>Atribuição <ChevronRight size={16} /></a>
           <a href="#como-funciona" onClick={closeMobile}>Como funciona <ChevronRight size={16} /></a>
-          <a href="#vs-digisac" onClick={closeMobile}>vs Digisac <ChevronRight size={16} /></a>
+          <a href="#para-quem" onClick={closeMobile}>Pra quem é <ChevronRight size={16} /></a>
           <a href="#planos" onClick={closeMobile}>Planos <ChevronRight size={16} /></a>
           <div className="lp-mobile-menu-actions">
             <Link to="/login" className="lp-btn-ghost-sm" onClick={closeMobile}>Acessar conta</Link>
@@ -510,50 +510,6 @@ export default function Landing() {
               <p>Métrica real de cada profissional, taxa de no-show, atribuição de marketing. Decisão por dado, não achismo.</p>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* VS DIGISAC */}
-      <section className="lp-vs" id="vs-digisac">
-        <div className="lp-container">
-          <SectionHeader
-            kicker="Pra quem hoje usa Digisac"
-            title={<>Digisac fala com seu paciente.<br /><em>MedicinaMKT atende, agenda, fatura e mede.</em></>}
-          />
-          <p className="lp-vs-intro">
-            Digisac é uma boa caixa de mensagens — só que é genérica. Sua clínica precisa de mais que conversa: precisa de prontuário, agenda médica, cálculo por convênio, métricas de no-show. Tudo isso a gente nasceu fazendo.
-          </p>
-
-          <div className="lp-vs-table">
-            <div className="lp-vs-row lp-vs-head">
-              <div className="lp-vs-cell-feature"></div>
-              <div className="lp-vs-cell">Digisac</div>
-              <div className="lp-vs-cell lp-vs-us">MedicinaMKT</div>
-            </div>
-            {[
-              ['WhatsApp + Instagram unificados na mesma caixa', true,  true],
-              ['IA respondendo 24/7',                           true,  true],
-              ['Distribuição automática de tickets',            true,  true],
-              ['Templates HSM (mensagem fora da janela 24h)',   true,  true],
-              ['Ficha clínica do paciente (foto, alergias, histórico)', false, true],
-              ['Agenda médica com validação automática de conflito',    false, true],
-              ['Cálculo automático procedimento × convênio',            false, true],
-              ['Catálogo clínico (médicos, exames, valores particular/convênio)', false, true],
-              ['Métricas verticais (no-show, ticket por convênio, faturamento por médico)', false, true],
-              ['Banner de aniversário do paciente pra pós-venda',       false, true],
-              ['LGPD focado em dado de saúde',                          false, true],
-            ].map((r, i) => (
-              <div key={i} className="lp-vs-row">
-                <div className="lp-vs-cell-feature">{r[0]}</div>
-                <div className="lp-vs-cell">{r[1] ? <Check size={14} className="lp-vs-yes" /> : <span className="lp-vs-no">—</span>}</div>
-                <div className="lp-vs-cell lp-vs-us">{r[2] ? <Check size={14} className="lp-vs-yes" /> : <span className="lp-vs-no">—</span>}</div>
-              </div>
-            ))}
-          </div>
-
-          <p className="lp-vs-foot">
-            Você pode <strong>plugar o Digisac dentro da MedicinaMKT</strong> se já tiver — a gente integra. Mas a maioria descobre que não precisa mais dele depois de 30 dias.
-          </p>
         </div>
       </section>
 
@@ -1093,9 +1049,10 @@ function PricingCard({ name, price, tagline, features, cta, featured, badge, cus
 }
 
 function DashboardMock() {
-  const [view, setView] = useState('conversas')
+  const [view, setView] = useState('rastreio')
 
   const VIEWS = [
+    { key: 'rastreio',   icon: TrendingUp,    label: 'Rastreio' },
     { key: 'conversas',  icon: MessageSquare, label: 'Conversas' },
     { key: 'agenda',     icon: Calendar,      label: 'Agenda' },
     { key: 'metricas',   icon: BarChart3,     label: 'Métricas' },
@@ -1104,6 +1061,7 @@ function DashboardMock() {
   ]
 
   const FLOATING = {
+    rastreio:  { left: { icon: ScanLine, label: 'Rastreados:', value: '94% dos leads' }, right: { icon: TrendingUp, label: 'Top canal:', value: 'Instagram', green: true } },
     conversas: { left: { icon: Zap, label: 'Tempo médio:', value: '2min 14s' }, right: { icon: TrendingUp, label: 'Conversão:', value: '+47%', green: true } },
     agenda:    { left: { icon: Calendar, label: 'Hoje:', value: '14 consultas' }, right: { icon: TrendingUp, label: 'Ocupação:', value: '92%', green: true } },
     metricas:  { left: { icon: TrendingUp, label: 'Faturado:', value: 'R$ 38,4k' }, right: { icon: Sparkles, label: 'Ticket médio:', value: 'R$ 280', green: true } },
@@ -1139,6 +1097,7 @@ function DashboardMock() {
           </div>
 
           <div className="lp-mock-scene" key={view}>
+            {view === 'rastreio'   && <SceneRastreio />}
             {view === 'conversas'  && <SceneConversas />}
             {view === 'agenda'     && <SceneAgenda />}
             {view === 'metricas'   && <SceneMetricas />}
@@ -1157,6 +1116,63 @@ function DashboardMock() {
         <div className={`lp-mock-stat ${float.right.green ? 'green' : ''}`}>
           <float.right.icon size={14} /> {float.right.label} <strong>{float.right.value}</strong>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function SceneRastreio() {
+  const sources = [
+    { name: 'Instagram',     leads: 47, agendou: 18, color: '#E11D48', icon: Instagram },
+    { name: 'Indicação',     leads: 29, agendou: 19, color: '#16A34A', icon: Heart },
+    { name: 'Google Ads',    leads: 24, agendou: 7,  color: '#2563EB', icon: ScanLine },
+    { name: 'Meta Ads',      leads: 18, agendou: 5,  color: '#7C3AED', icon: TrendingUp },
+    { name: 'Site / Direto', leads: 11, agendou: 4,  color: '#0891B2', icon: Building2 },
+  ]
+  const total = sources.reduce((s, x) => s + x.leads, 0)
+  const totalAgenda = sources.reduce((s, x) => s + x.agendou, 0)
+  const max = sources[0].leads
+  return (
+    <div className="lp-scene-rastreio">
+      <div className="lp-scene-header">
+        <div>
+          <div className="lp-scene-title">Atribuição de leads</div>
+          <div className="lp-scene-sub">Últimos 30 dias · {total} leads rastreados</div>
+        </div>
+        <div className="lp-scene-pill green">{Math.round(totalAgenda / total * 100)}% conversão</div>
+      </div>
+
+      <div className="lp-rastreio-list">
+        {sources.map(s => {
+          const conv = Math.round(s.agendou / s.leads * 100)
+          return (
+            <div key={s.name} className="lp-rastreio-row">
+              <div className="lp-rastreio-icon" style={{ background: `${s.color}18`, color: s.color }}>
+                <s.icon size={11} />
+              </div>
+              <div className="lp-rastreio-info">
+                <div className="lp-rastreio-name-row">
+                  <span className="lp-rastreio-name">{s.name}</span>
+                  <span className="lp-rastreio-num">{s.leads}</span>
+                </div>
+                <div className="lp-rastreio-bar-wrap">
+                  <div className="lp-rastreio-bar" style={{ width: `${(s.leads / max) * 100}%`, background: s.color }} />
+                </div>
+                <div className="lp-rastreio-meta">
+                  <span className="lp-rastreio-agendou">{s.agendou} agendamentos</span>
+                  <span
+                    className="lp-rastreio-conv"
+                    style={{
+                      background: conv >= 50 ? '#F0FDF4' : conv >= 25 ? '#FFFBEB' : '#FEF2F2',
+                      color: conv >= 50 ? '#16A34A' : conv >= 25 ? '#D97706' : '#DC2626',
+                    }}>
+                    {conv}% conv.
+                  </span>
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
