@@ -1,23 +1,23 @@
 # MedicinaMKT — API de Integração
 
-> Documentação para integração de agentes de IA (n8n, Make, scripts próprios) com a plataforma MedicinaMKT.
+> API JSON pura — **todas as operações são `POST` com body JSON**. Nenhum parâmetro fica exposto na URL.
 >
-> A API é exposta via **Supabase PostgREST**. Todos os endpoints aceitam JSON e retornam JSON.
+> Implementada via **Supabase RPC** (Postgres functions). Pra ativar, rodar `supabase/migrations/20260430_api_rpc.sql` uma vez no SQL Editor.
 >
-> **Não inclui endpoints administrativos** (super ADM, empresas, billing, usuários da plataforma) — esses são privados.
+> **Não inclui endpoints administrativos** (super ADM, empresas, billing).
 
 ---
 
 ## Sumário
 
 1. [Setup](#1-setup)
-2. [Convenções](#2-convenções)
-3. [Pacientes](#3-pacientes-saved_contacts)
-4. [Mensagens](#4-mensagens-mensagens_geral)
-5. [Conversas / Tickets](#5-conversas--tickets-conversations--attendances)
+2. [Convenção](#2-convenção)
+3. [Pacientes](#3-pacientes)
+4. [Mensagens](#4-mensagens)
+5. [Conversas / Tickets](#5-conversas--tickets)
 6. [Catálogo Clínico](#6-catálogo-clínico)
-7. [Agenda](#7-agenda-agendas--appointments)
-8. [Alertas](#8-alertas-alerts)
+7. [Agenda](#7-agenda)
+8. [Alertas](#8-alertas)
 9. [Atividades / Kanban](#9-atividades--kanban)
 10. [Receitas comuns para IA](#10-receitas-comuns-para-ia)
 
@@ -27,568 +27,374 @@
 
 **Base URL:**
 ```
-https://pllvpbzskmargpdpvumg.supabase.co/rest/v1
+https://pllvpbzskmargpdpvumg.supabase.co/rest/v1/rpc
 ```
 
-**Headers obrigatórios em toda requisição:**
+**Headers obrigatórios em TODA requisição:**
 ```http
 apikey: {{anon_key}}
 Authorization: Bearer {{anon_key}}
 Content-Type: application/json
 ```
 
-> A `anon_key` (também chamada de `apikey`) é entregue por empresa. Cada empresa tem **uma instância** identificada pelo campo `instancia` — todas as queries DEVEM filtrar por ela.
+**Variáveis:**
 
-**Variáveis úteis:**
-
-| Variável     | Descrição                           | Exemplo            |
-|--------------|-------------------------------------|--------------------|
-| `base_url`   | URL do projeto Supabase             | `https://pllvpbzskmargpdpvumg.supabase.co` |
-| `anon_key`   | Chave anon pública                  | `eyJhbGci...`      |
-| `instancia`  | ID da empresa (multi-tenant)        | `clinicaolhos`     |
+| Variável     | Exemplo            |
+|--------------|--------------------|
+| `base_url`   | `https://pllvpbzskmargpdpvumg.supabase.co` |
+| `anon_key`   | `eyJhbGci...`      |
+| `instancia`  | `clinicaolhos`     |
 
 ---
 
-## 2. Convenções
+## 2. Convenção
 
-### Filtros (PostgREST query string)
-
-```
-?coluna=eq.valor          # igual
-?coluna=neq.valor         # diferente
-?coluna=in.(a,b,c)        # entre valores
-?coluna=gte.2026-01-01    # maior ou igual
-?coluna=lte.2026-12-31    # menor ou igual
-?coluna=ilike.*joao*      # busca case-insensitive
-?coluna=is.null           # é nulo
-?coluna=not.is.null       # não nulo
-```
-
-### Ordenação e paginação
-
-```
-?order=created_at.desc&limit=20&offset=0
-```
-
-### Selecionar colunas específicas
-
-```
-?select=id,nome,numero,birthdate
-```
-
-### Joins (foreign keys)
-
-```
-?select=*,agendas(name,color),professionals(name)
-```
-
-### Header útil em respostas POST/PATCH
+Todas as operações são chamadas como:
 
 ```http
-Prefer: return=representation    # retorna o registro inserido/atualizado
-Prefer: resolution=merge-duplicates  # upsert
+POST {{base_url}}/rest/v1/rpc/{nome_da_funcao}
+Content-Type: application/json
+
+{
+  "p_param1": "valor",
+  "p_param2": 123
+}
 ```
 
-### Multi-tenant — REGRA DE OURO
+- Os parâmetros são prefixados com `p_` (convenção PostgREST).
+- Funções de criar/atualizar registro recebem `{ "p_data": { ... } }` com o objeto completo.
+- Listagens retornam **array**, lookups por ID/telefone retornam **array de 1 elemento ou vazio**.
+- Operações que retornam o registro completo usam `RETURNS record`/tabela.
 
-> **Toda query deve filtrar `?instancia=eq.{{instancia}}`**. Sem isso, a query retornaria dados de outras clínicas (RLS bloqueia, mas é boa prática enviar o filtro).
+> **Importante:** todas as funções são `SECURITY DEFINER` e bypassam RLS. O controle de acesso é por `instancia` — sempre passe esse parâmetro filtrando pela empresa correta.
 
 ---
 
-## 3. Pacientes (`saved_contacts`)
+## 3. Pacientes
 
-Tabela única dos pacientes cadastrados na clínica.
+### `api_pacientes_list` — listar pacientes
 
-### Campos principais
-
-| Coluna                 | Tipo      | Descrição                                           |
-|------------------------|-----------|-----------------------------------------------------|
-| `id`                   | uuid      | PK                                                  |
-| `instancia`            | text      | ID da empresa                                       |
-| `nome`                 | text      | Nome completo                                       |
-| `numero`               | text      | Telefone com sufixo (`5511999999999@s.whatsapp.net`)|
-| `photo`                | text      | Base64 da foto (opcional)                           |
-| `cpf`, `rg`            | text      | Documentos                                          |
-| `birthdate`            | date      | Data de nascimento (YYYY-MM-DD)                     |
-| `gender`               | text      | `masculino`/`feminino`/`outro`                      |
-| `email`                | text      | E-mail                                              |
-| `phone_secondary`      | text      | Telefone secundário                                 |
-| `address`              | text      | Endereço completo                                   |
-| `insurance_plan_id`    | uuid      | FK → `insurance_plans.id`                           |
-| `card_number`          | text      | Número da carteirinha                               |
-| `allergies`            | text      | Alergias                                            |
-| `chronic_conditions`   | text      | Condições crônicas                                  |
-| `medications`          | text      | Medicações em uso                                   |
-| `clinical_notes`       | text      | Notas clínicas                                      |
-| `origem`               | text      | Canal de origem (Instagram, Indicação, Google...)   |
-| `primeiro_contato`     | text      | `sim`/`nao`                                         |
-| `created_at`           | timestamp | Cadastro                                            |
-
-### 3.1 Listar pacientes
-
-```http
-GET /saved_contacts?instancia=eq.{{instancia}}&order=nome.asc&limit=100
-```
-
-**Response:**
 ```json
-[
-  {
-    "id": "uuid-1",
+POST /rpc/api_pacientes_list
+{
+  "p_instancia": "clinicaolhos",
+  "p_search": null,        // ou "maria" pra buscar por nome/numero/cpf
+  "p_limit": 100,
+  "p_offset": 0
+}
+```
+
+### `api_paciente_by_phone` — buscar por número
+
+```json
+POST /rpc/api_paciente_by_phone
+{
+  "p_instancia": "clinicaolhos",
+  "p_numero": "5511987654321@s.whatsapp.net"
+}
+```
+
+### `api_paciente_create`
+
+```json
+POST /rpc/api_paciente_create
+{
+  "p_data": {
+    "instancia": "clinicaolhos",
     "nome": "Maria Silva",
     "numero": "5511987654321@s.whatsapp.net",
     "birthdate": "1985-03-15",
-    "insurance_plan_id": "uuid-x",
-    "origem": "Instagram"
+    "gender": "feminino",
+    "email": "maria@email.com",
+    "insurance_plan_id": null,
+    "card_number": null,
+    "allergies": "Penicilina",
+    "origem": "Instagram",
+    "primeiro_contato": "sim"
   }
-]
-```
-
-### 3.2 Buscar paciente por número
-
-```http
-GET /saved_contacts?instancia=eq.{{instancia}}&numero=eq.5511987654321@s.whatsapp.net&select=*
-```
-
-> Retorna **array** (vazio ou com 1 item). Usar `&limit=1` se quiser garantir.
-
-### 3.3 Buscar por nome (parcial, case-insensitive)
-
-```http
-GET /saved_contacts?instancia=eq.{{instancia}}&nome=ilike.*maria*&limit=10
-```
-
-### 3.4 Criar paciente
-
-```http
-POST /saved_contacts
-Prefer: return=representation
-```
-
-**Body:**
-```json
-{
-  "instancia": "clinicaolhos",
-  "nome": "Maria Silva",
-  "numero": "5511987654321@s.whatsapp.net",
-  "birthdate": "1985-03-15",
-  "gender": "feminino",
-  "email": "maria@email.com",
-  "insurance_plan_id": "uuid-do-convenio",
-  "card_number": "9876-5432-1098",
-  "allergies": "Penicilina",
-  "origem": "Instagram"
 }
 ```
 
-### 3.5 Atualizar paciente
+Campos opcionais aceitos no `p_data`: `phone_secondary`, `address`, `cpf`, `rg`, `profession`, `social_name`, `marital_status`, `blood_type`, `weight`, `height`, `legal_guardian`, `guardian_phone`, `chronic_conditions`, `medications`, `clinical_notes`, `classificacao_lead`, `photo` (base64).
 
-```http
-PATCH /saved_contacts?id=eq.{paciente_id}
-Prefer: return=representation
-```
+### `api_paciente_update`
 
-**Body** (qualquer subconjunto de campos):
 ```json
+POST /rpc/api_paciente_update
 {
-  "allergies": "Penicilina, dipirona",
-  "chronic_conditions": "Hipertensão"
+  "p_id": "uuid-do-paciente",
+  "p_data": {
+    "allergies": "Penicilina, dipirona",
+    "chronic_conditions": "Hipertensão"
+  }
 }
 ```
 
-### 3.6 Deletar paciente
+> Só campos que vierem no `p_data` são atualizados (COALESCE).
 
-```http
-DELETE /saved_contacts?id=eq.{paciente_id}
+### `api_paciente_delete`
+
+```json
+POST /rpc/api_paciente_delete
+{ "p_id": "uuid-do-paciente" }
 ```
 
 ---
 
-## 4. Mensagens (`mensagens_geral`)
+## 4. Mensagens
 
-Histórico completo de todas mensagens trocadas (cliente, IA, atendente, ferramentas).
+### `api_messages_by_phone` — últimas N do paciente
 
-### Campos
-
-| Coluna             | Tipo      | Descrição                                              |
-|--------------------|-----------|--------------------------------------------------------|
-| `id`               | bigint    | PK                                                     |
-| `instancia`        | text      | ID da empresa                                          |
-| `numero`           | text      | Telefone do paciente (`5511999999999@s.whatsapp.net`)  |
-| `mensagem`         | text      | Conteúdo (texto OU base64 de áudio/imagem/PDF)        |
-| `type`             | text      | `cliente` / `ia` / `humano` / `tool`                   |
-| `horaLastMessage`  | text      | Timestamp formato `DD/MM/YYYY HH:MM:SS`                |
-| `created_at`       | timestamp | Default now()                                          |
-
-### 4.1 Últimas mensagens de um paciente
-
-```http
-GET /mensagens_geral?instancia=eq.{{instancia}}&numero=eq.{numero}&order=id.desc&limit=20
-```
-
-### 4.2 Primeiras mensagens (para inferência de origem)
-
-```http
-GET /mensagens_geral?instancia=eq.{{instancia}}&numero=eq.{numero}&type=eq.cliente&order=created_at.asc&limit=5
-```
-
-### 4.3 Volume de mensagens por dia (período)
-
-```http
-GET /mensagens_geral?instancia=eq.{{instancia}}&created_at=gte.2026-04-01&created_at=lte.2026-04-30&select=id,type,created_at&limit=10000
-```
-
-### 4.4 Inserir mensagem (registrar resposta da IA)
-
-```http
-POST /mensagens_geral
-```
-
-**Body:**
 ```json
+POST /rpc/api_messages_by_phone
 {
-  "instancia": "clinicaolhos",
-  "numero": "5511987654321@s.whatsapp.net",
-  "mensagem": "Olá Maria! Posso te ajudar a agendar a consulta. Que dia funciona melhor?",
-  "type": "ia",
-  "horaLastMessage": "29/04/2026 14:32:15"
+  "p_instancia": "clinicaolhos",
+  "p_numero": "5511987654321@s.whatsapp.net",
+  "p_limit": 20,
+  "p_only_client": false
 }
 ```
 
-> O envio efetivo da mensagem para o paciente é feito via Evolution API (separada). Esta tabela registra o histórico.
+> `p_only_client: true` retorna só `type = 'cliente'` — útil pra inferir origem/contexto.
+
+### `api_message_create` — registrar resposta da IA
+
+```json
+POST /rpc/api_message_create
+{
+  "p_data": {
+    "instancia": "clinicaolhos",
+    "numero": "5511987654321@s.whatsapp.net",
+    "mensagem": "Olá Maria! Posso te ajudar a agendar a consulta.",
+    "type": "ia"
+  }
+}
+```
+
+> O envio efetivo via WhatsApp é feito pelo Evolution API separadamente. Esta função registra o histórico.
 
 ---
 
-## 5. Conversas / Tickets (`conversations` + `attendances`)
+## 5. Conversas / Tickets
 
-### `conversations` — registro de tickets ENCERRADOS
+### `api_conversation_close` — encerrar com motivo
 
-| Coluna       | Tipo      | Descrição                                           |
-|--------------|-----------|-----------------------------------------------------|
-| `session_id` | text      | = numero do paciente                                |
-| `instancia`  | text      |                                                     |
-| `reason`     | text      | `agendado` / `resolvido` / `encaminhado` / `desistiu` / `auto_encerrado` |
-| `closed_at`  | timestamp | Quando foi encerrada                                |
-
-### `attendances` — quem assumiu cada conversa ATIVA
-
-| Coluna       | Tipo  | Descrição                                  |
-|--------------|-------|--------------------------------------------|
-| `numero`     | text  | Telefone do paciente (PK composta)         |
-| `instancia`  | text  | (PK composta)                              |
-| `user_id`    | uuid  | FK → users.id                              |
-| `assumed_at` | ts    | Quando assumiu                             |
-
-### 5.1 Encerrar conversa com motivo
-
-```http
-POST /conversations
-```
-
-**Body:**
 ```json
+POST /rpc/api_conversation_close
 {
-  "session_id": "5511987654321@s.whatsapp.net",
-  "instancia": "clinicaolhos",
-  "reason": "agendado",
-  "closed_at": "2026-04-29T14:35:00Z"
+  "p_session_id": "5511987654321@s.whatsapp.net",
+  "p_instancia": "clinicaolhos",
+  "p_reason": "agendado"
 }
 ```
 
-> Após encerrar, **deletar** o registro de `attendances` para liberar a conversa.
+`p_reason`: `agendado` / `resolvido` / `encaminhado` / `desistiu` / `auto_encerrado`
 
-### 5.2 Listar tickets encerrados em período
+> A função também limpa `attendances` automaticamente.
 
-```http
-GET /conversations?instancia=eq.{{instancia}}&closed_at=gte.2026-04-01&order=closed_at.desc
+### `api_conversation_status` — está aberta?
+
+```json
+POST /rpc/api_conversation_status
+{
+  "p_session_id": "5511987654321@s.whatsapp.net",
+  "p_instancia": "clinicaolhos"
+}
 ```
 
-### 5.3 Conversa está aberta?
-
-Não está em `conversations` (= não encerrada) e tem mensagem em `mensagens_geral`. Query indireta:
-
-```http
-GET /conversations?instancia=eq.{{instancia}}&session_id=eq.{numero}
+Retorno:
+```json
+{
+  "is_open": true,
+  "last_close": null
+}
 ```
-Vazio = ticket aberto.
 
 ---
 
 ## 6. Catálogo Clínico
 
-### 6.1 Listar profissionais ativos
+### `api_professionals_list`
 
-```http
-GET /professionals?instancia=eq.{{instancia}}&active=eq.true&order=name.asc
-```
-
-**Response:**
 ```json
-[
-  {
-    "id": "uuid",
-    "name": "Dr. Carlos Mendes",
-    "specialty": "Oftalmologia",
-    "registration": "CRM 123456",
-    "color": "#2563EB",
-    "working_days": [1,2,3,4,5],
-    "start_time": "08:00",
-    "end_time": "18:00",
-    "break_start": "12:00",
-    "break_end": "13:00"
-  }
-]
+POST /rpc/api_professionals_list
+{ "p_instancia": "clinicaolhos", "p_only_active": true }
 ```
 
-### 6.2 Listar procedimentos
+### `api_procedures_list`
 
-```http
-GET /procedures?instancia=eq.{{instancia}}&active=eq.true&order=name.asc
-```
-
-**Response:**
 ```json
-[
-  {
-    "id": "uuid",
-    "name": "Consulta oftalmológica",
-    "type": "consulta",
-    "duration_min": 30,
-    "default_price": 250.00,
-    "professional_id": null
-  }
-]
+POST /rpc/api_procedures_list
+{ "p_instancia": "clinicaolhos", "p_only_active": true }
 ```
 
-### 6.3 Listar convênios ativos
+### `api_insurance_plans_list`
 
-```http
-GET /insurance_plans?instancia=eq.{{instancia}}&active=eq.true&order=name.asc
-```
-
-### 6.4 Pegar valor de procedimento × convênio
-
-```http
-GET /procedure_prices?procedure_id=eq.{procedure_id}&insurance_plan_id=eq.{insurance_plan_id}
-```
-
-**Response:**
 ```json
-[{ "procedure_id": "uuid-1", "insurance_plan_id": "uuid-2", "price": 180.00 }]
+POST /rpc/api_insurance_plans_list
+{ "p_instancia": "clinicaolhos", "p_only_active": true }
 ```
 
-> Se vazio = sem preço cadastrado pra essa combinação. Usar `procedures.default_price` como fallback.
+### `api_procedure_price` — preço por convênio
 
-### 6.5 Catálogo completo em uma chamada (com joins)
-
-```http
-GET /procedures?instancia=eq.{{instancia}}&select=*,procedure_prices(insurance_plan_id,price,insurance_plans(name))
-```
-
----
-
-## 7. Agenda (`agendas` + `appointments`)
-
-### `agendas` — calendários da clínica
-
-| Coluna           | Tipo   | Descrição                              |
-|------------------|--------|----------------------------------------|
-| `id`             | uuid   | PK                                     |
-| `instancia`      | text   |                                        |
-| `name`           | text   | Nome (ex: "Dr. Carlos")                |
-| `color`          | text   |                                        |
-| `working_days`   | int[]  | [1,2,3,4,5] = seg a sex                |
-| `start_time`     | time   | 08:00                                  |
-| `end_time`       | time   | 18:00                                  |
-| `slot_minutes`   | int    | 30                                     |
-| `professional_id`| uuid   | FK opcional                            |
-
-### `appointments` — agendamentos
-
-| Coluna              | Tipo   | Descrição                                                 |
-|---------------------|--------|-----------------------------------------------------------|
-| `id`                | uuid   |                                                           |
-| `instancia`         | text   |                                                           |
-| `agenda_id`         | uuid   |                                                           |
-| `professional_id`   | uuid   |                                                           |
-| `procedure_id`      | uuid   |                                                           |
-| `insurance_plan_id` | uuid   | nullable (particular)                                     |
-| `patient_name`      | text   |                                                           |
-| `patient_phone`     | text   | (`5511...@s.whatsapp.net` ou só dígitos)                  |
-| `starts_at`         | timestamp | UTC                                                    |
-| `ends_at`           | timestamp |                                                        |
-| `status`            | text   | `agendado`/`confirmado`/`concluido`/`faltou`/`cancelado`  |
-| `payment_status`    | text   | `pago`/`pendente`/null                                    |
-| `price`             | numeric|                                                           |
-| `notes`             | text   |                                                           |
-
-### 7.1 Listar agendas
-
-```http
-GET /agendas?instancia=eq.{{instancia}}&order=name.asc
-```
-
-### 7.2 Buscar agendamentos do dia
-
-```http
-GET /appointments?instancia=eq.{{instancia}}&starts_at=gte.2026-04-29T00:00:00Z&starts_at=lt.2026-04-30T00:00:00Z&order=starts_at.asc
-```
-
-### 7.3 Buscar agendamentos do paciente
-
-```http
-GET /appointments?instancia=eq.{{instancia}}&patient_phone=eq.{numero}&order=starts_at.desc&limit=10
-```
-
-### 7.4 Buscar slots ocupados de um profissional na semana
-
-```http
-GET /appointments?instancia=eq.{{instancia}}&professional_id=eq.{prof_id}&starts_at=gte.2026-04-29&starts_at=lt.2026-05-06&status=neq.cancelado&select=starts_at,ends_at
-```
-
-> Para calcular slots LIVRES: pegue agenda do profissional (`agendas` ou `professionals.start_time/end_time/working_days`), gere todos os slots possíveis, subtraia os ocupados.
-
-### 7.5 Criar agendamento
-
-```http
-POST /appointments
-Prefer: return=representation
-```
-
-**Body:**
 ```json
+POST /rpc/api_procedure_price
 {
-  "instancia": "clinicaolhos",
-  "agenda_id": "uuid-agenda",
-  "professional_id": "uuid-prof",
-  "procedure_id": "uuid-proc",
-  "insurance_plan_id": "uuid-plan",
-  "patient_name": "Maria Silva",
-  "patient_phone": "5511987654321@s.whatsapp.net",
-  "starts_at": "2026-05-02T14:00:00Z",
-  "ends_at":   "2026-05-02T14:30:00Z",
-  "status": "agendado",
-  "payment_status": "pendente",
-  "price": 180.00,
-  "notes": "Primeira consulta"
+  "p_procedure_id": "uuid-do-procedimento",
+  "p_insurance_plan_id": "uuid-do-convenio"
 }
 ```
 
-### 7.6 Atualizar status de agendamento
-
-```http
-PATCH /appointments?id=eq.{appt_id}
-```
-
-**Body (confirma):**
+Retorno:
 ```json
-{ "status": "confirmado" }
+{ "price": 180.00, "is_default": false }
 ```
 
-**Body (concluir + marcar pago):**
-```json
-{ "status": "concluido", "payment_status": "pago" }
-```
-
-**Body (cancelar):**
-```json
-{ "status": "cancelado" }
-```
-
-### 7.7 Cancelar / deletar agendamento
-
-```http
-DELETE /appointments?id=eq.{appt_id}
-```
+> Se não houver preço cadastrado pra essa combinação, usa `default_price` do procedimento e marca `is_default: true`.
 
 ---
 
-## 8. Alertas (`alerts`)
+## 7. Agenda
 
-Quando a IA não consegue resolver, cria um alerta pra atendente humano.
+### `api_agendas_list`
 
-| Coluna         | Tipo  | Descrição                              |
-|----------------|-------|----------------------------------------|
-| `id`           | uuid  |                                        |
-| `instancia`    | text  |                                        |
-| `contactName`  | text  | Nome do paciente (se conhecido)        |
-| `phone`        | text  | Telefone                               |
-| `type`         | text  | `help` / `schedule` / `urgent`         |
-| `message`      | text  | Descrição do que a IA precisa de ajuda |
-| `resolved`     | bool  | Default false                          |
-| `forwarded_to` | uuid  | FK → users.id (opcional)               |
-| `created_at`   | ts    |                                        |
-
-### 8.1 Criar alerta (IA pediu ajuda)
-
-```http
-POST /alerts
-Prefer: return=representation
+```json
+POST /rpc/api_agendas_list
+{ "p_instancia": "clinicaolhos" }
 ```
 
-**Body:**
+### `api_appointments_by_date`
+
 ```json
+POST /rpc/api_appointments_by_date
+{ "p_instancia": "clinicaolhos", "p_date": "2026-04-30" }
+```
+
+### `api_appointments_by_phone`
+
+```json
+POST /rpc/api_appointments_by_phone
 {
-  "instancia": "clinicaolhos",
-  "contactName": "Maria Silva",
-  "phone": "5511987654321",
-  "type": "help",
-  "message": "Paciente está perguntando se o convênio Bradesco cobre cirurgia refrativa. Não tenho essa info — preciso de atendente humano.",
-  "resolved": false
+  "p_instancia": "clinicaolhos",
+  "p_phone": "5511987654321@s.whatsapp.net",
+  "p_limit": 10
 }
 ```
 
-### 8.2 Listar alertas pendentes
+### `api_appointments_busy_slots` — slots ocupados pra calcular livres
 
-```http
-GET /alerts?instancia=eq.{{instancia}}&resolved=eq.false&order=created_at.desc
-```
-
-### 8.3 Marcar alerta como resolvido
-
-```http
-PATCH /alerts?id=eq.{alert_id}
-```
-
-**Body:**
 ```json
-{ "resolved": true }
+POST /rpc/api_appointments_busy_slots
+{
+  "p_instancia": "clinicaolhos",
+  "p_professional_id": "uuid-do-profissional",
+  "p_from": "2026-04-29T00:00:00Z",
+  "p_to":   "2026-05-06T00:00:00Z"
+}
+```
+
+### `api_appointment_create`
+
+```json
+POST /rpc/api_appointment_create
+{
+  "p_data": {
+    "instancia": "clinicaolhos",
+    "agenda_id": "uuid",
+    "professional_id": "uuid",
+    "procedure_id": "uuid",
+    "insurance_plan_id": null,
+    "patient_name": "Maria Silva",
+    "patient_phone": "5511987654321@s.whatsapp.net",
+    "starts_at": "2026-05-02T14:00:00Z",
+    "ends_at":   "2026-05-02T14:30:00Z",
+    "status": "agendado",
+    "payment_status": "pendente",
+    "price": 180.00,
+    "notes": "Primeira consulta"
+  }
+}
+```
+
+### `api_appointment_update_status`
+
+```json
+POST /rpc/api_appointment_update_status
+{
+  "p_id": "uuid-do-agendamento",
+  "p_status": "concluido",
+  "p_payment_status": "pago"
+}
+```
+
+> `p_payment_status` é opcional. `p_status`: `agendado`/`confirmado`/`concluido`/`faltou`/`cancelado`.
+
+---
+
+## 8. Alertas
+
+### `api_alert_create` — IA pedindo ajuda
+
+```json
+POST /rpc/api_alert_create
+{
+  "p_data": {
+    "instancia": "clinicaolhos",
+    "contactName": "Maria Silva",
+    "phone": "5511987654321",
+    "type": "help",
+    "message": "Paciente perguntou se Bradesco cobre cirurgia refrativa.",
+    "resolved": false
+  }
+}
+```
+
+### `api_alerts_pending`
+
+```json
+POST /rpc/api_alerts_pending
+{ "p_instancia": "clinicaolhos" }
+```
+
+### `api_alert_resolve`
+
+```json
+POST /rpc/api_alert_resolve
+{ "p_id": "uuid-do-alerta" }
 ```
 
 ---
 
 ## 9. Atividades / Kanban
 
-Tarefas internas da clínica (follow-up de paciente, cobrança, manutenção, etc).
+### `api_kanban_columns`
 
-### 9.1 Listar colunas
-
-```http
-GET /kanban_columns?instancia=eq.{{instancia}}&order=position.asc
-```
-
-### 9.2 Listar cards
-
-```http
-GET /kanban_cards?instancia=eq.{{instancia}}&order=position.asc
-```
-
-### 9.3 Criar card de tarefa (IA detectou follow-up necessário)
-
-```http
-POST /kanban_cards
-```
-
-**Body:**
 ```json
+POST /rpc/api_kanban_columns
+{ "p_instancia": "clinicaolhos" }
+```
+
+### `api_kanban_cards`
+
+```json
+POST /rpc/api_kanban_cards
+{ "p_instancia": "clinicaolhos" }
+```
+
+### `api_kanban_card_create`
+
+```json
+POST /rpc/api_kanban_card_create
 {
-  "instancia": "clinicaolhos",
-  "column_id": "uuid-coluna-a-fazer",
-  "title": "Confirmar consulta de Maria amanhã 14h",
-  "description": "Paciente não respondeu confirmação automática.",
-  "priority": "alta",
-  "due_date": "2026-05-02",
-  "position": 0
+  "p_data": {
+    "instancia": "clinicaolhos",
+    "column_id": "uuid",
+    "title": "Confirmar consulta de Maria amanhã 14h",
+    "description": "Paciente não respondeu confirmação automática.",
+    "priority": "alta",
+    "due_date": "2026-05-02",
+    "position": 0
+  }
 }
 ```
 
@@ -596,60 +402,44 @@ POST /kanban_cards
 
 ## 10. Receitas comuns para IA
 
-### 10.1 IA recebe nova mensagem — fluxo de contexto
+### 10.1 Mensagem nova chega — montar contexto
 
-1. **Buscar paciente:** `GET /saved_contacts?numero=eq.{numero}&instancia=eq.{{instancia}}&limit=1`
-2. **Últimas 20 mensagens:** `GET /mensagens_geral?numero=eq.{numero}&instancia=eq.{{instancia}}&order=id.desc&limit=20`
-3. **Próximos agendamentos:** `GET /appointments?patient_phone=eq.{numero}&instancia=eq.{{instancia}}&starts_at=gte.{hoje}&order=starts_at.asc&limit=5`
-4. **Catálogo (cache 1h):** `GET /procedures?instancia=eq.{{instancia}}&active=eq.true`
+1. `api_paciente_by_phone` → pega lead/paciente
+2. `api_messages_by_phone` (limit 20) → últimas mensagens
+3. `api_appointments_by_phone` → próximos agendamentos
+4. `api_professionals_list`, `api_procedures_list`, `api_insurance_plans_list` → catálogo (cachear 1h)
 
-Use esses 4 dados pra montar o contexto antes de gerar resposta.
+### 10.2 IA agendou consulta
 
-### 10.2 IA decide agendar
-
-1. Buscar profissional: `GET /professionals?id=eq.{prof_id}&instancia=eq.{{instancia}}`
-2. Buscar agendamentos da semana do profissional pra ver slots ocupados (7.4)
-3. Buscar preço pelo convênio do paciente (6.4)
-4. Criar agendamento (7.5)
-5. Inserir mensagem confirmando para paciente em `mensagens_geral` (4.4)
-6. Encerrar conversa com `reason=agendado` em `conversations` (5.1)
+1. `api_professionals_list` → escolhe profissional
+2. `api_appointments_busy_slots` → slots ocupados na semana
+3. `api_procedure_price` → valor com base no convênio
+4. `api_appointment_create` → cria
+5. `api_message_create` → registra confirmação no histórico
+6. `api_conversation_close` com `p_reason: agendado` → fecha ticket
 
 ### 10.3 IA não soube responder
 
-1. Criar alerta pra equipe humana (8.1) com contexto
-2. Inserir mensagem amigável pro paciente: *"Vou passar sua dúvida pra alguém da equipe agora — em alguns minutos te respondemos."*
-
-### 10.4 Auto-encerrar tickets inativos
-
-A própria plataforma faz isso automaticamente após 2h sem atividade (status `auto_encerrado`). Se sua IA precisar fazer manualmente, é só inserir em `conversations` com `reason=auto_encerrado` e deletar de `attendances`.
+1. `api_alert_create` → pra atendente humano com contexto
+2. `api_message_create` → mensagem amigável: *"Vou passar sua dúvida pra alguém da equipe agora."*
 
 ---
 
-## Limites e quotas
+## Envio efetivo de WhatsApp
 
-- **Limite de profissionais cadastrados:** definido pelo plano da empresa (3 no Starter, 25 no Pro, ilimitado no Business)
-- **Limite de agendas:** 1 no Starter, ilimitado no Pro+
-- **Mensagens/Pacientes/Procedimentos:** sem limite
-- **Rate limit Supabase REST:** 1000 req/min por anon_key
+Não faz parte desta API. Use **Evolution API** diretamente:
 
----
+```http
+POST {{evolution_url}}/message/sendText/{{instancia}}
+apikey: {{api_instancia}}
+Content-Type: application/json
 
-## Ambiente de testes
-
-Não temos sandbox separado — toda integração é feita direto na instância da empresa em produção. Recomendado:
-
-1. **Criar instância de teste** (entrar em contato com a Nexla pra liberar uma `instancia=teste-{seu-projeto}`)
-2. Cadastrar 2-3 pacientes fake
-3. Validar fluxos de ponta-a-ponta antes de plugar na clínica real
+{
+  "number": "5511987654321",
+  "text": "Sua consulta amanhã 14h está confirmada."
+}
+```
 
 ---
 
-## Suporte
-
-- **Webhook de eventos** (em desenvolvimento): vamos expor um webhook que dispara em eventos críticos (nova mensagem, agendamento criado, alerta).
-- **Endpoint de envio efetivo de mensagem WhatsApp**: usar Evolution API diretamente — `POST {{evolution_url}}/message/sendText/{{instancia}}` com header `apikey: {{api_instancia}}`.
-- **Dúvidas de integração:** WhatsApp do time MedicinaMKT.
-
----
-
-*Última atualização: 2026-04-29 · v1*
+*Última atualização: 2026-04-30 · v2 (POST + JSON only)*
