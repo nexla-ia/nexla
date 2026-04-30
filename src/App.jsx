@@ -10,6 +10,7 @@ import AdmCompanyDetail from './pages/adm/AdmCompanyDetail'
 import AdmEspiao from './pages/adm/AdmEspiao'
 import AdmOperacao from './pages/adm/AdmOperacao'
 import AdmSupport from './pages/adm/AdmSupport'
+import AdmQualidade from './pages/adm/AdmQualidade'
 import CompanyLayout from './pages/company/CompanyLayout'
 import CompanyHistory from './pages/company/CompanyHistory'
 import CompanyAlerts from './pages/company/CompanyAlerts'
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="espiao" element={<AdmEspiao />} />
             <Route path="operacao" element={<AdmOperacao />} />
             <Route path="suporte" element={<AdmSupport />} />
+            <Route path="qualidade" element={<AdmQualidade />} />
           </Route>
 
           <Route path="/painel" element={<PrivateCompany><CompanyLayout /></PrivateCompany>}>
