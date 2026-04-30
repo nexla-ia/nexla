@@ -516,19 +516,19 @@ export default function Landing() {
       {/* PLANOS */}
       <section className="lp-pricing" id="planos">
         <div className="lp-container">
-          <p className="lp-pricing-anchor">
-            Uma secretária CLT custa <strong>R$ 3.500+/mês</strong>.<br />
-            A MedicinaMKT atende 24/7 a partir de <strong>R$ 247</strong>.
-          </p>
           <SectionHeader
-            kicker="Escolha seu plano"
-            title={<>Comece pequeno,<br /><em>cresça quando quiser</em></>}
+            kicker="Planos"
+            title={<>Três tamanhos.<br /><em>O comercial te ajuda a escolher.</em></>}
           />
+          <p className="lp-pricing-anchor lp-pricing-anchor-soft">
+            Cada clínica tem um tamanho — e cada tamanho um preço. A gente conversa rápido,
+            entende seu cenário e mostra o que cabe melhor.
+          </p>
 
           <div className="lp-pricing-grid">
-            <PricingCard
+            <PricingTier
               name="Starter"
-              price="247"
+              tier="Para começar"
               tagline="Pra consultórios solos (até 3 profissionais)"
               features={[
                 'Até 3 profissionais cadastrados',
@@ -542,12 +542,11 @@ export default function Landing() {
                 'Métricas: visão geral, atendimento, agenda e leads',
                 'Suporte por e-mail',
               ]}
-              cta="Começar Starter"
             />
-            <PricingCard
+            <PricingTier
               featured
               name="Pro"
-              price="597"
+              tier="Mais escolhido"
               tagline="Pra clínicas em crescimento (até 25 profissionais)"
               features={[
                 'Até 25 profissionais cadastrados',
@@ -562,12 +561,10 @@ export default function Landing() {
                 '+ Métricas avançadas (Equipe, Financeiro)',
                 'Suporte prioritário (resposta em 2h úteis)',
               ]}
-              cta="Começar Pro"
-              badge="Mais escolhido"
             />
-            <PricingCard
+            <PricingTier
               name="Business"
-              price="Sob medida"
+              tier="Personalizado"
               tagline="Pra grupos clínicos, franquias e redes"
               features={[
                 'Profissionais e usuários ilimitados',
@@ -579,23 +576,16 @@ export default function Landing() {
                 'Onboarding presencial · SLA contratual',
                 'Gerente de conta dedicado',
               ]}
-              cta="Falar com vendas"
-              custom
             />
           </div>
 
-          {/* Add-on de usuário */}
-          <div className="lp-addon">
-            <div className="lp-addon-icon">
-              <Users size={16} />
-            </div>
-            <div className="lp-addon-text">
-              <span className="lp-addon-title">Precisa de mais acessos sem mudar de plano?</span>
-              <span className="lp-addon-sub">
-                <strong>R$ 39 por usuário adicional/mês</strong> — disponível em Starter e Pro.
-                Profissionais cadastrados, WhatsApp e Instagram extras só via mudança de plano.
-              </span>
-            </div>
+          {/* CTA único pro comercial */}
+          <div className="lp-pricing-cta">
+            <a href="https://wa.me/5561999999999?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20a%20MedicinaMKT" target="_blank" rel="noreferrer" className="lp-btn-primary lp-btn-large">
+              Falar com o comercial agora
+              <ArrowRight size={18} />
+            </a>
+            <p className="lp-pricing-cta-sub">Em média, respondemos em <strong>menos de 5 minutos</strong> em horário comercial.</p>
           </div>
 
           {/* Tabela completa de comparação */}
@@ -608,7 +598,7 @@ export default function Landing() {
           </details>
 
           <p className="lp-pricing-note">
-            Valores em BRL. Não cobramos por mensagem enviada. Você pode cancelar quando quiser.
+            Onboarding incluso em todos os planos · Sem cobrar por mensagem · Cancele quando quiser
           </p>
         </div>
       </section>
@@ -947,7 +937,6 @@ function ComparisonTable() {
     { title: 'Plano e equipe', rows: [
       ['Profissionais cadastrados',     'Até 3',         'Até 25',          'Ilimitado'],
       ['Usuários (equipe)',             '5 inclusos',    '20 inclusos',     'Ilimitado'],
-      ['Usuário adicional',             'R$ 39/mês',     'R$ 39/mês',       'Incluso'],
       ['Pacientes cadastrados',         'Ilimitado',     'Ilimitado',       'Ilimitado'],
       ['Agendas',                       '1',             'Ilimitadas',      'Ilimitadas'],
     ]},
@@ -995,9 +984,9 @@ function ComparisonTable() {
     <div className="lp-cmp">
       <div className="lp-cmp-row lp-cmp-head">
         <div className="lp-cmp-cell-feature"></div>
-        <div className="lp-cmp-cell-plan">Starter<span>R$ 247</span></div>
-        <div className="lp-cmp-cell-plan featured">Pro<span>R$ 597</span></div>
-        <div className="lp-cmp-cell-plan">Business<span>Sob medida</span></div>
+        <div className="lp-cmp-cell-plan">Starter<span>Para começar</span></div>
+        <div className="lp-cmp-cell-plan featured">Pro<span>Mais escolhido</span></div>
+        <div className="lp-cmp-cell-plan">Business<span>Personalizado</span></div>
       </div>
       {groups.map(g => (
         <div key={g.title} className="lp-cmp-group">
@@ -1016,7 +1005,31 @@ function ComparisonTable() {
   )
 }
 
+function PricingTier({ name, tier, tagline, features, featured }) {
+  return (
+    <div className={`lp-plan lp-plan-tier ${featured ? 'featured' : ''}`}>
+      {featured && <div className="lp-plan-badge">Mais escolhido</div>}
+      <div className="lp-plan-name">{name}</div>
+      <div className="lp-plan-tier-label">{tier}</div>
+      <p className="lp-plan-tagline">{tagline}</p>
+      <ul className="lp-plan-features">
+        {features.map(f => (
+          <li key={f}><Check size={14} /> {f}</li>
+        ))}
+      </ul>
+      <a
+        href="https://wa.me/5561999999999?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20plano%20MedicinaMKT"
+        target="_blank"
+        rel="noreferrer"
+        className={`lp-plan-cta ${featured ? 'featured' : ''}`}>
+        Falar com o comercial <ArrowRight size={14} />
+      </a>
+    </div>
+  )
+}
+
 function PricingCard({ name, price, tagline, features, cta, featured, badge, custom }) {
+  // mantido pra compat — não usado mais na landing pública (substituído por PricingTier)
   return (
     <div className={`lp-plan ${featured ? 'featured' : ''}`}>
       {badge && <div className="lp-plan-badge">{badge}</div>}

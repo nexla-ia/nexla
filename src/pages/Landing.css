@@ -1,5 +1,62 @@
 /* ─── MedicinaMKT — Landing Page (Light & Vibrant) ────────────────────────── */
 
+/* ── Pricing tier label (substitui o número do preço) ─────────────────────── */
+.lp-plan-tier .lp-plan-tier-label {
+  display: inline-block;
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  color: #92400E;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: 'Bricolage Grotesque', 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid #FDE68A;
+  margin: 14px 0 6px;
+}
+.lp-plan-tier.featured .lp-plan-tier-label {
+  background: linear-gradient(135deg, #C9A074 0%, #B8895C 100%);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 6px 18px rgba(184, 137, 92, 0.35);
+}
+
+/* Anchor mais suave — sem comparação de valores */
+.lp-pricing-anchor-soft {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: 'Instrument Serif', 'DM Sans', serif;
+  font-style: italic;
+  font-size: 17px;
+  line-height: 1.5;
+  color: #475569;
+  max-width: 620px;
+  margin: -8px auto 36px;
+  text-align: center;
+}
+
+/* CTA centralizado pro comercial (depois dos cards) */
+.lp-pricing-cta {
+  margin: 36px auto 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.lp-pricing-cta-sub {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-size: 14px;
+  color: #64748B;
+  margin: 0;
+}
+.lp-pricing-cta-sub strong { color: #C9A074; font-weight: 600; }
+
+
+
 /* ── Mock scene: Rastreio (atribuição de leads no hero) ──────────────────── */
 .lp-scene-rastreio {
   display: flex;
