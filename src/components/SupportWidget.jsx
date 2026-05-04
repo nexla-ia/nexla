@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  HelpCircle, X, Send, Plus, ArrowLeft, Image as ImageIcon, Paperclip,
+  Headset, X, Send, Plus, ArrowLeft, Image as ImageIcon, Paperclip,
   CheckCircle2, Clock, MessageCircle, Loader2, Download, ZoomIn,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -94,8 +94,8 @@ export default function SupportWidget({ session }) {
 
   return (
     <>
-      <button className="sw-fab" onClick={openWidget} aria-label="Abrir suporte">
-        <HelpCircle size={22} />
+      <button className="sw-fab" onClick={openWidget} aria-label="Abrir suporte" title="Falar com o suporte">
+        <Headset size={22} />
         {unreadTotal > 0 && <span className="sw-fab-badge">{unreadTotal}</span>}
       </button>
 
