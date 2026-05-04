@@ -334,12 +334,25 @@ export default function CompanyConversations() {
         if (!error && data) {
           const seen = new Set()
           const unique = []
+          // Indexa quem teve resposta de atendente humano em algum momento
+          const hasOutsideHuman = new Set()
+          for (const row of data) {
+            const t = (row.type || '').toLowerCase()
+            if ((t === 'atendente' || t === 'humano') && row.numero) {
+              hasOutsideHuman.add(row.numero)
+            }
+          }
           for (const row of data) {
             const sid = row.numero
             if (!sid || seen.has(sid)) continue
             if (sid.includes('@g.us')) continue  // ignora grupos do WhatsApp
             seen.add(sid)
-            unique.push({ session_id: sid, phone: formatPhone(sid), lastTs: getTimestamp(row) })
+            unique.push({
+              session_id: sid,
+              phone: formatPhone(sid),
+              lastTs: getTimestamp(row),
+              outsideAssumed: hasOutsideHuman.has(sid),
+            })
           }
           setContacts(unique)
         }
@@ -422,8 +435,15 @@ export default function CompanyConversations() {
 
           setContacts(prev => {
             const exists = prev.find(c => c.session_id === sid)
-            if (exists) return [{ ...exists, lastTs: ts }, ...prev.filter(c => c.session_id !== sid)]
-            return [{ session_id: sid, phone: formatPhone(sid), lastTs: ts }, ...prev]
+            const incomingType = (row.type || '').toLowerCase()
+            const isOutsideHuman = incomingType === 'atendente' || incomingType === 'humano'
+            if (exists) {
+              return [
+                { ...exists, lastTs: ts, outsideAssumed: exists.outsideAssumed || isOutsideHuman },
+                ...prev.filter(c => c.session_id !== sid)
+              ]
+            }
+            return [{ session_id: sid, phone: formatPhone(sid), lastTs: ts, outsideAssumed: isOutsideHuman }, ...prev]
           })
 
 
@@ -834,7 +854,12 @@ export default function CompanyConversations() {
                         <Calendar size={9} /> {formatApptShort(nextAppt.starts_at)}
                       </span>
                     )}
-                    {tab === 'recepcao' && aiEnabled && (
+                    {tab === 'recepcao' && c.outsideAssumed && (
+                      <span title="Alguém respondeu direto pelo WhatsApp, fora da plataforma" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', lineHeight: '16px' }}>
+                        <PhoneCall size={9} /> Atendido fora
+                      </span>
+                    )}
+                    {tab === 'recepcao' && aiEnabled && !c.outsideAssumed && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', lineHeight: '16px' }}>
                         <Sparkles size={9} /> IA
                       </span>
@@ -970,8 +995,48 @@ export default function CompanyConversations() {
               })()}
             </div>
 
-            {/* Banner Recepção: botão assumir */}
-            {!isClosed && !attendancesMap[selected.session_id] && (
+            {/* Banner Recepção: botão assumir
+                Nova lógica: se já tem mensagem de atendente/humano no histórico,
+                significa que alguém respondeu por fora (direto no WhatsApp) — mostra
+                aviso laranja em vez do banner azul "sob IA". */}
+            {(() => {
+              if (isClosed || attendancesMap[selected.session_id]) return null
+              const respondidaPorFora = messages.some(m => {
+                const t = (m.type || '').toLowerCase()
+                return t === 'atendente' || t === 'humano'
+              })
+              if (respondidaPorFora) {
+                return (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: 'linear-gradient(90deg, #FFFBEB 0%, #FEF3C7 100%)',
+                    borderBottom: '1px solid #FDE68A',
+                    padding: '10px 20px', flexShrink: 0, gap: 12,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#92400E' }}>
+                      <PhoneCall size={15} style={{ color: '#D97706' }} />
+                      <span>Conversa atendida <strong>direto no WhatsApp</strong> (fora da plataforma) — IA não está mais respondendo</span>
+                    </div>
+                    <button
+                      onClick={e => handleAssume(selected, e)}
+                      disabled={assuming === selected.session_id}
+                      title="Trazer essa conversa pro seu setor pra continuar dentro da plataforma"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 7,
+                        background: 'transparent', color: '#92400E',
+                        border: '1.5px solid #D97706',
+                        borderRadius: 8, padding: '8px 16px',
+                        fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+                        opacity: assuming === selected.session_id ? 0.6 : 1,
+                        flexShrink: 0,
+                      }}>
+                      <UserCheck size={14} />
+                      {assuming === selected.session_id ? 'Trazendo...' : 'Trazer pro meu setor'}
+                    </button>
+                  </div>
+                )
+              }
+              return (
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 background: aiEnabled ? '#EFF6FF' : '#F8FAFC',
@@ -1008,7 +1073,8 @@ export default function CompanyConversations() {
                   {assuming === selected.session_id ? 'Assumindo...' : 'Assumir atendimento'}
                 </button>
               </div>
-            )}
+              )
+            })()}
 
             {/* Banner Finalizados */}
             {isClosed && (
