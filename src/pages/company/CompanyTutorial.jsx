@@ -5,7 +5,8 @@ import {
   BarChart3, Stethoscope, Settings2, Sparkles, Check, ArrowRight, Lightbulb,
   PartyPopper, BookOpen, ChevronRight, Bot, Headset, Phone, Star, Zap,
   Mic, Paperclip, FileText, Trophy, Inbox, Users, Flag, Clock, ShieldCheck,
-  Camera, Cake, Heart, Instagram, UserPlus, ClipboardList,
+  Camera, Cake, Heart, Instagram, UserPlus, UserCheck, ClipboardList,
+  TrendingUp, AlertCircle,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import ConfirmModal from '../../components/ConfirmModal'
@@ -39,8 +40,13 @@ const MODULES = [
         chips: [{ icon: Mic, label: 'Áudio' }, { icon: Paperclip, label: 'Anexo' }, { icon: FileText, label: 'PDF' }],
       },
       {
-        title: 'Salvar contato com botão direito',
-        desc: 'Clica com o botão direito num número e salva o nome dele. Da próxima vez aparece como "Maria Silva" em vez do telefone — e a foto do paciente vira o avatar do chat.',
+        title: 'Salvar contato direto no header',
+        desc: 'Botão "Salvar contato" agora fica visível no topo da conversa, do lado de Agendar e Finalizar. Quando o paciente já tá fichado, o botão fica verde mostrando "Editar [nome]". Sem precisar mais lembrar de clicar com botão direito.',
+        chips: [{ icon: UserPlus, label: 'Salvar' }, { icon: UserCheck, label: 'Editar' }],
+      },
+      {
+        title: 'Origem do paciente detectada sozinha',
+        desc: 'Se o paciente disser "vi vocês no Instagram" ou "minha amiga indicou" nas primeiras mensagens, a plataforma identifica e marca a origem dele automaticamente — sem você precisar perguntar.',
       },
       {
         title: 'Abrir ficha do paciente em 1 clique',
@@ -118,6 +124,10 @@ const MODULES = [
       {
         title: 'Atalho pra Conversar',
         desc: 'Em qualquer card de paciente, botão verde "Conversar" abre o ticket existente ou cria um novo. E clicando na linha, abre direto a ficha completa.',
+      },
+      {
+        title: 'Origem detectada sozinha',
+        desc: 'Não precisa perguntar "como conheceu a clínica?". A plataforma lê as primeiras mensagens do paciente e detecta automaticamente: Indicação, Instagram, Google, Facebook, Anúncio, Site... Tudo isso vira métrica em Métricas → Leads.',
       },
     ],
     tip: 'Use a aba Saúde pra registrar alergias, condições crônicas e medicações em uso — esses campos ficam visíveis no Resumo da ficha, ajudando profissionais a tomar decisão rápida durante o atendimento.',
@@ -274,8 +284,17 @@ const MODULES = [
         desc: 'Faturamento, ticket médio, a receber, perdido em faltas. Ranking por profissional e procedimento. Donut por forma de pagamento.',
       },
       {
-        title: 'Leads & Atividades',
-        desc: 'Funil de leads (origem, classificação) e visão geral do Kanban.',
+        title: 'Leads — funil completo de conversão',
+        desc: '6 KPIs (total, contactados, agendaram, receita atribuída, tempo até 1º contato, sem resposta), funil visual de 5 etapas (Recebidos → Contactados → Trocaram msg → Agendaram → Compareceram) com taxa de conversão entre etapas, volume diário em barras, tabela de origens com taxa de conversão por canal, e lista acionável de leads sem resposta com badge urgente +24h.',
+        chips: [{ icon: Flag, label: 'Funil' }, { icon: TrendingUp, label: 'Atribuição' }, { icon: AlertCircle, label: 'Pendentes' }],
+      },
+      {
+        title: 'Status do lead computado automaticamente',
+        desc: '5 estágios atualizados sozinhos: novo → em atendimento → agendado → encerrado / perdido. Sem você ter que classificar manualmente — a plataforma deduz pelo que está acontecendo na conversa.',
+      },
+      {
+        title: 'Atividades (Kanban)',
+        desc: 'Visão geral do quadro: cards atrasados, urgentes, sem atribuição, distribuição por coluna.',
       },
     ],
     tip: 'O badge laranja "Atenção" aparece quando algum KPI está em estado crítico (no-show alto, cards atrasados, etc.). Olhe primeiro para esses.',
@@ -306,6 +325,46 @@ const MODULES = [
     ],
     tip: 'No agendamento, ao escolher procedimento + convênio, o valor é preenchido automaticamente. Se o paciente pagar diferente, é só editar no campo.',
     cta: { label: 'Abrir Catálogo', to: '/painel/catalogo' },
+  },
+  {
+    key: 'suporte',
+    icon: Headset,
+    color: '#C9A074',
+    bg: '#FFFBEB',
+    emoji: '🎧',
+    title: 'Suporte direto com a Nexla',
+    subtitle: 'Gente de verdade do outro lado',
+    intro: 'Não tem central de URA, não tem ticket genérico que demora 2 dias. Você fala direto com a equipe que cuida da plataforma — em chat, com print, em poucos minutos.',
+    steps: [
+      {
+        title: 'Botão flutuante em qualquer tela',
+        desc: 'No canto inferior direito tem um ícone de fone cobre. Click abre o chat de suporte sem você sair do que estava fazendo. Em telas com input no rodapé (Conversas), ele sobe sozinho pra não atrapalhar.',
+        chips: [{ icon: Headset, label: 'Sempre acessível' }],
+      },
+      {
+        title: 'Abrir um chamado novo',
+        desc: 'Click em "Novo chamado". Em uma linha você descreve o problema, e na descrição conta com calma. A gente recebe na hora — e responde, em média, em menos de 5 minutos em horário comercial.',
+      },
+      {
+        title: 'Pode mandar print',
+        desc: 'Dentro do chat tem botão de clipe pra anexar imagem (até 2MB). Print do erro ajuda muito a gente entender e resolver rápido.',
+        chips: [{ icon: Camera, label: 'Imagem' }],
+      },
+      {
+        title: 'Chat realtime com indicador de "digitando"',
+        desc: 'Quando alguém da equipe está digitando uma resposta, você vê 3 bolinhas pulsando — igual WhatsApp. E quando você manda mensagem, aparece "Visto" embaixo quando a gente lê.',
+      },
+      {
+        title: 'Histórico de chamados',
+        desc: 'Cada chamado fica salvo. Quando vier um problema parecido depois, é só abrir e mostrar a solução de antes. Status: Aguardando · Respondido · Encerrado.',
+      },
+      {
+        title: 'Marcar como resolvido',
+        desc: 'Quando o problema acabar, clica em "Marcar como resolvido" no rodapé do chat. Se voltar a acontecer, é só responder no mesmo chamado e ele reabre.',
+      },
+    ],
+    tip: 'Quanto mais detalhe e print, mais rápido a gente resolve. Se for urgente, fala "URGENTE" no resumo — a equipe prioriza.',
+    cta: { label: 'Abrir um chamado agora', to: '/painel/conversas' },
   },
   {
     key: 'admin',
