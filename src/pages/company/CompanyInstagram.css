@@ -534,6 +534,111 @@
 }
 .ig-bubble.client .ig-bubble-time { color: #8E8E8E; opacity: 1; }
 
+/* Mídia dentro da bolha */
+.ig-bubble.has-media {
+  padding: 4px;
+  overflow: hidden;
+}
+.ig-bubble.has-media .ig-bubble-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+.ig-bubble.has-media .ig-bubble-text {
+  padding: 6px 10px 2px;
+}
+.ig-bubble.has-media .ig-bubble-time {
+  padding: 0 10px 6px;
+}
+.ig-bubble-image {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  width: auto;
+  border-radius: 18px;
+  cursor: zoom-in;
+  background: #000;
+}
+.ig-bubble-audio {
+  display: block;
+  width: 240px;
+  max-width: 100%;
+  margin: 6px 4px 4px;
+  height: 36px;
+}
+.ig-bubble.ai .ig-bubble-audio,
+.ig-bubble.att .ig-bubble-audio {
+  filter: invert(1) hue-rotate(180deg);
+}
+.ig-bubble-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.ig-bubble.client .ig-bubble-pdf {
+  background: #fff;
+  color: #262626;
+  border: 1px solid #E5E5E5;
+}
+.ig-bubble-pdf:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+.ig-bubble.client .ig-bubble-pdf:hover {
+  background: #FAFAFA;
+}
+
+/* Lightbox */
+.ig-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  cursor: zoom-out;
+  animation: igFadeIn 0.18s ease-out;
+}
+.ig-lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  cursor: default;
+}
+.ig-lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  transition: background 0.15s;
+}
+.ig-lightbox-close:hover { background: rgba(255, 255, 255, 0.2); }
+
 /* Composer */
 .ig-composer {
   flex-shrink: 0;

@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import {
   Instagram, Search, Send, Sparkles, UserCheck, UserPlus,
   CheckCircle2, Inbox, Archive, Heart, MessageCircle,
-  X, MoreHorizontal, Calendar, Headset, Lock,
+  X, MoreHorizontal, Calendar, Headset, Lock, FileText,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import './CompanyInstagram.css'
@@ -33,6 +35,19 @@ function isToolMessage(row) {
   if (type === 'ia' && /^Calling \w+ with input:/i.test(content.trim())) return true
   if (type === 'ia' && content.length > 800) return true
   return false
+}
+
+function detectMedia(b64) {
+  if (!b64 || b64.length < 10) return null
+  if (b64.startsWith('T2dn')) return { type: 'audio', mime: 'audio/ogg' }
+  if (b64.startsWith('//uQ') || b64.startsWith('SUQz')) return { type: 'audio', mime: 'audio/mpeg' }
+  if (b64.startsWith('GkXf')) return { type: 'audio', mime: 'audio/webm' }
+  if (b64.startsWith('/9j/')) return { type: 'image', mime: 'image/jpeg' }
+  if (b64.startsWith('iVBOR')) return { type: 'image', mime: 'image/png' }
+  if (b64.startsWith('UklGR')) return { type: 'image', mime: 'image/webp' }
+  if (b64.startsWith('R0lGOD')) return { type: 'image', mime: 'image/gif' }
+  if (b64.startsWith('JVBERi')) return { type: 'pdf', mime: 'application/pdf' }
+  return null
 }
 
 function formatMsgTime(ts) {
@@ -114,6 +129,7 @@ export default function CompanyInstagram() {
   const [reason, setReason]                   = useState('')
   const [closing, setClosing]                 = useState(false)
   const [toast, setToast]                     = useState(null)
+  const [lightbox, setLightbox]               = useState(null)
 
   const bottomRef    = useRef(null)
   const selectedRef  = useRef(null)
@@ -655,6 +671,7 @@ export default function CompanyInstagram() {
                   const isAtt = t === 'atendente' || t === 'humano'
                   const sideClass = isClient ? 'left' : 'right'
                   const isAssumeMsg = m.content?.startsWith('▶ Atendimento assumido')
+                  const media = detectMedia(m.base64)
                   return (
                     <div key={m.id || i} className={`ig-msg-row ${sideClass}`}>
                       {isAssumeMsg ? (
@@ -663,22 +680,48 @@ export default function CompanyInstagram() {
                           <span>{m.content.replace('▶ ', '')}</span>
                         </div>
                       ) : (
-                        <>
-                          <div className={`ig-bubble ${isClient ? 'client' : isIA ? 'ai' : 'att'}`}>
-                            {isIA && (
-                              <span className="ig-bubble-tag">
-                                <Sparkles size={9} /> IA
-                              </span>
-                            )}
-                            {isAtt && (
-                              <span className="ig-bubble-tag att">
-                                <Headset size={9} /> Atendente
-                              </span>
-                            )}
-                            <div className="ig-bubble-text">{m.content || '—'}</div>
-                            <div className="ig-bubble-time">{formatMsgTime(m.ts)}</div>
-                          </div>
-                        </>
+                        <div className={`ig-bubble ${isClient ? 'client' : isIA ? 'ai' : 'att'} ${media ? 'has-media' : ''}`}>
+                          {isIA && (
+                            <span className="ig-bubble-tag">
+                              <Sparkles size={9} /> IA
+                            </span>
+                          )}
+                          {isAtt && (
+                            <span className="ig-bubble-tag att">
+                              <Headset size={9} /> Atendente
+                            </span>
+                          )}
+
+                          {media?.type === 'image' && (
+                            <img
+                              className="ig-bubble-image"
+                              src={`data:${media.mime};base64,${m.base64}`}
+                              alt="imagem"
+                              onClick={() => setLightbox(`data:${media.mime};base64,${m.base64}`)}
+                            />
+                          )}
+                          {media?.type === 'audio' && (
+                            <audio
+                              className="ig-bubble-audio"
+                              controls
+                              src={`data:${media.mime};base64,${m.base64}`}
+                            />
+                          )}
+                          {media?.type === 'pdf' && (
+                            <a
+                              className="ig-bubble-pdf"
+                              href={`data:${media.mime};base64,${m.base64}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <FileText size={16} />
+                              <span>Abrir PDF</span>
+                            </a>
+                          )}
+
+                          {m.content && <div className="ig-bubble-text">{m.content}</div>}
+                          <div className="ig-bubble-time">{formatMsgTime(m.ts)}</div>
+                        </div>
                       )}
                     </div>
                   )
@@ -767,6 +810,17 @@ export default function CompanyInstagram() {
         <div className="ig-toast" style={{ background: toast.color }}>
           {toast.message}
         </div>
+      )}
+
+      {/* Lightbox de imagem */}
+      {lightbox && createPortal(
+        <div className="ig-lightbox" onClick={() => setLightbox(null)}>
+          <button className="ig-lightbox-close" onClick={() => setLightbox(null)}>
+            <X size={20} />
+          </button>
+          <img src={lightbox} alt="" onClick={e => e.stopPropagation()} />
+        </div>,
+        document.body
       )}
     </div>
   )
