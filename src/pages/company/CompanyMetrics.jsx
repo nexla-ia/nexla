@@ -474,6 +474,15 @@ function OverviewTab({ msgs, convs, atts, appts, alerts, kanbanCards, range, per
 }
 
 // ─── Tab: Atendimento ───────────────────────────────────────────────────────
+function medianMs(arr) { if (!arr.length) return 0; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2 }
+function p90Ms(arr)    { if (!arr.length) return 0; const s=[...arr].sort((a,b)=>a-b); return s[Math.min(Math.floor(s.length*0.9), s.length-1)] }
+function slaColor(ms) {
+  if (!ms) return '#94A3B8'
+  if (ms < 5*60*1000)  return '#16A34A'
+  if (ms < 30*60*1000) return '#D97706'
+  return '#DC2626'
+}
+
 function AtendimentoTab({ msgs, convs, atts, range, period, loading }) {
   const { from, to } = range
   const closedInPeriod = convs.filter(c => inPeriod(c.closed_at, from, to))
@@ -484,6 +493,74 @@ function AtendimentoTab({ msgs, convs, atts, range, period, loading }) {
     closedInPeriod.forEach(c => { map[c.reason || 'outro'] = (map[c.reason || 'outro'] || 0) + 1 })
     return Object.entries(map).sort((a, b) => b[1] - a[1])
   }, [closedInPeriod])
+
+  // Indexa mensagens por numero ordenadas asc
+  const msgsByNumero = useMemo(() => {
+    const map = {}
+    msgs.forEach(m => {
+      if (!m.numero) return
+      if (!map[m.numero]) map[m.numero] = []
+      map[m.numero].push(m)
+    })
+    Object.values(map).forEach(s => s.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)))
+    return map
+  }, [msgs])
+
+  // Sessões encerradas como Set (pra pendentes)
+  const closedSet = useMemo(() => new Set(convs.map(c => c.session_id)), [convs])
+
+  // Métricas por sessão: tempo até IA, tempo até humano, pendente atual
+  const sessionMetrics = useMemo(() => {
+    return Object.entries(msgsByNumero).map(([numero, sMsgs]) => {
+      const last = sMsgs[sMsgs.length - 1]
+      const lastType = (last?.type || '').toLowerCase()
+      const isClosed = closedSet.has(numero)
+      const isPending = !isClosed && lastType === 'cliente'
+      const waitingMs = isPending && last ? (Date.now() - new Date(last.created_at).getTime()) : 0
+
+      const firstCliIdx = sMsgs.findIndex(m => (m.type || '').toLowerCase() === 'cliente')
+      let firstIaMs = null, firstHumanMs = null
+      if (firstCliIdx >= 0) {
+        const t0 = new Date(sMsgs[firstCliIdx].created_at).getTime()
+        // Filtra só msgs no período pra alinhar com filtro de tempo
+        if (inPeriod(sMsgs[firstCliIdx].created_at, from, to) || (!from && !to)) {
+          const fIa = sMsgs.slice(firstCliIdx + 1).find(m => (m.type || '').toLowerCase() === 'ia')
+          const fHu = sMsgs.slice(firstCliIdx + 1).find(m => ['atendente', 'humano'].includes((m.type || '').toLowerCase()))
+          if (fIa) firstIaMs = new Date(fIa.created_at).getTime() - t0
+          if (fHu) firstHumanMs = new Date(fHu.created_at).getTime() - t0
+        }
+      }
+      return { numero, isClosed, isPending, waitingMs, firstIaMs, firstHumanMs, sMsgs, last }
+    })
+  }, [msgsByNumero, closedSet, from, to])
+
+  // Tempo até IA (mediana + p90)
+  const iaTimes = sessionMetrics.map(s => s.firstIaMs).filter(x => x != null && x > 0)
+  const medIa = medianMs(iaTimes)
+  const p9Ia = p90Ms(iaTimes)
+
+  // Tempo até humano (mediana + p90)
+  const humanTimes = sessionMetrics.map(s => s.firstHumanMs).filter(x => x != null && x > 0)
+  const medHuman = medianMs(humanTimes)
+  const p9Human = p90Ms(humanTimes)
+
+  // Pendentes agora
+  const pending = sessionMetrics.filter(s => s.isPending)
+  const pending1h = pending.filter(s => s.waitingMs > 3600000).length
+  const pending24h = pending.filter(s => s.waitingMs > 86400000).length
+
+  // Tendência diária — tempo médio resposta humana por dia
+  const dailyHumanTrend = useMemo(() => {
+    const buckets = {}
+    sessionMetrics.forEach(s => {
+      if (s.firstHumanMs == null || !s.last) return
+      const day = new Date(s.last.created_at).toISOString().slice(0, 10)
+      if (!buckets[day]) buckets[day] = []
+      buckets[day].push(s.firstHumanMs)
+    })
+    return Object.entries(buckets).sort().map(([day, vals]) => ({ day, median: medianMs(vals), count: vals.length }))
+  }, [sessionMetrics])
+  const maxTrend = Math.max(1, ...dailyHumanTrend.map(d => d.median))
 
   // Tempo médio de ticket: closed_at - primeira msg do session_id
   const ticketDurations = useMemo(() => {
@@ -500,25 +577,6 @@ function AtendimentoTab({ msgs, convs, atts, range, period, loading }) {
     }).filter(d => d != null && d > 0)
   }, [closedInPeriod, msgs])
   const avgTicket = ticketDurations.length ? ticketDurations.reduce((a, b) => a + b, 0) / ticketDurations.length : 0
-
-  // Tempo médio até primeiro atendimento humano: assumed_at - primeira msg cliente
-  const attTimes = useMemo(() => {
-    const firstCli = {}
-    msgs.forEach(x => {
-      if ((x.type || '').toLowerCase() === 'cliente') {
-        if (!firstCli[x.numero] || new Date(x.created_at) < new Date(firstCli[x.numero])) {
-          firstCli[x.numero] = x.created_at
-        }
-      }
-    })
-    return atts.map(a => {
-      const start = firstCli[a.numero]
-      if (!start || !a.assumed_at) return null
-      if (!inPeriod(a.assumed_at, from, to)) return null
-      return new Date(a.assumed_at).getTime() - new Date(start).getTime()
-    }).filter(d => d != null && d > 0)
-  }, [atts, msgs, from, to])
-  const avgAtendimento = attTimes.length ? attTimes.reduce((a, b) => a + b, 0) / attTimes.length : 0
 
   // Tipos de mensagem
   const typeCounts = useMemo(() => {
@@ -550,11 +608,46 @@ function AtendimentoTab({ msgs, convs, atts, range, period, loading }) {
 
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 18 }}>
-        <KpiCard icon={<Clock size={18} color="#2563EB" />} bg="#EFF6FF" value={formatDuration(avgAtendimento)} label="Tempo até atendimento" sub="cliente → assumir" loading={loading} />
-        <KpiCard icon={<Headset size={18} color="#7C3AED" />} bg="#F5F3FF" value={formatDuration(avgTicket)} label="Duração média do ticket" sub="abertura → fechamento" loading={loading} />
-        <KpiCard icon={<TrendingUp size={18} color="#16A34A" />} bg="#F0FDF4" value={`${taxaHumano}%`} label="Atendimento humano" sub="tickets que assumiram" loading={loading} />
-        <KpiCard icon={<XCircle size={18} color="#6B7280" />} bg="#F3F4F6" value={autoEncerrados} label="Auto-encerrados" sub="expirados após 6h" loading={loading} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14, marginBottom: 18 }}>
+        <KpiCard icon={<Bot size={18} color="#2563EB" />} bg="#EFF6FF" value={formatDuration(medIa)} label="Resposta da IA (mediana)" sub={`p90: ${formatDuration(p9Ia)}`} loading={loading} />
+        <KpiCard icon={<Headset size={18} color="#16A34A" />} bg="#F0FDF4" value={formatDuration(medHuman)} label="Resposta humana (mediana)" sub={`p90: ${formatDuration(p9Human)}`} loading={loading} />
+        <KpiCard icon={<Inbox size={18} color="#D97706" />} bg="#FFFBEB" value={pending.length} label="Pendentes agora" sub={`${pending1h} > 1h · ${pending24h} > 24h`} loading={loading} alert={pending1h > 0} />
+        <KpiCard icon={<XCircle size={18} color="#DC2626" />} bg="#FEF2F2" value={autoEncerrados} label="Expirados (auto)" sub="ninguém atendeu" loading={loading} alert={autoEncerrados > 0} />
+        <KpiCard icon={<Clock size={18} color="#7C3AED" />} bg="#F5F3FF" value={formatDuration(avgTicket)} label="Duração do ticket" sub="abertura → fechamento" loading={loading} />
+        <KpiCard icon={<TrendingUp size={18} color="#0891B2" />} bg="#ECFEFF" value={`${taxaHumano}%`} label="Atendimento humano" sub="tickets assumidos" loading={loading} />
+      </div>
+
+      {/* Tendência diária — tempo médio resposta humana */}
+      <div className="nx-card" style={{ padding: '1.25rem', marginBottom: 14 }}>
+        <SectionTitle icon={TrendingUp} text="Tempo de resposta humana — dia a dia" right={`${dailyHumanTrend.length} dias`} />
+        {dailyHumanTrend.length === 0 ? <Empty /> : (
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 120, marginTop: 16, paddingBottom: 24, position: 'relative' }}>
+            {dailyHumanTrend.map((d, i) => {
+              const h = Math.max(4, (d.median / maxTrend) * 90)
+              return (
+                <div
+                  key={i}
+                  title={`${d.day} — ${formatDuration(d.median)} (${d.count} conv.)`}
+                  style={{
+                    flex: 1, height: `${h}%`,
+                    background: slaColor(d.median),
+                    borderRadius: '4px 4px 0 0',
+                    position: 'relative', cursor: 'pointer',
+                  }}>
+                  {d.median === maxTrend && (
+                    <div style={{ position: 'absolute', top: -16, left: '50%', transform: 'translateX(-50%)', fontSize: 10, fontWeight: 700, color: slaColor(d.median), whiteSpace: 'nowrap' }}>{formatDuration(d.median)}</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+        {dailyHumanTrend.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#94A3B8', marginTop: 6 }}>
+            <span>{new Date(dailyHumanTrend[0].day + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span>
+            <span>{new Date(dailyHumanTrend[dailyHumanTrend.length - 1].day + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span>
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
