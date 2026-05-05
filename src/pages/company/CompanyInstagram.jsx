@@ -259,6 +259,7 @@ function InstagramInbox() {
               type: getMessageType(row),
               content: getMessageContent(row),
               base64: row.base64 || null,
+              recipient_id: row.recipient_id || null,
               ts,
             }])
           }
@@ -285,12 +286,22 @@ function InstagramInbox() {
             type: getMessageType(r),
             content: getMessageContent(r),
             base64: r.base64 || null,
+            recipient_id: r.recipient_id || null,
             ts: getTimestamp(r),
           })))
         }
         setLoadingMsgs(false)
       })
   }, [selected, instance])
+
+  // Pega o recipient_id mais recente da conversa (vindo do cliente, gravado pelo n8n).
+  // Necessário pra Meta API saber quem é o destinatário no Instagram.
+  function getRecipientId() {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].recipient_id) return messages[i].recipient_id
+    }
+    return null
+  }
 
   useEffect(() => {
     if (!loadingMsgs) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -315,12 +326,27 @@ function InstagramInbox() {
     }, { onConflict: 'numero,instancia' })
 
     const assumeMsg = `▶ Atendimento assumido por ${name}${sectorLabel}`
+
+    // Busca o recipient_id mais recente dessa conversa (preenchido pelo n8n
+    // nas mensagens recebidas do cliente). Necessário pra Meta API.
+    const { data: lastMsg } = await supabase.from(CONV_TABLE)
+      .select('recipient_id')
+      .eq('instancia', instance)
+      .eq('numero', contact.session_id)
+      .eq('aplicativo', 'instagram')
+      .not('recipient_id', 'is', null)
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const recipientId = lastMsg?.recipient_id || null
+
     await supabase.from(CONV_TABLE).insert({
       instancia: instance,
       numero: contact.session_id,
       mensagem: assumeMsg,
       type: 'atendente',
       aplicativo: 'instagram',
+      recipient_id: recipientId,
     })
 
     fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexlainstagram', {
@@ -330,6 +356,7 @@ function InstagramInbox() {
         message: assumeMsg,
         session_id: contact.session_id,
         handle: contact.handle,
+        recipient_id: recipientId,
         instancia: instance,
         api_instancia: apiInstancia,
         ai_enabled: aiEnabled,
@@ -375,12 +402,30 @@ function InstagramInbox() {
       }
       const text = msgText.trim()
       setMsgText('')
+
+      // Pega o recipient_id mais recente da conversa (vindo do cliente).
+      // Cache local primeiro; se não tiver, busca no banco.
+      let recipientId = getRecipientId()
+      if (!recipientId) {
+        const { data: lastMsg } = await supabase.from(CONV_TABLE)
+          .select('recipient_id')
+          .eq('instancia', instance)
+          .eq('numero', selected.session_id)
+          .eq('aplicativo', 'instagram')
+          .not('recipient_id', 'is', null)
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        recipientId = lastMsg?.recipient_id || null
+      }
+
       const { error: insErr } = await supabase.from(CONV_TABLE).insert({
         instancia: instance,
         numero: selected.session_id,
         mensagem: text,
         type: 'atendente',
         aplicativo: 'instagram',
+        recipient_id: recipientId,
       })
       if (insErr) console.error('insert mensagens_geral IG:', insErr)
 
@@ -391,6 +436,7 @@ function InstagramInbox() {
           message: text,
           session_id: selected.session_id,
           handle: selected.handle,
+          recipient_id: recipientId,
           instancia: instance,
           api_instancia: apiInstancia,
           ai_enabled: aiEnabled,
