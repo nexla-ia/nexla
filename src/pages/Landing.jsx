@@ -5,7 +5,7 @@ import {
   Users, Bot, Stethoscope, Headset, Check, ChevronRight, ChevronLeft, Star, Zap, ShieldCheck,
   Phone, Mail, Activity, Clock, TrendingUp, Lock, FileText, Trash2, Server, Quote,
   Building2, Network, Wallet, Bot as BotIcon, Instagram, BookUser, Image as ImageIcon,
-  ScanLine, FileSearch, Camera, Cake, MapPin, Heart, Pill, AlertTriangle, Pencil, Menu, X,
+  ScanLine, FileSearch, Camera, Cake, MapPin, Heart, Pill, AlertTriangle, Pencil, Menu, X, ArrowRightLeft,
 } from 'lucide-react'
 import BrandMark from '../components/BrandMark'
 import './Landing.css'
@@ -276,6 +276,215 @@ export default function Landing() {
               title="Gestão de equipe e setores"
               description="Convide atendentes, atribua a setores, defina permissões. Cada conversa fica com quem deve atender."
             />
+          </div>
+        </div>
+      </section>
+
+      {/* TIME INTEIRO NUM NÚMERO SÓ */}
+      <section className="lp-team" id="time">
+        <div className="lp-container">
+          {/* Cabeçalho com tom diferenciado */}
+          <div className="lp-team-header">
+            <div className="lp-team-eyebrow">
+              <span className="lp-team-eyebrow-dot" />
+              <span>Time inteiro num número só</span>
+            </div>
+            <h2 className="lp-team-title">
+              <span>Sua equipe inteira atendendo.</span>
+              <span className="lp-team-title-grad">no mesmo número de WhatsApp.</span>
+            </h2>
+            <p className="lp-team-sub">
+              Acabou aquela história de revezar o celular ou ter 5 números diferentes
+              pros setores. Aqui é <strong>um número, time inteiro</strong> — com regra
+              de ownership pra ninguém atrapalhar a conversa do colega.
+            </p>
+          </div>
+
+          {/* Visual: paciente ↔ time */}
+          <div className="lp-team-stage">
+            {/* COLUNA ESQUERDA — paciente vê 1 conversa */}
+            <div className="lp-team-side lp-team-patient">
+              <div className="lp-team-side-label">
+                <Phone size={11} />
+                <span>O paciente vê</span>
+              </div>
+              <div className="lp-team-phone">
+                <div className="lp-team-phone-notch" />
+                <div className="lp-team-phone-bar">
+                  <div className="lp-team-phone-avatar">CS</div>
+                  <div>
+                    <div className="lp-team-phone-name">Clínica Saúde</div>
+                    <div className="lp-team-phone-status">
+                      <span className="lp-team-phone-dot" />
+                      online · respondendo
+                    </div>
+                  </div>
+                </div>
+                <div className="lp-team-phone-msgs">
+                  <div className="lp-team-bubble lp-team-bubble-out">Oi, gostaria de marcar com a Dra. Camila</div>
+                  <div className="lp-team-bubble lp-team-bubble-in">Claro! Vou te passar pra triagem.</div>
+                  <div className="lp-team-bubble lp-team-bubble-in">
+                    Por gentileza, qual a data preferida?
+                  </div>
+                  <div className="lp-team-bubble lp-team-bubble-out">Quinta de tarde se possível</div>
+                  <div className="lp-team-bubble lp-team-bubble-in lp-team-typing">
+                    <span></span><span></span><span></span>
+                  </div>
+                </div>
+                <div className="lp-team-phone-foot">
+                  <span>Mensagem</span>
+                </div>
+              </div>
+              <div className="lp-team-side-caption">
+                <em>uma conversa só</em>, contínua e fluida —
+                ele nem percebe que mudou de atendente
+              </div>
+            </div>
+
+            {/* CONECTOR — fluxo central animado */}
+            <svg className="lp-team-flow" viewBox="0 0 220 480" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="teamFlow" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#22C55E" />
+                  <stop offset="50%" stopColor="#C9A074" />
+                  <stop offset="100%" stopColor="#7C3AED" />
+                </linearGradient>
+              </defs>
+              {/* 3 linhas saindo do meio-esquerda pra meio-direita */}
+              <path d="M 0,80 Q 110,80 220,80" stroke="url(#teamFlow)" strokeWidth="2" fill="none" strokeDasharray="6 8" className="lp-team-flow-path" />
+              <path d="M 0,240 Q 110,240 220,240" stroke="url(#teamFlow)" strokeWidth="2" fill="none" strokeDasharray="6 8" className="lp-team-flow-path lp-team-flow-path-2" />
+              <path d="M 0,400 Q 110,400 220,400" stroke="url(#teamFlow)" strokeWidth="2" fill="none" strokeDasharray="6 8" className="lp-team-flow-path lp-team-flow-path-3" />
+              {/* Bolinhas pulsantes nas pontas */}
+              <circle cx="6" cy="80" r="4" fill="#22C55E" className="lp-team-flow-pulse" />
+              <circle cx="6" cy="240" r="4" fill="#C9A074" className="lp-team-flow-pulse lp-team-flow-pulse-2" />
+              <circle cx="6" cy="400" r="4" fill="#7C3AED" className="lp-team-flow-pulse lp-team-flow-pulse-3" />
+            </svg>
+
+            {/* COLUNA DIREITA — painel do time */}
+            <div className="lp-team-side lp-team-control">
+              <div className="lp-team-side-label">
+                <Users size={11} />
+                <span>Vocês organizam por setor</span>
+              </div>
+              <div className="lp-team-panel">
+                <div className="lp-team-panel-bar">
+                  <div className="lp-team-panel-title">Inbox MedicinaMKT</div>
+                  <div className="lp-team-panel-meta">
+                    <span className="lp-team-panel-pulse" />
+                    8 conversas ativas
+                  </div>
+                </div>
+
+                {/* Setor 1 — Recepção */}
+                <div className="lp-team-sector">
+                  <div className="lp-team-sector-head">
+                    <span className="lp-team-sector-color" style={{ background: '#22C55E' }} />
+                    <span className="lp-team-sector-name">Recepção</span>
+                    <div className="lp-team-sector-team">
+                      <span className="lp-team-mini-avatar" style={{ background: 'linear-gradient(135deg, #F472B6, #EC4899)' }}>A</span>
+                      <span className="lp-team-mini-avatar" style={{ background: 'linear-gradient(135deg, #FBBF24, #FB923C)' }}>J</span>
+                      <span className="lp-team-mini-avatar" style={{ background: 'linear-gradient(135deg, #34D399, #06B6D4)' }}>M</span>
+                    </div>
+                  </div>
+                  <div className="lp-team-conv lp-team-conv-active">
+                    <span className="lp-team-conv-bullet">●</span>
+                    <span className="lp-team-conv-text">
+                      <strong>Maria Silva</strong> · Ana digitando
+                    </span>
+                    <span className="lp-team-conv-tag" style={{ color: '#16A34A', background: '#DCFCE7' }}>assumida</span>
+                  </div>
+                  <div className="lp-team-conv">
+                    <span className="lp-team-conv-bullet" style={{ color: '#94A3B8' }}>●</span>
+                    <span className="lp-team-conv-text">
+                      <strong>Pedro Santos</strong> · aguardando
+                    </span>
+                    <span className="lp-team-conv-tag" style={{ color: '#7C3AED', background: '#F3E8FF' }}>IA</span>
+                  </div>
+                </div>
+
+                {/* Setor 2 — Triagem */}
+                <div className="lp-team-sector">
+                  <div className="lp-team-sector-head">
+                    <span className="lp-team-sector-color" style={{ background: '#C9A074' }} />
+                    <span className="lp-team-sector-name">Triagem</span>
+                    <div className="lp-team-sector-team">
+                      <span className="lp-team-mini-avatar" style={{ background: 'linear-gradient(135deg, #A78BFA, #6366F1)' }}>C</span>
+                      <span className="lp-team-mini-avatar" style={{ background: 'linear-gradient(135deg, #60A5FA, #3B82F6)' }}>L</span>
+                    </div>
+                  </div>
+                  <div className="lp-team-conv">
+                    <span className="lp-team-conv-bullet" style={{ color: '#C9A074' }}>●</span>
+                    <span className="lp-team-conv-text">
+                      <strong>Joana Lima</strong> · Carlos assumiu há 2min
+                    </span>
+                    <span className="lp-team-conv-tag" style={{ color: '#B8895C', background: 'rgba(201, 160, 116, 0.18)' }}>travada</span>
+                  </div>
+                </div>
+
+                {/* Setor 3 — Médicos */}
+                <div className="lp-team-sector">
+                  <div className="lp-team-sector-head">
+                    <span className="lp-team-sector-color" style={{ background: '#7C3AED' }} />
+                    <span className="lp-team-sector-name">Médicos</span>
+                    <div className="lp-team-sector-team">
+                      <span className="lp-team-mini-avatar" style={{ background: 'linear-gradient(135deg, #C084FC, #9333EA)' }}>K</span>
+                    </div>
+                  </div>
+                  <div className="lp-team-conv">
+                    <span className="lp-team-conv-bullet" style={{ color: '#7C3AED' }}>●</span>
+                    <span className="lp-team-conv-text">
+                      <strong>Ana Bia</strong> · transferida da Triagem
+                    </span>
+                    <span className="lp-team-conv-tag" style={{ color: '#0891B2', background: '#CFFAFE' }}>↪ recebida</span>
+                  </div>
+                </div>
+              </div>
+              <div className="lp-team-side-caption">
+                cada um <em>vê só o que precisa</em> —
+                e ninguém pisa na conversa do outro
+              </div>
+            </div>
+          </div>
+
+          {/* 3 regras de ouro */}
+          <div className="lp-team-rules">
+            <div className="lp-team-rule">
+              <div className="lp-team-rule-icon" style={{ background: 'rgba(34, 197, 94, 0.12)', color: '#16A34A' }}>
+                <Users size={18} />
+              </div>
+              <div>
+                <div className="lp-team-rule-title">Setores que organizam</div>
+                <div className="lp-team-rule-desc">
+                  Recepção, triagem, médicos, financeiro — você divide do jeito que faz sentido pra clínica.
+                  Cada atendente só vê o que é dele.
+                </div>
+              </div>
+            </div>
+            <div className="lp-team-rule lp-team-rule-featured">
+              <div className="lp-team-rule-icon" style={{ background: 'rgba(201, 160, 116, 0.18)', color: '#C9A074' }}>
+                <Lock size={18} />
+              </div>
+              <div>
+                <div className="lp-team-rule-title">Trava automática</div>
+                <div className="lp-team-rule-desc">
+                  Quando alguém assume a conversa, ela <strong>trava no nome dele</strong>.
+                  Os outros enxergam, mas não conseguem mandar mensagem — paciente nunca recebe resposta dupla.
+                </div>
+                <span className="lp-team-rule-pill">Novo</span>
+              </div>
+            </div>
+            <div className="lp-team-rule">
+              <div className="lp-team-rule-icon" style={{ background: 'rgba(124, 58, 237, 0.12)', color: '#7C3AED' }}>
+                <ArrowRightLeft size={18} />
+              </div>
+              <div>
+                <div className="lp-team-rule-title">Transferência num clique</div>
+                <div className="lp-team-rule-desc">
+                  Recepção encaminha pra triagem, triagem manda pro médico — sem perder histórico,
+                  sem o paciente trocar de número.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
