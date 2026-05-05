@@ -5,7 +5,7 @@ import {
   Users, Bot, Stethoscope, Headset, Check, ChevronRight, ChevronLeft, Star, Zap, ShieldCheck,
   Phone, Mail, Activity, Clock, TrendingUp, Lock, FileText, Trash2, Server, Quote,
   Building2, Network, Wallet, Bot as BotIcon, Instagram, BookUser, Image as ImageIcon,
-  ScanLine, FileSearch, Camera, Cake, MapPin, Heart, Pill, AlertTriangle, Pencil, Menu, X, ArrowRightLeft,
+  ScanLine, FileSearch, Camera, Cake, MapPin, Heart, Pill, AlertTriangle, Pencil, Menu, X, ArrowRightLeft, Inbox,
 } from 'lucide-react'
 import BrandMark from '../components/BrandMark'
 import './Landing.css'
@@ -890,27 +890,173 @@ export default function Landing() {
             kicker="Pra quem é"
             title={<>Feita pra clínicas que levam<br /><em>crescimento a sério</em></>}
           />
+          <p className="lp-icp-intro">
+            Quatro perfis que a gente atende todo dia. <strong>Provavelmente um deles é você.</strong>
+          </p>
+
           <div className="lp-icp-grid">
-            <div className="lp-icp-card lp-icp-yellow">
-              <div className="lp-icp-num">01</div>
-              <div className="lp-icp-title">Investe em marketing</div>
-              <p>Faz tráfego pago no Meta e Google. Quer saber qual ad trouxe paciente, não só lead.</p>
+            {/* 01 — Investe em marketing */}
+            <article className="lp-icp-card lp-icp-marketing" data-tone="amber">
+              <div className="lp-icp-card-head">
+                <span className="lp-icp-num">01</span>
+                <span className="lp-icp-tag">
+                  <ScanLine size={11} /> Performance
+                </span>
+              </div>
+              <div className="lp-icp-card-title">
+                <span>Investe em marketing</span>
+                <em>e quer ver retorno</em>
+              </div>
+              <p className="lp-icp-card-desc">
+                Faz tráfego pago no Meta e Google. Quer saber qual ad trouxe
+                <strong> paciente que apareceu na consulta</strong>, não só lead que abriu chat.
+              </p>
+              <div className="lp-icp-card-visual lp-icp-visual-bars">
+                <div className="lp-icp-visual-label">Receita por origem · out/26</div>
+                <div className="lp-icp-bars">
+                  <div className="lp-icp-bar" style={{ '--h': '78%', '--c': '#F59E0B' }}>
+                    <span className="lp-icp-bar-val">R$ 9.3k</span>
+                    <span className="lp-icp-bar-lbl">Meta</span>
+                  </div>
+                  <div className="lp-icp-bar" style={{ '--h': '52%', '--c': '#FCD34D' }}>
+                    <span className="lp-icp-bar-val">R$ 6.2k</span>
+                    <span className="lp-icp-bar-lbl">Google</span>
+                  </div>
+                  <div className="lp-icp-bar" style={{ '--h': '34%', '--c': '#FDE68A' }}>
+                    <span className="lp-icp-bar-val">R$ 4.1k</span>
+                    <span className="lp-icp-bar-lbl">Indica.</span>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            {/* 02 — Multi-canal */}
+            <article className="lp-icp-card lp-icp-multichannel" data-tone="emerald">
+              <div className="lp-icp-card-head">
+                <span className="lp-icp-num">02</span>
+                <span className="lp-icp-tag">
+                  <Network size={11} /> Multi-canal
+                </span>
+              </div>
+              <div className="lp-icp-card-title">
+                <span>Paciente chega</span>
+                <em>por todo lugar</em>
+              </div>
+              <p className="lp-icp-card-desc">
+                WhatsApp, Instagram Direct, site, indicação. Hoje gerencia tudo
+                <strong> separado e perde conversa</strong> quando o telefone toca.
+              </p>
+              <div className="lp-icp-card-visual lp-icp-visual-channels">
+                <div className="lp-icp-channel" style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)' }}>
+                  <MessageSquare size={14} />
+                </div>
+                <div className="lp-icp-channel" style={{ background: 'linear-gradient(135deg, #F472B6, #EC4899)' }}>
+                  <Instagram size={14} />
+                </div>
+                <div className="lp-icp-channel" style={{ background: 'linear-gradient(135deg, #60A5FA, #3B82F6)' }}>
+                  <Network size={14} />
+                </div>
+                <svg className="lp-icp-channel-flow" viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true">
+                  <path d="M 20,12 Q 100,30 180,30" stroke="#10B981" strokeWidth="1.5" fill="none" strokeDasharray="3 3" />
+                  <path d="M 20,30 Q 100,30 180,30" stroke="#10B981" strokeWidth="1.5" fill="none" strokeDasharray="3 3" />
+                  <path d="M 20,48 Q 100,30 180,30" stroke="#10B981" strokeWidth="1.5" fill="none" strokeDasharray="3 3" />
+                </svg>
+                <div className="lp-icp-channel-target">
+                  <Inbox size={14} />
+                  <span>1 inbox</span>
+                </div>
+              </div>
+            </article>
+
+            {/* 03 — Multi-profissional */}
+            <article className="lp-icp-card lp-icp-multidoc" data-tone="sky">
+              <div className="lp-icp-card-head">
+                <span className="lp-icp-num">03</span>
+                <span className="lp-icp-tag">
+                  <Users size={11} /> Equipe
+                </span>
+              </div>
+              <div className="lp-icp-card-title">
+                <span>Tem dois ou mais</span>
+                <em>profissionais</em>
+              </div>
+              <p className="lp-icp-card-desc">
+                Agenda complexa, especialidades diferentes, setores que se misturam.
+                <strong> Excel e WhatsApp Web não dão mais conta.</strong>
+              </p>
+              <div className="lp-icp-card-visual lp-icp-visual-team">
+                <div className="lp-icp-team-card" style={{ background: 'linear-gradient(135deg, #DBEAFE, #BFDBFE)', borderColor: '#93C5FD' }}>
+                  <div className="lp-icp-team-avatar" style={{ background: 'linear-gradient(135deg, #60A5FA, #3B82F6)' }}>C</div>
+                  <div>
+                    <div className="lp-icp-team-name">Dra. Camila</div>
+                    <div className="lp-icp-team-spec">Dermato</div>
+                  </div>
+                </div>
+                <div className="lp-icp-team-card" style={{ background: 'linear-gradient(135deg, #E0E7FF, #C7D2FE)', borderColor: '#A5B4FC' }}>
+                  <div className="lp-icp-team-avatar" style={{ background: 'linear-gradient(135deg, #A78BFA, #6366F1)' }}>R</div>
+                  <div>
+                    <div className="lp-icp-team-name">Dr. Rafael</div>
+                    <div className="lp-icp-team-spec">Cardio</div>
+                  </div>
+                </div>
+                <div className="lp-icp-team-card" style={{ background: 'linear-gradient(135deg, #DBEAFE, #BFDBFE)', borderColor: '#93C5FD' }}>
+                  <div className="lp-icp-team-avatar" style={{ background: 'linear-gradient(135deg, #34D399, #06B6D4)' }}>M</div>
+                  <div>
+                    <div className="lp-icp-team-name">Dra. Marina</div>
+                    <div className="lp-icp-team-spec">Pediatra</div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            {/* 04 — Quer controle */}
+            <article className="lp-icp-card lp-icp-control" data-tone="rose">
+              <div className="lp-icp-card-head">
+                <span className="lp-icp-num">04</span>
+                <span className="lp-icp-tag">
+                  <BarChart3 size={11} /> Dados
+                </span>
+              </div>
+              <div className="lp-icp-card-title">
+                <span>Quer controle,</span>
+                <em>não só ferramenta</em>
+              </div>
+              <p className="lp-icp-card-desc">
+                Métrica de cada profissional, taxa de no-show, atribuição de marketing.
+                <strong> Decisão por dado, não achismo.</strong>
+              </p>
+              <div className="lp-icp-card-visual lp-icp-visual-kpis">
+                <div className="lp-icp-kpi">
+                  <div className="lp-icp-kpi-val" style={{ color: '#16A34A' }}>R$ 87k</div>
+                  <div className="lp-icp-kpi-lbl">Faturamento</div>
+                  <div className="lp-icp-kpi-trend">↑ 12%</div>
+                </div>
+                <div className="lp-icp-kpi">
+                  <div className="lp-icp-kpi-val" style={{ color: '#DC2626' }}>8%</div>
+                  <div className="lp-icp-kpi-lbl">No-show</div>
+                  <div className="lp-icp-kpi-trend lp-icp-kpi-trend-down">↓ 3%</div>
+                </div>
+                <div className="lp-icp-kpi">
+                  <div className="lp-icp-kpi-val" style={{ color: '#7C3AED' }}>R$ 312</div>
+                  <div className="lp-icp-kpi-lbl">Ticket médio</div>
+                  <div className="lp-icp-kpi-trend">↑ 8%</div>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          {/* Outro */}
+          <div className="lp-icp-outro">
+            <div className="lp-icp-outro-marker">
+              <Sparkles size={14} />
             </div>
-            <div className="lp-icp-card lp-icp-green">
-              <div className="lp-icp-num">02</div>
-              <div className="lp-icp-title">Recebe paciente por múltiplos canais</div>
-              <p>WhatsApp, Instagram Direct, indicação, site. Hoje gerencia tudo separado, perdendo conversa.</p>
+            <div>
+              <strong>Se você se viu em pelo menos 2 desses</strong>, a gente já consegue
+              te mostrar resultado em 30 dias.
             </div>
-            <div className="lp-icp-card lp-icp-blue">
-              <div className="lp-icp-num">03</div>
-              <div className="lp-icp-title">Tem 2 ou mais profissionais</div>
-              <p>Agenda complexa, múltiplas especialidades, setores diferentes. Excel e WhatsApp Web não dão mais conta.</p>
-            </div>
-            <div className="lp-icp-card lp-icp-pink">
-              <div className="lp-icp-num">04</div>
-              <div className="lp-icp-title">Quer controle, não só ferramenta</div>
-              <p>Métrica real de cada profissional, taxa de no-show, atribuição de marketing. Decisão por dado, não achismo.</p>
-            </div>
+            <a href="#cta" className="lp-icp-outro-cta">
+              Quero conversar <ArrowUpRight size={14} />
+            </a>
           </div>
         </div>
       </section>
