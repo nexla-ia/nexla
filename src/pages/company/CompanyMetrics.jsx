@@ -13,16 +13,18 @@ import './Company.css'
 // ─── Inferência de origem do lead ─────────────────────────────────────────
 // Roda nas primeiras mensagens do cliente. Ordem importa: Indicação ANTES de
 // Instagram/Google porque "minha amiga viu no Insta" deve cair em Indicação.
+// Frases-gatilho comuns em PT-BR: "vim através de/do/pelo X", "achei no X",
+// "vi no X", "encontrei no X", "pesquisei no X", "fui indicado por", etc.
 const ORIGEM_PATTERNS = [
-  { origem: 'Indicação', re: /\b(indica[cç][aã]o|indic(ou|aram|ada?|ado)|me indica\w*|me passaram|me passou|amig[ao]\s+(me\s+)?(indic|fal|disse|recomend)|conhec\w+\s+(me\s+)?(indic|fal|recomend)|recomend\w+\s+(por|pelo|pela)|por indica)/i },
-  { origem: 'Instagram', re: /\b(instagram|\binsta\b|stories?\b|\bstory\b|@[a-z0-9._-]{3,}|\big\b|vi\s+(no|seu|sua)\s+(insta|instagram|stories?|story|post)|publica[cç][aã]o de voc|reels?\b)/i },
-  { origem: 'Google',    re: /\b(google|pesqui[sz]\w+|achei\s+no\s+google|fui\s+no\s+google|busca\s+(no|do)|\bgoogl|\bmaps\b)/i },
-  { origem: 'Facebook',  re: /\b(facebook|\bfb\b)/i },
-  { origem: 'TikTok',    re: /\btik\s*tok\b/i },
-  { origem: 'YouTube',   re: /\b(youtube|canal d[oae]|v[ií]deo (do|de|deles)|seu canal)/i },
-  { origem: 'Site',      re: /\b(site\s+(de\s+voc|da\s+cl[íi]nica|do\s+consult|de\s+v[oô]s)|seu\s+site|no\s+site\s+de)/i },
-  { origem: 'Anúncio',   re: /\b(an[uú]nci\w*|propaganda|panfleto|outdoor|\btv\b\s+(da|do))/i },
-  { origem: 'WhatsApp Business', re: /\b(perfil do whats|status do whats|cat[áa]logo do whats|whats\s+business)/i },
+  { origem: 'Indicação', re: /\b(indica[cç][aã]o|indic(ou|aram|ada?|ado)|fui\s+indicad|me\s+indic\w*|me\s+passaram|me\s+passou|amig[ao]\s+(me\s+)?(indic|fal|disse|recomend)|conhec\w+\s+(me\s+)?(indic|fal|recomend)|recomend\w+\s+(por|pelo|pela)|por\s+indica|veio\s+por\s+indica)/i },
+  { origem: 'Instagram', re: /\b(instagram|\binsta\b|stories?\b|\bstory\b|@[a-z0-9._-]{3,}|\big\b|vi(m)?\s+(no|do|pelo|seu|sua)\s+(insta|instagram|stories?|story|post)|publica[cç][aã]o de voc|reels?\b|atrav[eé]s\s+do\s+(insta|instagram))/i },
+  { origem: 'Google',    re: /\b(google|pesqui[sz]\w+|achei\s+no\s+google|encontrei\s+no\s+google|fui\s+no\s+google|busca\s+(no|do)|\bgoogl|\bmaps\b|atrav[eé]s\s+do\s+google|pelo\s+google|na\s+internet|na\s+pesquisa)/i },
+  { origem: 'Facebook',  re: /\b(facebook|\bfb\b|atrav[eé]s\s+do\s+(face|facebook)|pelo\s+(face|facebook)|vi(m)?\s+no\s+(face|facebook))/i },
+  { origem: 'TikTok',    re: /\btik\s*tok\b|atrav[eé]s\s+do\s+tiktok|pelo\s+tiktok|vi(m)?\s+no\s+tiktok/i },
+  { origem: 'YouTube',   re: /\b(youtube|canal\s+d[oae]|v[ií]deo\s+(do|de|deles)|seu\s+canal|atrav[eé]s\s+do\s+youtube|pelo\s+youtube)/i },
+  { origem: 'Site',      re: /\b(atrav[eé]s\s+(do|de)\s+site|pelo\s+site|do\s+site|no\s+site|achei\s+no\s+site|encontrei\s+no\s+site|vi(m)?\s+(do|pelo|no)\s+site|site\s+(de\s+voc|da\s+cl[íi]nica|do\s+consult|de\s+v[oô]s)|seu\s+site|via\s+site|p[aá]gina\s+(da|de)\s+voc)/i },
+  { origem: 'Anúncio',   re: /\b(an[uú]nci\w*|patrocinad\w+|propaganda|panfleto|outdoor|\btv\b\s+(da|do)|vi\s+um\s+an[uú]ncio|atrav[eé]s\s+do\s+an[uú]ncio|pelo\s+an[uú]ncio)/i },
+  { origem: 'WhatsApp Business', re: /\b(perfil\s+do\s+whats|status\s+do\s+whats|cat[áa]logo\s+do\s+whats|whats\s+business|link\s+do\s+whats)/i },
 ]
 
 function inferOrigem(messages) {
