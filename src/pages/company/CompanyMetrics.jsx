@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import LimitReachedModal from '../../components/LimitReachedModal'
@@ -6,7 +6,7 @@ import { getEffectiveLimits, upgradeMessage } from '../../lib/planLimits'
 import {
   Users, MessageSquare, TrendingUp, Clock, Inbox, BarChart2, RefreshCw,
   Calendar, BellRing, Kanban, Headset, CheckCircle2, XCircle, AlertCircle,
-  Phone, Bot, ListChecks, Flag, ChevronRight, Layers, DollarSign, Stethoscope, Lock,
+  Phone, Bot, ListChecks, Flag, ChevronRight, Layers, DollarSign, Stethoscope, Lock, X,
 } from 'lucide-react'
 import './Company.css'
 
@@ -54,20 +54,26 @@ function normalizeOrigem(raw) {
 
 // ─── Períodos ────────────────────────────────────────────────────────────────
 const PERIODS = [
-  { key: 'hoje',   label: 'Hoje' },
-  { key: 'ontem',  label: 'Ontem' },
-  { key: 'semana', label: 'Semana' },
-  { key: 'mes',    label: 'Mês' },
-  { key: 'todos',  label: 'Todos' },
+  { key: 'hoje',         label: 'Hoje' },
+  { key: 'ontem',        label: 'Ontem' },
+  { key: 'semana',       label: 'Semana' },
+  { key: 'mes',          label: 'Mês' },
+  { key: 'todos',        label: 'Todos' },
+  { key: 'personalizado',label: 'Personalizado' },
 ]
 
-function getPeriodRange(period) {
+function getPeriodRange(period, custom) {
   const now = new Date()
   const startOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
   if (period === 'hoje')   return { from: startOf(now), to: null }
   if (period === 'ontem')  { const y = new Date(now); y.setDate(y.getDate() - 1); return { from: startOf(y), to: new Date(startOf(now) - 1) } }
   if (period === 'semana') { const d = new Date(now); d.setDate(d.getDate() - 6); return { from: startOf(d), to: null } }
   if (period === 'mes')    return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: null }
+  if (period === 'personalizado' && custom?.from) {
+    const f = new Date(custom.from + 'T00:00:00')
+    const t = custom.to ? new Date(custom.to + 'T23:59:59') : null
+    return { from: f, to: t }
+  }
   return { from: null, to: null }
 }
 
@@ -197,6 +203,7 @@ export default function CompanyMetrics({ companyOverride = null, hideHeader = fa
   const ADVANCED_TABS  = ['equipe', 'financeiro']
 
   const [period, setPeriod]   = useState('semana')
+  const [customRange, setCustomRange] = useState({ from: '', to: '' })
   const [tab, setTab]         = useState('overview')
   const [loading, setLoading] = useState(false)
   const [lastRefresh, setLastRefresh] = useState(null)
@@ -330,7 +337,7 @@ export default function CompanyMetrics({ companyOverride = null, hideHeader = fa
   useEffect(() => { load() }, [instance, companyId, contactsTable])
 
   // Range do período ativo
-  const range = useMemo(() => getPeriodRange(period), [period])
+  const range = useMemo(() => getPeriodRange(period, customRange), [period, customRange])
 
   return (
     <div className="page-enter" style={{ padding: hideHeader ? 0 : '1.5rem' }}>
@@ -351,7 +358,7 @@ export default function CompanyMetrics({ companyOverride = null, hideHeader = fa
       )}
 
       {/* Filtros de período */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         {PERIODS.map(p => (
           <button key={p.key} onClick={() => setPeriod(p.key)}
             style={{
@@ -363,6 +370,47 @@ export default function CompanyMetrics({ companyOverride = null, hideHeader = fa
               boxShadow: period === p.key ? '0 1px 4px rgba(37,99,235,0.3)' : 'none',
             }}>{p.label}</button>
         ))}
+        {period === 'personalizado' && (
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            marginLeft: 6, padding: '4px 10px',
+            background: '#EFF6FF', border: '1.5px solid #BFDBFE',
+            borderRadius: 20,
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#1E40AF', letterSpacing: '0.04em', textTransform: 'uppercase' }}>De</span>
+            <input
+              type="date"
+              value={customRange.from}
+              onChange={e => setCustomRange(p => ({ ...p, from: e.target.value }))}
+              style={{
+                border: 'none', background: 'transparent',
+                fontSize: 12, color: '#1E40AF', fontWeight: 600,
+                fontFamily: 'inherit', outline: 'none', cursor: 'pointer',
+              }}
+            />
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#1E40AF' }}>→</span>
+            <input
+              type="date"
+              value={customRange.to}
+              onChange={e => setCustomRange(p => ({ ...p, to: e.target.value }))}
+              style={{
+                border: 'none', background: 'transparent',
+                fontSize: 12, color: '#1E40AF', fontWeight: 600,
+                fontFamily: 'inherit', outline: 'none', cursor: 'pointer',
+              }}
+            />
+            {(customRange.from || customRange.to) && (
+              <button
+                onClick={() => setCustomRange({ from: '', to: '' })}
+                title="Limpar"
+                style={{
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  color: '#1E40AF', display: 'inline-flex', padding: 2,
+                }}
+              ><X size={11} /></button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -1055,6 +1103,7 @@ function cleanPhone(p) {
 
 function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable }) {
   const { from, to } = range
+  const [drilldown, setDrilldown] = useState(null) // { origem, leads } — modal de leads por origem
   if (!contactsTable) {
     return <div className="nx-card" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Tabela de contatos não configurada.</div>
   }
@@ -1291,10 +1340,26 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
               const conv = o.total ? (o.agendaram / o.total * 100) : 0
               const color = ORIGEM_COLORS[i % ORIGEM_COLORS.length]
               return (
-                <div key={o.name} style={{ display: 'grid', gridTemplateColumns: '1.5fr 80px 100px 100px 120px 1fr', gap: 8, padding: '10px 12px', alignItems: 'center', borderBottom: '1px solid #F8FAFC', fontSize: 12.5 }}>
+                <div
+                  key={o.name}
+                  onClick={() => {
+                    const subset = leadsWithAppt.filter(l => normalizeOrigem(l.origem) === o.name)
+                    setDrilldown({ origem: o.name, color, leads: subset })
+                  }}
+                  title={`Ver os ${o.total} leads que vieram de ${o.name}`}
+                  style={{
+                    display: 'grid', gridTemplateColumns: '1.5fr 80px 100px 100px 120px 1fr', gap: 8,
+                    padding: '10px 12px', alignItems: 'center',
+                    borderBottom: '1px solid #F8FAFC', fontSize: 12.5,
+                    cursor: 'pointer', transition: 'background 0.12s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
                     {o.name}
+                    <ChevronRight size={12} style={{ color: '#CBD5E1', marginLeft: 'auto' }} />
                   </div>
                   <div style={{ textAlign: 'right', fontWeight: 700 }}>{o.total}</div>
                   <div style={{ textAlign: 'right', color: '#7C3AED', fontWeight: 600 }}>{o.agendaram}</div>
@@ -1387,6 +1452,100 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
           )}
         </div>
       </div>
+      {/* Drill-down: leads de uma origem específica */}
+      {drilldown && (
+        <div
+          onClick={() => setDrilldown(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999, backdropFilter: 'blur(4px)', padding: '1.5rem',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="nx-card"
+            style={{
+              width: '100%', maxWidth: 720, maxHeight: 'calc(100vh - 3rem)',
+              display: 'flex', flexDirection: 'column',
+            }}
+          >
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: drilldown.color }} />
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Leads via {drilldown.origem}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {drilldown.leads.length} lead(s) no período · {drilldown.leads.filter(l => l.appts.length > 0).length} agendaram
+                  </div>
+                </div>
+              </div>
+              <button onClick={() => setDrilldown(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+              {drilldown.leads.length === 0 ? (
+                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                  Sem leads dessa origem no período selecionado.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto auto auto', fontSize: 12.5 }}>
+                  <div style={{ padding: '10px 14px', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#94A3B8', background: '#F8FAFC', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0 }}></div>
+                  <div style={{ padding: '10px 14px', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#94A3B8', background: '#F8FAFC', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0 }}>Lead</div>
+                  <div style={{ padding: '10px 14px', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#94A3B8', background: '#F8FAFC', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, textAlign: 'center' }}>Status</div>
+                  <div style={{ padding: '10px 14px', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#94A3B8', background: '#F8FAFC', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, textAlign: 'right' }}>Receita</div>
+                  <div style={{ padding: '10px 14px', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#94A3B8', background: '#F8FAFC', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, textAlign: 'right' }}>Quando</div>
+
+                  {drilldown.leads
+                    .slice()
+                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                    .map((l, idx) => {
+                      const cs = CLASSIF_COLORS[l.classificacao_lead] || { color: '#6B7280', bg: '#F3F4F6', label: l.classificacao_lead || 'novo' }
+                      const phone = cleanPhone(l.numero)
+                      const created = new Date(l.created_at)
+                      return (
+                        <React.Fragment key={l.id || idx}>
+                          <div style={{ padding: '10px 14px', borderBottom: '1px solid #F8FAFC' }}>
+                            <div style={{
+                              width: 28, height: 28, borderRadius: '50%',
+                              background: drilldown.color, color: '#fff',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 11, fontWeight: 700,
+                            }}>{(l.nome || '?').charAt(0).toUpperCase()}</div>
+                          </div>
+                          <div style={{ padding: '10px 14px', borderBottom: '1px solid #F8FAFC', minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {l.nome || phone || 'Sem nome'}
+                            </div>
+                            {l.nome && phone && (
+                              <div style={{ fontSize: 11, color: '#64748B', fontFamily: 'monospace' }}>{phone}</div>
+                            )}
+                          </div>
+                          <div style={{ padding: '10px 14px', borderBottom: '1px solid #F8FAFC', textAlign: 'center' }}>
+                            <span style={{
+                              fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 999,
+                              color: cs.color, background: cs.bg,
+                              textTransform: 'uppercase', letterSpacing: '0.04em',
+                            }}>{cs.label}</span>
+                          </div>
+                          <div style={{ padding: '10px 14px', borderBottom: '1px solid #F8FAFC', textAlign: 'right', fontWeight: 600, color: l.revenue > 0 ? '#059669' : '#94A3B8', fontVariantNumeric: 'tabular-nums' }}>
+                            {l.revenue > 0 ? fmtMoney(l.revenue) : '—'}
+                          </div>
+                          <div style={{ padding: '10px 14px', borderBottom: '1px solid #F8FAFC', textAlign: 'right', color: '#64748B', fontSize: 11.5 }}>
+                            {created.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                          </div>
+                        </React.Fragment>
+                      )
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
