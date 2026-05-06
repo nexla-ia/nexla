@@ -203,8 +203,35 @@ export default function CompanyMetrics({ companyOverride = null, hideHeader = fa
   const advancedAllowed = companyOverride ? true : limits.advanced_metrics
   const ADVANCED_TABS  = ['equipe', 'financeiro']
 
-  const [period, setPeriod]   = useState('semana')
-  const [customRange, setCustomRange] = useState({ from: '', to: '' })
+  // Persiste filtro de período por usuário+empresa entre sessões
+  const filterKey = `nx_metrics_filter_${companyId || 'def'}`
+  const [period, setPeriod]   = useState(() => {
+    try {
+      const raw = localStorage.getItem(filterKey)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed.period) return parsed.period
+      }
+    } catch {}
+    return 'semana'
+  })
+  const [customRange, setCustomRange] = useState(() => {
+    try {
+      const raw = localStorage.getItem(filterKey)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        return parsed.customRange || { from: '', to: '' }
+      }
+    } catch {}
+    return { from: '', to: '' }
+  })
+
+  // Salva sempre que mudar
+  useEffect(() => {
+    try {
+      localStorage.setItem(filterKey, JSON.stringify({ period, customRange }))
+    } catch {}
+  }, [filterKey, period, customRange])
   const [tab, setTab]         = useState('overview')
   const [loading, setLoading] = useState(false)
   const [lastRefresh, setLastRefresh] = useState(null)
