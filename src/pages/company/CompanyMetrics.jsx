@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import LimitReachedModal from '../../components/LimitReachedModal'
@@ -1103,7 +1104,15 @@ function cleanPhone(p) {
 
 function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable }) {
   const { from, to } = range
+  const navigate = useNavigate()
   const [drilldown, setDrilldown] = useState(null) // { origem, leads } — modal de leads por origem
+
+  function openConversation(lead) {
+    const phone = cleanPhone(lead.numero)
+    if (!phone) return
+    setDrilldown(null)
+    navigate(`/painel/conversas?contact=${phone}`)
+  }
   if (!contactsTable) {
     return <div className="nx-card" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Tabela de contatos não configurada.</div>
   }
@@ -1492,12 +1501,15 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
                   Sem leads dessa origem no período selecionado.
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto auto auto', fontSize: 12.5 }}>
-                  <div style={{ padding: '10px 14px', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#94A3B8', background: '#F8FAFC', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0 }}></div>
-                  <div style={{ padding: '10px 14px', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#94A3B8', background: '#F8FAFC', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0 }}>Lead</div>
-                  <div style={{ padding: '10px 14px', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#94A3B8', background: '#F8FAFC', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, textAlign: 'center' }}>Status</div>
-                  <div style={{ padding: '10px 14px', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#94A3B8', background: '#F8FAFC', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, textAlign: 'right' }}>Receita</div>
-                  <div style={{ padding: '10px 14px', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#94A3B8', background: '#F8FAFC', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, textAlign: 'right' }}>Quando</div>
+                <div style={{ fontSize: 12.5 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '52px 1fr 110px 110px 110px 28px', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#94A3B8', background: '#F8FAFC', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0 }}>
+                    <div style={{ padding: '10px 14px' }}></div>
+                    <div style={{ padding: '10px 14px' }}>Lead</div>
+                    <div style={{ padding: '10px 14px', textAlign: 'center' }}>Status</div>
+                    <div style={{ padding: '10px 14px', textAlign: 'right' }}>Receita</div>
+                    <div style={{ padding: '10px 14px', textAlign: 'right' }}>Quando</div>
+                    <div style={{ padding: '10px 14px' }}></div>
+                  </div>
 
                   {drilldown.leads
                     .slice()
@@ -1507,8 +1519,22 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
                       const phone = cleanPhone(l.numero)
                       const created = new Date(l.created_at)
                       return (
-                        <React.Fragment key={l.id || idx}>
-                          <div style={{ padding: '10px 14px', borderBottom: '1px solid #F8FAFC' }}>
+                        <div
+                          key={l.id || idx}
+                          onClick={() => openConversation(l)}
+                          title="Abrir conversa do lead"
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '52px 1fr 110px 110px 110px 28px',
+                            alignItems: 'center',
+                            borderBottom: '1px solid #F8FAFC',
+                            cursor: 'pointer',
+                            transition: 'background 0.12s',
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#F0F9FF'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <div style={{ padding: '10px 14px' }}>
                             <div style={{
                               width: 28, height: 28, borderRadius: '50%',
                               background: drilldown.color, color: '#fff',
@@ -1516,7 +1542,7 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
                               fontSize: 11, fontWeight: 700,
                             }}>{(l.nome || '?').charAt(0).toUpperCase()}</div>
                           </div>
-                          <div style={{ padding: '10px 14px', borderBottom: '1px solid #F8FAFC', minWidth: 0 }}>
+                          <div style={{ padding: '10px 14px', minWidth: 0 }}>
                             <div style={{ fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {l.nome || phone || 'Sem nome'}
                             </div>
@@ -1524,20 +1550,23 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
                               <div style={{ fontSize: 11, color: '#64748B', fontFamily: 'monospace' }}>{phone}</div>
                             )}
                           </div>
-                          <div style={{ padding: '10px 14px', borderBottom: '1px solid #F8FAFC', textAlign: 'center' }}>
+                          <div style={{ padding: '10px 14px', textAlign: 'center' }}>
                             <span style={{
                               fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 999,
                               color: cs.color, background: cs.bg,
                               textTransform: 'uppercase', letterSpacing: '0.04em',
                             }}>{cs.label}</span>
                           </div>
-                          <div style={{ padding: '10px 14px', borderBottom: '1px solid #F8FAFC', textAlign: 'right', fontWeight: 600, color: l.revenue > 0 ? '#059669' : '#94A3B8', fontVariantNumeric: 'tabular-nums' }}>
+                          <div style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600, color: l.revenue > 0 ? '#059669' : '#94A3B8', fontVariantNumeric: 'tabular-nums' }}>
                             {l.revenue > 0 ? fmtMoney(l.revenue) : '—'}
                           </div>
-                          <div style={{ padding: '10px 14px', borderBottom: '1px solid #F8FAFC', textAlign: 'right', color: '#64748B', fontSize: 11.5 }}>
+                          <div style={{ padding: '10px 14px', textAlign: 'right', color: '#64748B', fontSize: 11.5 }}>
                             {created.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                           </div>
-                        </React.Fragment>
+                          <div style={{ padding: '10px 14px', textAlign: 'right' }}>
+                            <ChevronRight size={14} style={{ color: '#CBD5E1' }} />
+                          </div>
+                        </div>
                       )
                     })}
                 </div>
