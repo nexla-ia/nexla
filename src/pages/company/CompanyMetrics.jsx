@@ -47,6 +47,11 @@ function normalizeOrigem(raw) {
     return 'WhatsApp · sem rastreio'
   }
   const text = String(raw).trim().toLowerCase()
+  // 'whatsapp', 'wpp', 'zap' isolado também é canal sem rastreio (a conversa
+  // já está no WhatsApp, não acrescenta info de origem real do lead).
+  if (/^(whats\s*app|whatsapp|wpp|zap|zap\s*zap)$/i.test(text)) {
+    return 'WhatsApp · sem rastreio'
+  }
   for (const { origem, re } of ORIGEM_PATTERNS) {
     if (re.test(text)) return origem
   }
