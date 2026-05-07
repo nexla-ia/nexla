@@ -1260,6 +1260,65 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
       .slice(0, 8)
   }, [filtered])
 
+  // ── Atribuição de anúncios — agrupa por criativo (ad_title) ─────────────
+  // Cada criativo tem: leads, agendaram, conversão, receita e thumb.
+  const campanhas = useMemo(() => {
+    const map = {}
+    leadsWithAppt.forEach(l => {
+      const key = l.ad_title || (l.ad_click_id ? `Anúncio sem título (${l.ad_click_id.slice(0, 8)}...)` : null)
+      if (!key) return
+      if (!map[key]) {
+        map[key] = {
+          title: key,
+          body: l.ad_body || '',
+          thumb: l.ad_thumbnail_url || null,
+          mediaUrl: l.ad_media_url || null,
+          sourceUrl: l.ad_source_url || null,
+          platform: l.ad_platform || l.ad_source || '—',
+          firstSeen: l.ad_captured_at || l.created_at,
+          total: 0, agendaram: 0, concluidas: 0, receita: 0,
+        }
+      }
+      map[key].total++
+      if (l.appts.length > 0) map[key].agendaram++
+      map[key].concluidas += l.concluded
+      map[key].receita += l.revenue
+    })
+    return Object.values(map).sort((a, b) => b.total - a.total)
+  }, [leadsWithAppt])
+
+  // ── Pago vs Orgânico — comparativo ──────────────────────────────────────
+  const pagoVsOrganico = useMemo(() => {
+    const pago = leadsWithAppt.filter(l => !!(l.ad_click_id || l.ad_title || l.ad_platform))
+    const organico = leadsWithAppt.filter(l => !(l.ad_click_id || l.ad_title || l.ad_platform))
+    function summarize(arr) {
+      const total = arr.length
+      const agendaram = arr.filter(l => l.appts.length > 0).length
+      const concluidas = arr.reduce((s, l) => s + l.concluded, 0)
+      const receita = arr.reduce((s, l) => s + l.revenue, 0)
+      return {
+        total,
+        agendaram,
+        concluidas,
+        receita,
+        conv: total ? (agendaram / total * 100) : 0,
+        ticket: concluidas ? (receita / concluidas) : 0,
+      }
+    }
+    return { pago: summarize(pago), organico: summarize(organico) }
+  }, [leadsWithAppt])
+
+  // ── Distribuição por hora do dia ────────────────────────────────────────
+  const horarioDistribuicao = useMemo(() => {
+    const buckets = Array.from({ length: 24 }, (_, h) => ({ hour: h, count: 0 }))
+    filtered.forEach(l => {
+      const h = new Date(l.created_at).getHours()
+      buckets[h].count++
+    })
+    return buckets
+  }, [filtered])
+  const maxHourly = Math.max(1, ...horarioDistribuicao.map(b => b.count))
+
   function fmtAge(ts) {
     const ms = Date.now() - new Date(ts).getTime()
     const hours = Math.floor(ms / 3600000)
@@ -1488,6 +1547,256 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
           )}
         </div>
       </div>
+
+      {/* ════════ Atribuição de anúncios ═══════════════════════════════════ */}
+
+      {/* Pago × Orgânico — comparativo */}
+      <div className="nx-card" style={{ padding: '1.5rem', marginTop: 14 }}>
+        <SectionTitle
+          icon={Layers}
+          text="Pago × Orgânico"
+          right={<span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{pagoVsOrganico.pago.total + pagoVsOrganico.organico.total} leads</span>}
+        />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          {/* PAGO */}
+          <div style={{
+            background: 'linear-gradient(135deg, #FEF3C7 0%, #FFE4B5 100%)',
+            border: '1px solid #FDE68A',
+            borderRadius: 14, padding: 18, position: 'relative', overflow: 'hidden',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #F59E0B, #B45309)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <DollarSign size={16} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Pago · Anúncios Meta</div>
+                <div style={{ fontSize: 11, color: '#B45309', marginTop: 1 }}>leads que clicaram em anúncio</div>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, color: '#0F172A', lineHeight: 1, letterSpacing: '-0.02em' }}>
+                  {pagoVsOrganico.pago.total}
+                </div>
+                <div style={{ fontSize: 11, color: '#92400E', fontWeight: 600, marginTop: 3 }}>leads</div>
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, color: '#0F172A', lineHeight: 1, letterSpacing: '-0.02em' }}>
+                  {pagoVsOrganico.pago.agendaram}
+                </div>
+                <div style={{ fontSize: 11, color: '#92400E', fontWeight: 600, marginTop: 3 }}>agendaram · {pagoVsOrganico.pago.conv.toFixed(0)}%</div>
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#059669', lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtMoney(pagoVsOrganico.pago.receita)}
+                </div>
+                <div style={{ fontSize: 11, color: '#92400E', fontWeight: 600, marginTop: 3 }}>receita</div>
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#0F172A', lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtMoney(pagoVsOrganico.pago.ticket)}
+                </div>
+                <div style={{ fontSize: 11, color: '#92400E', fontWeight: 600, marginTop: 3 }}>ticket médio</div>
+              </div>
+            </div>
+          </div>
+
+          {/* ORGÂNICO */}
+          <div style={{
+            background: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)',
+            border: '1px solid #86EFAC',
+            borderRadius: 14, padding: 18, position: 'relative', overflow: 'hidden',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #16A34A, #15803D)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <TrendingUp size={16} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#14532D', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Orgânico</div>
+                <div style={{ fontSize: 11, color: '#15803D', marginTop: 1 }}>indicação, site, busca, perfil</div>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, color: '#0F172A', lineHeight: 1, letterSpacing: '-0.02em' }}>
+                  {pagoVsOrganico.organico.total}
+                </div>
+                <div style={{ fontSize: 11, color: '#14532D', fontWeight: 600, marginTop: 3 }}>leads</div>
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, color: '#0F172A', lineHeight: 1, letterSpacing: '-0.02em' }}>
+                  {pagoVsOrganico.organico.agendaram}
+                </div>
+                <div style={{ fontSize: 11, color: '#14532D', fontWeight: 600, marginTop: 3 }}>agendaram · {pagoVsOrganico.organico.conv.toFixed(0)}%</div>
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#059669', lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtMoney(pagoVsOrganico.organico.receita)}
+                </div>
+                <div style={{ fontSize: 11, color: '#14532D', fontWeight: 600, marginTop: 3 }}>receita</div>
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#0F172A', lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtMoney(pagoVsOrganico.organico.ticket)}
+                </div>
+                <div style={{ fontSize: 11, color: '#14532D', fontWeight: 600, marginTop: 3 }}>ticket médio</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Top campanhas / criativos */}
+      {campanhas.length > 0 && (
+        <div className="nx-card" style={{ padding: '1.5rem', marginTop: 14 }}>
+          <SectionTitle
+            icon={Sparkles}
+            text="Top campanhas · qual criativo está performando"
+            right={<span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{campanhas.length} criativo(s)</span>}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {campanhas.slice(0, 8).map(c => {
+              const conv = c.total ? (c.agendaram / c.total * 100) : 0
+              return (
+                <div
+                  key={c.title}
+                  onClick={() => {
+                    const subset = leadsWithAppt.filter(l =>
+                      (l.ad_title && l.ad_title === c.title) ||
+                      (!l.ad_title && l.ad_click_id && c.title.includes(l.ad_click_id.slice(0, 8)))
+                    )
+                    setDrilldown({ origem: c.title, color: '#F59E0B', leads: subset })
+                  }}
+                  title="Ver leads dessa campanha"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '64px 1fr auto',
+                    gap: 14, alignItems: 'center',
+                    padding: 12,
+                    background: '#FFFBEB',
+                    border: '1px solid #FDE68A',
+                    borderRadius: 12,
+                    cursor: 'pointer',
+                    transition: 'all 0.18s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 20px -8px rgba(245,158,11,0.3)' }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none' }}
+                >
+                  {/* Thumbnail */}
+                  <div style={{
+                    width: 64, height: 64, borderRadius: 10, overflow: 'hidden',
+                    background: 'linear-gradient(135deg, #F59E0B, #B45309)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    {c.thumb
+                      ? <img src={c.thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => e.target.style.display = 'none'} />
+                      : <Sparkles size={20} color="#fff" />}
+                  </div>
+
+                  {/* Texto + tags + body preview */}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <div style={{ fontWeight: 700, color: '#0F172A', fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {c.title}
+                      </div>
+                      <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: '#F59E0B', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>
+                        {c.platform}
+                      </span>
+                    </div>
+                    {c.body && (
+                      <div style={{ fontSize: 11.5, color: '#64748B', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {c.body}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Stats */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', lineHeight: 1, fontFamily: 'var(--font-display)' }}>{c.total}</div>
+                      <div style={{ fontSize: 10, color: '#92400E', fontWeight: 600, marginTop: 2 }}>leads</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#7C3AED', lineHeight: 1, fontFamily: 'var(--font-display)' }}>{c.agendaram}</div>
+                      <div style={{ fontSize: 10, color: '#92400E', fontWeight: 600, marginTop: 2 }}>agend.</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{
+                        fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 999,
+                        background: conv >= 30 ? '#16A34A' : conv >= 15 ? '#F59E0B' : '#DC2626',
+                        color: '#fff',
+                      }}>{conv.toFixed(0)}%</span>
+                    </div>
+                    <div style={{ textAlign: 'right', minWidth: 80 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#059669', lineHeight: 1, fontFamily: 'var(--font-display)', fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(c.receita)}</div>
+                      <div style={{ fontSize: 10, color: '#92400E', fontWeight: 600, marginTop: 2 }}>receita</div>
+                    </div>
+                    <ChevronRight size={16} style={{ color: '#B45309' }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {campanhas.length > 8 && (
+            <div style={{ marginTop: 12, fontSize: 11.5, color: '#94A3B8', textAlign: 'center', fontStyle: 'italic' }}>
+              + {campanhas.length - 8} criativo(s) com menor volume
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Distribuição horária */}
+      <div className="nx-card" style={{ padding: '1.5rem', marginTop: 14 }}>
+        <SectionTitle
+          icon={Clock}
+          text="Distribuição por horário · quando os leads chegam"
+          right={<span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{filtered.length} leads no período</span>}
+        />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(24, 1fr)', gap: 3, alignItems: 'flex-end', height: 100, paddingTop: 8 }}>
+          {horarioDistribuicao.map(b => {
+            const h = b.count / maxHourly
+            const isPeak = b.count === maxHourly && b.count > 0
+            return (
+              <div key={b.hour} title={`${String(b.hour).padStart(2, '0')}h — ${b.count} lead(s)`} style={{
+                height: `${Math.max(h * 100, b.count > 0 ? 8 : 4)}%`,
+                background: isPeak
+                  ? 'linear-gradient(180deg, #2563EB, #1E40AF)'
+                  : b.count > 0
+                    ? 'linear-gradient(180deg, #93C5FD, #60A5FA)'
+                    : '#F1F5F9',
+                borderRadius: '4px 4px 2px 2px',
+                position: 'relative',
+                transition: 'all 0.2s',
+                cursor: 'help',
+              }}>
+                {isPeak && (
+                  <div style={{ position: 'absolute', top: -18, left: '50%', transform: 'translateX(-50%)', fontSize: 10, fontWeight: 800, color: '#1E40AF', whiteSpace: 'nowrap' }}>
+                    pico · {b.count}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(24, 1fr)', gap: 3, marginTop: 6 }}>
+          {horarioDistribuicao.map((b, i) => (
+            <div key={b.hour} style={{
+              fontSize: 9, color: '#94A3B8', textAlign: 'center', fontFamily: 'monospace',
+              fontWeight: i % 6 === 0 ? 700 : 400,
+            }}>
+              {i % 3 === 0 ? `${String(b.hour).padStart(2, '0')}h` : ''}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, padding: '10px 12px', background: '#F8FAFC', borderRadius: 8, fontSize: 11.5, color: '#475569' }}>
+          <span>📅 <strong>Manhã</strong> (6-12h): {horarioDistribuicao.slice(6, 12).reduce((s, b) => s + b.count, 0)}</span>
+          <span>🌞 <strong>Tarde</strong> (12-18h): {horarioDistribuicao.slice(12, 18).reduce((s, b) => s + b.count, 0)}</span>
+          <span>🌙 <strong>Noite</strong> (18-24h): {horarioDistribuicao.slice(18, 24).reduce((s, b) => s + b.count, 0)}</span>
+          <span>🌚 <strong>Madrugada</strong> (0-6h): {horarioDistribuicao.slice(0, 6).reduce((s, b) => s + b.count, 0)}</span>
+        </div>
+      </div>
+
       {/* Drill-down: leads de uma origem específica */}
       {drilldown && (
         <div
