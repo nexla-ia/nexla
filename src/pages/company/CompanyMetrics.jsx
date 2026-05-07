@@ -42,6 +42,30 @@ function inferOrigem(messages) {
 // Ex: 'instagram', 'INSTA', 'Vi no insta' → 'Instagram'
 //     'conhecido', 'minha amiga indicou', 'Indicação de uma amiga' → 'Indicação'
 // Se não casar com nenhum padrão, devolve texto original com Title Case.
+// Mapeamento direto de valores comuns que aparecem crus no banco e devem
+// fundir em buckets canônicos (evita 'Conhecido' ficar separado de 'Indicação').
+const ORIGEM_DIRECT_MAP = {
+  // Indicação
+  'conhecido': 'Indicação',
+  'conhecida': 'Indicação',
+  'conhecidos': 'Indicação',
+  'conhecidas': 'Indicação',
+  'amigo': 'Indicação',
+  'amiga': 'Indicação',
+  'familia': 'Indicação',
+  'família': 'Indicação',
+  'parente': 'Indicação',
+  // Paciente recorrente
+  'paciente antigo': 'Paciente antigo',
+  'paciente antiga': 'Paciente antigo',
+  'paciente já atendido': 'Paciente antigo',
+  'paciente ja atendido': 'Paciente antigo',
+  'paciente fixo': 'Paciente antigo',
+  'cliente antigo': 'Paciente antigo',
+  'cliente fixo': 'Paciente antigo',
+  'retorno': 'Paciente antigo',
+}
+
 function normalizeOrigem(raw) {
   if (!raw || !String(raw).trim() || /desconhecid|n[aã]o informad|sem rastreio/i.test(raw)) {
     return 'WhatsApp · sem rastreio'
@@ -52,6 +76,8 @@ function normalizeOrigem(raw) {
   if (/^(whats\s*app|whatsapp|wpp|zap|zap\s*zap)$/i.test(text)) {
     return 'WhatsApp · sem rastreio'
   }
+  // Mapeamento direto antes dos patterns
+  if (ORIGEM_DIRECT_MAP[text]) return ORIGEM_DIRECT_MAP[text]
   for (const { origem, re } of ORIGEM_PATTERNS) {
     if (re.test(text)) return origem
   }
