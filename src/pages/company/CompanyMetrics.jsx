@@ -8,6 +8,7 @@ import {
   Users, MessageSquare, TrendingUp, Clock, Inbox, BarChart2, RefreshCw,
   Calendar, BellRing, Kanban, Headset, CheckCircle2, XCircle, AlertCircle,
   Phone, Bot, ListChecks, Flag, ChevronRight, Layers, DollarSign, Stethoscope, Lock, X,
+  Sparkles, Megaphone, Filter,
 } from 'lucide-react'
 import './Company.css'
 
@@ -180,6 +181,7 @@ const TABS = [
   { key: 'agenda',      label: 'Agenda',       icon: Calendar },
   { key: 'financeiro',  label: 'Financeiro',   icon: DollarSign },
   { key: 'leads',       label: 'Leads',        icon: TrendingUp },
+  { key: 'atribuicao',  label: 'Atribuição',   icon: Sparkles },
   { key: 'atividades',  label: 'Kanban',       icon: Kanban },
 ]
 
@@ -474,6 +476,7 @@ export default function CompanyMetrics({ companyOverride = null, hideHeader = fa
       {tab === 'agenda'      && <AgendaTab      {...{ appts, range, period, loading }} />}
       {tab === 'financeiro'  && <FinanceiroTab  {...{ appts, professionals, procedures, insurancePlans, range, period, loading }} />}
       {tab === 'leads'       && <LeadsTab       {...{ leads, appts, msgs, range, period, loading, contactsTable }} />}
+      {tab === 'atribuicao'  && <AtribuicaoTab  {...{ leads, appts, range, period, loading, contactsTable }} />}
       {tab === 'atividades'  && <AtividadesTab  {...{ kanbanCards, kanbanColumns, users, range, period, loading }} />}
 
       <LimitReachedModal
@@ -1260,64 +1263,6 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
       .slice(0, 8)
   }, [filtered])
 
-  // ── Atribuição de anúncios — agrupa por criativo (ad_title) ─────────────
-  // Cada criativo tem: leads, agendaram, conversão, receita e thumb.
-  const campanhas = useMemo(() => {
-    const map = {}
-    leadsWithAppt.forEach(l => {
-      const key = l.ad_title || (l.ad_click_id ? `Anúncio sem título (${l.ad_click_id.slice(0, 8)}...)` : null)
-      if (!key) return
-      if (!map[key]) {
-        map[key] = {
-          title: key,
-          body: l.ad_body || '',
-          thumb: l.ad_thumbnail_url || null,
-          mediaUrl: l.ad_media_url || null,
-          sourceUrl: l.ad_source_url || null,
-          platform: l.ad_platform || l.ad_source || '—',
-          firstSeen: l.ad_captured_at || l.created_at,
-          total: 0, agendaram: 0, concluidas: 0, receita: 0,
-        }
-      }
-      map[key].total++
-      if (l.appts.length > 0) map[key].agendaram++
-      map[key].concluidas += l.concluded
-      map[key].receita += l.revenue
-    })
-    return Object.values(map).sort((a, b) => b.total - a.total)
-  }, [leadsWithAppt])
-
-  // ── Pago vs Orgânico — comparativo ──────────────────────────────────────
-  const pagoVsOrganico = useMemo(() => {
-    const pago = leadsWithAppt.filter(l => !!(l.ad_click_id || l.ad_title || l.ad_platform))
-    const organico = leadsWithAppt.filter(l => !(l.ad_click_id || l.ad_title || l.ad_platform))
-    function summarize(arr) {
-      const total = arr.length
-      const agendaram = arr.filter(l => l.appts.length > 0).length
-      const concluidas = arr.reduce((s, l) => s + l.concluded, 0)
-      const receita = arr.reduce((s, l) => s + l.revenue, 0)
-      return {
-        total,
-        agendaram,
-        concluidas,
-        receita,
-        conv: total ? (agendaram / total * 100) : 0,
-        ticket: concluidas ? (receita / concluidas) : 0,
-      }
-    }
-    return { pago: summarize(pago), organico: summarize(organico) }
-  }, [leadsWithAppt])
-
-  // ── Distribuição por hora do dia ────────────────────────────────────────
-  const horarioDistribuicao = useMemo(() => {
-    const buckets = Array.from({ length: 24 }, (_, h) => ({ hour: h, count: 0 }))
-    filtered.forEach(l => {
-      const h = new Date(l.created_at).getHours()
-      buckets[h].count++
-    })
-    return buckets
-  }, [filtered])
-  const maxHourly = Math.max(1, ...horarioDistribuicao.map(b => b.count))
 
   function fmtAge(ts) {
     const ms = Date.now() - new Date(ts).getTime()
@@ -1548,254 +1493,6 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
         </div>
       </div>
 
-      {/* ════════ Atribuição de anúncios ═══════════════════════════════════ */}
-
-      {/* Pago × Orgânico — comparativo */}
-      <div className="nx-card" style={{ padding: '1.5rem', marginTop: 14 }}>
-        <SectionTitle
-          icon={Layers}
-          text="Pago × Orgânico"
-          right={<span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{pagoVsOrganico.pago.total + pagoVsOrganico.organico.total} leads</span>}
-        />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          {/* PAGO */}
-          <div style={{
-            background: 'linear-gradient(135deg, #FEF3C7 0%, #FFE4B5 100%)',
-            border: '1px solid #FDE68A',
-            borderRadius: 14, padding: 18, position: 'relative', overflow: 'hidden',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #F59E0B, #B45309)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <DollarSign size={16} />
-              </div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Pago · Anúncios Meta</div>
-                <div style={{ fontSize: 11, color: '#B45309', marginTop: 1 }}>leads que clicaram em anúncio</div>
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-              <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, color: '#0F172A', lineHeight: 1, letterSpacing: '-0.02em' }}>
-                  {pagoVsOrganico.pago.total}
-                </div>
-                <div style={{ fontSize: 11, color: '#92400E', fontWeight: 600, marginTop: 3 }}>leads</div>
-              </div>
-              <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, color: '#0F172A', lineHeight: 1, letterSpacing: '-0.02em' }}>
-                  {pagoVsOrganico.pago.agendaram}
-                </div>
-                <div style={{ fontSize: 11, color: '#92400E', fontWeight: 600, marginTop: 3 }}>agendaram · {pagoVsOrganico.pago.conv.toFixed(0)}%</div>
-              </div>
-              <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#059669', lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                  {fmtMoney(pagoVsOrganico.pago.receita)}
-                </div>
-                <div style={{ fontSize: 11, color: '#92400E', fontWeight: 600, marginTop: 3 }}>receita</div>
-              </div>
-              <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#0F172A', lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                  {fmtMoney(pagoVsOrganico.pago.ticket)}
-                </div>
-                <div style={{ fontSize: 11, color: '#92400E', fontWeight: 600, marginTop: 3 }}>ticket médio</div>
-              </div>
-            </div>
-          </div>
-
-          {/* ORGÂNICO */}
-          <div style={{
-            background: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)',
-            border: '1px solid #86EFAC',
-            borderRadius: 14, padding: 18, position: 'relative', overflow: 'hidden',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #16A34A, #15803D)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <TrendingUp size={16} />
-              </div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#14532D', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Orgânico</div>
-                <div style={{ fontSize: 11, color: '#15803D', marginTop: 1 }}>indicação, site, busca, perfil</div>
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-              <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, color: '#0F172A', lineHeight: 1, letterSpacing: '-0.02em' }}>
-                  {pagoVsOrganico.organico.total}
-                </div>
-                <div style={{ fontSize: 11, color: '#14532D', fontWeight: 600, marginTop: 3 }}>leads</div>
-              </div>
-              <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, color: '#0F172A', lineHeight: 1, letterSpacing: '-0.02em' }}>
-                  {pagoVsOrganico.organico.agendaram}
-                </div>
-                <div style={{ fontSize: 11, color: '#14532D', fontWeight: 600, marginTop: 3 }}>agendaram · {pagoVsOrganico.organico.conv.toFixed(0)}%</div>
-              </div>
-              <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#059669', lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                  {fmtMoney(pagoVsOrganico.organico.receita)}
-                </div>
-                <div style={{ fontSize: 11, color: '#14532D', fontWeight: 600, marginTop: 3 }}>receita</div>
-              </div>
-              <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#0F172A', lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                  {fmtMoney(pagoVsOrganico.organico.ticket)}
-                </div>
-                <div style={{ fontSize: 11, color: '#14532D', fontWeight: 600, marginTop: 3 }}>ticket médio</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Top campanhas / criativos */}
-      {campanhas.length > 0 && (
-        <div className="nx-card" style={{ padding: '1.5rem', marginTop: 14 }}>
-          <SectionTitle
-            icon={Sparkles}
-            text="Top campanhas · qual criativo está performando"
-            right={<span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{campanhas.length} criativo(s)</span>}
-          />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {campanhas.slice(0, 8).map(c => {
-              const conv = c.total ? (c.agendaram / c.total * 100) : 0
-              return (
-                <div
-                  key={c.title}
-                  onClick={() => {
-                    const subset = leadsWithAppt.filter(l =>
-                      (l.ad_title && l.ad_title === c.title) ||
-                      (!l.ad_title && l.ad_click_id && c.title.includes(l.ad_click_id.slice(0, 8)))
-                    )
-                    setDrilldown({ origem: c.title, color: '#F59E0B', leads: subset })
-                  }}
-                  title="Ver leads dessa campanha"
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '64px 1fr auto',
-                    gap: 14, alignItems: 'center',
-                    padding: 12,
-                    background: '#FFFBEB',
-                    border: '1px solid #FDE68A',
-                    borderRadius: 12,
-                    cursor: 'pointer',
-                    transition: 'all 0.18s',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 20px -8px rgba(245,158,11,0.3)' }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none' }}
-                >
-                  {/* Thumbnail */}
-                  <div style={{
-                    width: 64, height: 64, borderRadius: 10, overflow: 'hidden',
-                    background: 'linear-gradient(135deg, #F59E0B, #B45309)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    {c.thumb
-                      ? <img src={c.thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => e.target.style.display = 'none'} />
-                      : <Sparkles size={20} color="#fff" />}
-                  </div>
-
-                  {/* Texto + tags + body preview */}
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <div style={{ fontWeight: 700, color: '#0F172A', fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {c.title}
-                      </div>
-                      <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: '#F59E0B', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>
-                        {c.platform}
-                      </span>
-                    </div>
-                    {c.body && (
-                      <div style={{ fontSize: 11.5, color: '#64748B', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        {c.body}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Stats */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', lineHeight: 1, fontFamily: 'var(--font-display)' }}>{c.total}</div>
-                      <div style={{ fontSize: 10, color: '#92400E', fontWeight: 600, marginTop: 2 }}>leads</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: '#7C3AED', lineHeight: 1, fontFamily: 'var(--font-display)' }}>{c.agendaram}</div>
-                      <div style={{ fontSize: 10, color: '#92400E', fontWeight: 600, marginTop: 2 }}>agend.</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{
-                        fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 999,
-                        background: conv >= 30 ? '#16A34A' : conv >= 15 ? '#F59E0B' : '#DC2626',
-                        color: '#fff',
-                      }}>{conv.toFixed(0)}%</span>
-                    </div>
-                    <div style={{ textAlign: 'right', minWidth: 80 }}>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: '#059669', lineHeight: 1, fontFamily: 'var(--font-display)', fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(c.receita)}</div>
-                      <div style={{ fontSize: 10, color: '#92400E', fontWeight: 600, marginTop: 2 }}>receita</div>
-                    </div>
-                    <ChevronRight size={16} style={{ color: '#B45309' }} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          {campanhas.length > 8 && (
-            <div style={{ marginTop: 12, fontSize: 11.5, color: '#94A3B8', textAlign: 'center', fontStyle: 'italic' }}>
-              + {campanhas.length - 8} criativo(s) com menor volume
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Distribuição horária */}
-      <div className="nx-card" style={{ padding: '1.5rem', marginTop: 14 }}>
-        <SectionTitle
-          icon={Clock}
-          text="Distribuição por horário · quando os leads chegam"
-          right={<span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{filtered.length} leads no período</span>}
-        />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(24, 1fr)', gap: 3, alignItems: 'flex-end', height: 100, paddingTop: 8 }}>
-          {horarioDistribuicao.map(b => {
-            const h = b.count / maxHourly
-            const isPeak = b.count === maxHourly && b.count > 0
-            return (
-              <div key={b.hour} title={`${String(b.hour).padStart(2, '0')}h — ${b.count} lead(s)`} style={{
-                height: `${Math.max(h * 100, b.count > 0 ? 8 : 4)}%`,
-                background: isPeak
-                  ? 'linear-gradient(180deg, #2563EB, #1E40AF)'
-                  : b.count > 0
-                    ? 'linear-gradient(180deg, #93C5FD, #60A5FA)'
-                    : '#F1F5F9',
-                borderRadius: '4px 4px 2px 2px',
-                position: 'relative',
-                transition: 'all 0.2s',
-                cursor: 'help',
-              }}>
-                {isPeak && (
-                  <div style={{ position: 'absolute', top: -18, left: '50%', transform: 'translateX(-50%)', fontSize: 10, fontWeight: 800, color: '#1E40AF', whiteSpace: 'nowrap' }}>
-                    pico · {b.count}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(24, 1fr)', gap: 3, marginTop: 6 }}>
-          {horarioDistribuicao.map((b, i) => (
-            <div key={b.hour} style={{
-              fontSize: 9, color: '#94A3B8', textAlign: 'center', fontFamily: 'monospace',
-              fontWeight: i % 6 === 0 ? 700 : 400,
-            }}>
-              {i % 3 === 0 ? `${String(b.hour).padStart(2, '0')}h` : ''}
-            </div>
-          ))}
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, padding: '10px 12px', background: '#F8FAFC', borderRadius: 8, fontSize: 11.5, color: '#475569' }}>
-          <span>📅 <strong>Manhã</strong> (6-12h): {horarioDistribuicao.slice(6, 12).reduce((s, b) => s + b.count, 0)}</span>
-          <span>🌞 <strong>Tarde</strong> (12-18h): {horarioDistribuicao.slice(12, 18).reduce((s, b) => s + b.count, 0)}</span>
-          <span>🌙 <strong>Noite</strong> (18-24h): {horarioDistribuicao.slice(18, 24).reduce((s, b) => s + b.count, 0)}</span>
-          <span>🌚 <strong>Madrugada</strong> (0-6h): {horarioDistribuicao.slice(0, 6).reduce((s, b) => s + b.count, 0)}</span>
-        </div>
-      </div>
 
       {/* Drill-down: leads de uma origem específica */}
       {drilldown && (
@@ -1911,6 +1608,470 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Tab: Atribuição (anúncios pagos × orgânico, top criativos, cruzamento) ─
+function AtribuicaoTab({ leads, appts, range, period, loading, contactsTable }) {
+  const { from, to } = range
+  const navigate = useNavigate()
+  const [platformFilter, setPlatformFilter] = useState('all')   // all | paid | organic
+  const [sortBy, setSortBy] = useState('total')                 // total | conv | receita
+  const [drilldown, setDrilldown] = useState(null)
+
+  if (!contactsTable) {
+    return <div className="nx-card" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Tabela de contatos não configurada.</div>
+  }
+
+  const filtered = leads.filter(l => inPeriod(l.created_at, from, to) || (!from && !to))
+
+  // Index appointments por telefone
+  const apptsByPhone = useMemo(() => {
+    const map = {}
+    appts.forEach(a => {
+      const p = cleanPhone(a.patient_phone)
+      if (!p) return
+      if (!map[p]) map[p] = []
+      map[p].push(a)
+    })
+    return map
+  }, [appts])
+
+  const enriched = useMemo(() => filtered.map(l => {
+    const phone = cleanPhone(l.numero)
+    const myAppts = apptsByPhone[phone] || []
+    const concluded = myAppts.filter(a => a.status === 'concluido')
+    const revenue = concluded.reduce((s, a) => s + Number(a.price || 0), 0)
+    const isPaid = !!(l.ad_click_id || l.ad_title || l.ad_platform || l.ad_source)
+    return { ...l, appts: myAppts, concluded: concluded.length, revenue, isPaid }
+  }), [filtered, apptsByPhone])
+
+  // Aplica filtro de plataforma
+  const visible = useMemo(() => {
+    if (platformFilter === 'paid') return enriched.filter(l => l.isPaid)
+    if (platformFilter === 'organic') return enriched.filter(l => !l.isPaid)
+    return enriched
+  }, [enriched, platformFilter])
+
+  // Pago vs Orgânico — sempre baseado em todos os leads do período
+  const pagoVsOrganico = useMemo(() => {
+    const pago = enriched.filter(l => l.isPaid)
+    const organico = enriched.filter(l => !l.isPaid)
+    function s(arr) {
+      const total = arr.length
+      const agend = arr.filter(l => l.appts.length > 0).length
+      const conc = arr.reduce((sum, l) => sum + l.concluded, 0)
+      const rev = arr.reduce((sum, l) => sum + l.revenue, 0)
+      return { total, agend, conc, rev, conv: total ? (agend / total * 100) : 0, ticket: conc ? (rev / conc) : 0 }
+    }
+    return { pago: s(pago), organico: s(organico) }
+  }, [enriched])
+
+  // Top campanhas — agrupado por ad_title
+  const campanhas = useMemo(() => {
+    const map = {}
+    enriched.forEach(l => {
+      if (!l.isPaid) return
+      const key = l.ad_title || (l.ad_click_id ? `Anúncio (${l.ad_click_id.slice(0, 8)}…)` : null)
+      if (!key) return
+      if (!map[key]) {
+        map[key] = {
+          title: key,
+          body: l.ad_body || '',
+          thumb: l.ad_thumbnail_url || null,
+          sourceUrl: l.ad_source_url || l.ad_media_url || null,
+          platform: l.ad_platform || l.ad_source || '—',
+          total: 0, agend: 0, conc: 0, receita: 0,
+        }
+      }
+      map[key].total++
+      if (l.appts.length > 0) map[key].agend++
+      map[key].conc += l.concluded
+      map[key].receita += l.revenue
+    })
+    const arr = Object.values(map)
+    if (sortBy === 'conv')    arr.sort((a, b) => (b.agend / Math.max(b.total, 1)) - (a.agend / Math.max(a.total, 1)))
+    else if (sortBy === 'receita') arr.sort((a, b) => b.receita - a.receita)
+    else arr.sort((a, b) => b.total - a.total)
+    return arr
+  }, [enriched, sortBy])
+
+  // Cruzamento horário × pago/orgânico
+  const horarioCross = useMemo(() => {
+    const periodos = [
+      { key: 'madrugada', label: 'Madrugada', range: '0-6h', start: 0, end: 6 },
+      { key: 'manha',     label: 'Manhã',     range: '6-12h', start: 6, end: 12 },
+      { key: 'tarde',     label: 'Tarde',     range: '12-18h', start: 12, end: 18 },
+      { key: 'noite',     label: 'Noite',     range: '18-24h', start: 18, end: 24 },
+    ]
+    return periodos.map(p => {
+      const inRange = enriched.filter(l => {
+        const h = new Date(l.created_at).getHours()
+        return h >= p.start && h < p.end
+      })
+      return {
+        ...p,
+        pago: inRange.filter(l => l.isPaid).length,
+        organico: inRange.filter(l => !l.isPaid).length,
+        total: inRange.length,
+      }
+    })
+  }, [enriched])
+  const maxHorario = Math.max(1, ...horarioCross.map(h => h.total))
+
+  // KPIs
+  const totalLeads = enriched.length
+  const topCampanha = campanhas[0]
+  const convPaid = pagoVsOrganico.pago.conv
+  const convOrg  = pagoVsOrganico.organico.conv
+  const deltaConv = convPaid - convOrg
+
+  const periodoLabel = periodLabel(period)
+
+  function openConversation(l) {
+    const phone = cleanPhone(l.numero)
+    if (!phone) return
+    setDrilldown(null)
+    navigate(`/painel/conversas?contact=${phone}`)
+  }
+
+  return (
+    <div>
+      {/* Filtros internos */}
+      <div className="nx-card" style={{ padding: '12px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <Filter size={12} /> Mostrar
+        </div>
+        {[
+          { k: 'all',     l: 'Todos',    n: enriched.length },
+          { k: 'paid',    l: 'Pagos',    n: pagoVsOrganico.pago.total },
+          { k: 'organic', l: 'Orgânicos', n: pagoVsOrganico.organico.total },
+        ].map(p => (
+          <button key={p.k} onClick={() => setPlatformFilter(p.k)} style={{
+            padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+            border: `1.5px solid ${platformFilter === p.k ? '#2563EB' : 'var(--border)'}`,
+            background: platformFilter === p.k ? '#2563EB' : '#fff',
+            color: platformFilter === p.k ? '#fff' : 'var(--text-secondary)',
+            cursor: 'pointer', transition: 'all 0.15s',
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+          }}>
+            {p.l}
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4,
+              background: platformFilter === p.k ? 'rgba(255,255,255,0.25)' : '#F1F5F9',
+              color: platformFilter === p.k ? '#fff' : 'var(--text-muted)',
+            }}>{p.n}</span>
+          </button>
+        ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Ordenar campanhas por</span>
+          <select className="nx-select" style={{ fontSize: 12 }} value={sortBy} onChange={e => setSortBy(e.target.value)}>
+            <option value="total">Volume (leads)</option>
+            <option value="conv">Conversão</option>
+            <option value="receita">Receita</option>
+          </select>
+        </div>
+      </div>
+
+      {/* KPIs — mesmo padrão das outras abas */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14, marginBottom: 18 }}>
+        <KpiCard
+          icon={<Megaphone size={18} color="#F59E0B" />} bg="#FFFBEB"
+          value={pagoVsOrganico.pago.total}
+          label="Leads pagos"
+          sub={`${totalLeads ? Math.round(pagoVsOrganico.pago.total / totalLeads * 100) : 0}% do total`}
+          loading={loading}
+        />
+        <KpiCard
+          icon={<TrendingUp size={18} color="#16A34A" />} bg="#F0FDF4"
+          value={pagoVsOrganico.organico.total}
+          label="Leads orgânicos"
+          sub={`${totalLeads ? Math.round(pagoVsOrganico.organico.total / totalLeads * 100) : 0}% do total`}
+          loading={loading}
+        />
+        <KpiCard
+          icon={<Sparkles size={18} color="#7C3AED" />} bg="#F5F3FF"
+          value={`${convPaid.toFixed(0)}%`}
+          label="Conv. de pagos"
+          sub={deltaConv >= 0 ? `+${deltaConv.toFixed(0)}pp vs orgânico` : `${deltaConv.toFixed(0)}pp vs orgânico`}
+          loading={loading}
+        />
+        <KpiCard
+          icon={<DollarSign size={18} color="#059669" />} bg="#ECFDF5"
+          value={fmtMoney(pagoVsOrganico.pago.rev)}
+          label="Receita de pagos"
+          sub={`ticket médio ${fmtMoney(pagoVsOrganico.pago.ticket)}`}
+          loading={loading}
+        />
+      </div>
+
+      {/* Comparativo Pago × Orgânico em barra horizontal */}
+      <div className="nx-card" style={{ padding: '1.25rem', marginBottom: 14 }}>
+        <SectionTitle
+          icon={Layers}
+          text="Pago × Orgânico"
+          right={<span>volume relativo · {periodoLabel}</span>}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 0, height: 38, borderRadius: 10, overflow: 'hidden', background: '#F1F5F9' }}>
+          {pagoVsOrganico.pago.total + pagoVsOrganico.organico.total > 0 ? (
+            <>
+              <div style={{
+                width: `${(pagoVsOrganico.pago.total / (pagoVsOrganico.pago.total + pagoVsOrganico.organico.total)) * 100}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #FBBF24, #F59E0B)',
+                display: 'flex', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: 14,
+                color: '#fff', fontSize: 12.5, fontWeight: 700,
+                whiteSpace: 'nowrap', overflow: 'hidden',
+              }}>
+                Pago · {pagoVsOrganico.pago.total}
+              </div>
+              <div style={{
+                flex: 1,
+                height: '100%',
+                background: 'linear-gradient(90deg, #34D399, #16A34A)',
+                display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 14,
+                color: '#fff', fontSize: 12.5, fontWeight: 700,
+                whiteSpace: 'nowrap', overflow: 'hidden',
+              }}>
+                Orgânico · {pagoVsOrganico.organico.total}
+              </div>
+            </>
+          ) : (
+            <div style={{ width: '100%', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, lineHeight: '38px' }}>Sem dados no período</div>
+          )}
+        </div>
+        {/* Linha de stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 0, marginTop: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderRight: '1px solid var(--border)', paddingRight: 16 }}>
+            <Stat label="Agendaram" value={pagoVsOrganico.pago.agend} sub={`${convPaid.toFixed(0)}%`} color="#F59E0B" />
+            <Stat label="Concluídas" value={pagoVsOrganico.pago.conc} color="#F59E0B" />
+            <Stat label="Receita" value={fmtMoney(pagoVsOrganico.pago.rev)} color="#059669" mono />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', paddingLeft: 16 }}>
+            <Stat label="Agendaram" value={pagoVsOrganico.organico.agend} sub={`${convOrg.toFixed(0)}%`} color="#16A34A" />
+            <Stat label="Concluídas" value={pagoVsOrganico.organico.conc} color="#16A34A" />
+            <Stat label="Receita" value={fmtMoney(pagoVsOrganico.organico.rev)} color="#059669" mono />
+          </div>
+        </div>
+      </div>
+
+      {/* Top campanhas */}
+      <div className="nx-card" style={{ padding: '1.25rem', marginBottom: 14 }}>
+        <SectionTitle
+          icon={Sparkles}
+          text="Top campanhas · qual criativo trouxe mais lead"
+          right={<span>{campanhas.length} criativo(s) ativos</span>}
+        />
+        {campanhas.length === 0 ? (
+          <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+            <Megaphone size={28} style={{ opacity: 0.2, marginBottom: 8 }} />
+            <div>Nenhuma campanha rastreada nesse período.</div>
+            <div style={{ fontSize: 11, marginTop: 4 }}>Leads vindos de Click-to-WhatsApp do Meta vão aparecer aqui automaticamente.</div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {/* Header */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: '48px 1fr 80px 80px 90px 110px 24px',
+              gap: 10, padding: '8px 12px', alignItems: 'center',
+              fontSize: 10, fontWeight: 700, color: 'var(--text-muted)',
+              textTransform: 'uppercase', letterSpacing: '0.06em',
+              borderBottom: '1px solid var(--border)',
+            }}>
+              <div></div>
+              <div>Criativo</div>
+              <div style={{ textAlign: 'right' }}>Leads</div>
+              <div style={{ textAlign: 'right' }}>Agend.</div>
+              <div style={{ textAlign: 'right' }}>Conv.</div>
+              <div style={{ textAlign: 'right' }}>Receita</div>
+              <div></div>
+            </div>
+            {campanhas.slice(0, 10).map((c, i) => {
+              const conv = c.total ? (c.agend / c.total * 100) : 0
+              return (
+                <div
+                  key={c.title}
+                  onClick={() => {
+                    const subset = enriched.filter(l => l.ad_title === c.title)
+                    setDrilldown({ title: c.title, color: '#F59E0B', leads: subset })
+                  }}
+                  title={`Ver ${c.total} lead(s) dessa campanha`}
+                  style={{
+                    display: 'grid', gridTemplateColumns: '48px 1fr 80px 80px 90px 110px 24px',
+                    gap: 10, padding: '12px', alignItems: 'center',
+                    borderBottom: i < campanhas.slice(0, 10).length - 1 ? '1px solid #F8FAFC' : 'none',
+                    cursor: 'pointer', transition: 'background 0.12s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#FAFBFC'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <div style={{
+                    width: 48, height: 48, borderRadius: 8, overflow: 'hidden',
+                    background: 'linear-gradient(135deg, #FBBF24, #F59E0B)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    {c.thumb
+                      ? <img src={c.thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
+                      : <Megaphone size={18} color="#fff" />}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      <span style={{
+                        fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1,
+                      }}>{c.title}</span>
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                        background: '#FFFBEB', color: '#92400E',
+                        textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0,
+                      }}>{c.platform}</span>
+                    </div>
+                    {c.body && (
+                      <div style={{
+                        fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>{c.body.replace(/\n/g, ' ').slice(0, 100)}</div>
+                    )}
+                  </div>
+                  <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{c.total}</div>
+                  <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#7C3AED', fontVariantNumeric: 'tabular-nums' }}>{c.agend}</div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
+                      background: conv >= 30 ? '#F0FDF4' : conv >= 15 ? '#FFFBEB' : '#FEF2F2',
+                      color: conv >= 30 ? '#16A34A' : conv >= 15 ? '#D97706' : '#DC2626',
+                    }}>{conv.toFixed(0)}%</span>
+                  </div>
+                  <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 700, color: '#059669', fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(c.receita)}</div>
+                  <ChevronRight size={14} style={{ color: '#CBD5E1' }} />
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Cruzamento horário × pago/orgânico */}
+      <div className="nx-card" style={{ padding: '1.25rem' }}>
+        <SectionTitle
+          icon={Clock}
+          text="Quando os leads chegam · pago × orgânico por período"
+          right={<span>{enriched.length} leads · {periodoLabel}</span>}
+        />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          {horarioCross.map(p => {
+            const intensity = p.total / maxHorario
+            return (
+              <div key={p.key} style={{
+                padding: '14px 16px', borderRadius: 10,
+                background: `rgba(37, 99, 235, ${0.04 + intensity * 0.1})`,
+                border: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{p.label}</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontFamily: 'monospace', marginTop: 1 }}>{p.range}</div>
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{p.total}</div>
+                </div>
+                {/* Mini barra dividida pago/orgânico */}
+                {p.total > 0 && (
+                  <>
+                    <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', background: '#F1F5F9' }}>
+                      {p.pago > 0 && (
+                        <div style={{ width: `${(p.pago / p.total) * 100}%`, background: 'linear-gradient(90deg, #FBBF24, #F59E0B)' }} />
+                      )}
+                      {p.organico > 0 && (
+                        <div style={{ flex: 1, background: 'linear-gradient(90deg, #34D399, #16A34A)' }} />
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 600 }}>
+                      <span><span style={{ color: '#F59E0B' }}>●</span> {p.pago} pago</span>
+                      <span><span style={{ color: '#16A34A' }}>●</span> {p.organico} orgânico</span>
+                    </div>
+                  </>
+                )}
+                {p.total === 0 && (
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>Sem leads</div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Drill-down de campanha */}
+      {drilldown && (
+        <div onClick={() => setDrilldown(null)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, backdropFilter: 'blur(4px)', padding: '1.5rem',
+        }}>
+          <div onClick={e => e.stopPropagation()} className="nx-card" style={{
+            width: '100%', maxWidth: 720, maxHeight: 'calc(100vh - 3rem)',
+            display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                <Megaphone size={18} color="#F59E0B" />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{drilldown.title}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {drilldown.leads.length} lead(s) · {drilldown.leads.filter(l => l.appts.length > 0).length} agendaram
+                  </div>
+                </div>
+              </div>
+              <button onClick={() => setDrilldown(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+              {drilldown.leads
+                .slice()
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                .map(l => (
+                  <div key={l.id} onClick={() => openConversation(l)} style={{
+                    display: 'grid', gridTemplateColumns: '36px 1fr auto auto',
+                    gap: 12, padding: '10px 14px', alignItems: 'center',
+                    borderBottom: '1px solid #F8FAFC', cursor: 'pointer',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#FAFBFC'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#F59E0B', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
+                      {(l.nome || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {l.nome || cleanPhone(l.numero)}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                        {cleanPhone(l.numero)}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: l.revenue > 0 ? '#059669' : '#94A3B8', fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
+                      {l.revenue > 0 ? fmtMoney(l.revenue) : '—'}
+                    </div>
+                    <ChevronRight size={14} style={{ color: '#CBD5E1' }} />
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Stat({ label, value, sub, color, mono }) {
+  return (
+    <div>
+      <div style={{
+        fontSize: 18, fontWeight: 800, color: color || 'var(--text-primary)',
+        lineHeight: 1, fontVariantNumeric: mono ? 'tabular-nums' : 'normal',
+      }}>{value}</div>
+      <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 600, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {label} {sub && <span style={{ color, opacity: 0.8 }}>· {sub}</span>}
+      </div>
     </div>
   )
 }
