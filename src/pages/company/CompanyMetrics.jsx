@@ -181,7 +181,6 @@ const TABS = [
   { key: 'agenda',      label: 'Agenda',       icon: Calendar },
   { key: 'financeiro',  label: 'Financeiro',   icon: DollarSign },
   { key: 'leads',       label: 'Leads',        icon: TrendingUp },
-  { key: 'atribuicao',  label: 'Atribuição',   icon: Sparkles },
   { key: 'atividades',  label: 'Kanban',       icon: Kanban },
 ]
 
@@ -476,7 +475,6 @@ export default function CompanyMetrics({ companyOverride = null, hideHeader = fa
       {tab === 'agenda'      && <AgendaTab      {...{ appts, range, period, loading }} />}
       {tab === 'financeiro'  && <FinanceiroTab  {...{ appts, professionals, procedures, insurancePlans, range, period, loading }} />}
       {tab === 'leads'       && <LeadsTab       {...{ leads, appts, msgs, range, period, loading, contactsTable }} />}
-      {tab === 'atribuicao'  && <AtribuicaoTab  {...{ leads, appts, range, period, loading, contactsTable }} />}
       {tab === 'atividades'  && <AtividadesTab  {...{ kanbanCards, kanbanColumns, users, range, period, loading }} />}
 
       <LimitReachedModal
@@ -1493,6 +1491,14 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
         </div>
       </div>
 
+      {/* ════════ Atribuição (anúncios pagos × orgânico) ═══════════════════ */}
+      <div style={{ marginTop: 14 }}>
+        <AtribuicaoSection
+          leadsWithAppt={leadsWithAppt}
+          period={period}
+          loading={loading}
+        />
+      </div>
 
       {/* Drill-down: leads de uma origem específica */}
       {drilldown && (
@@ -1579,9 +1585,28 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
                             <div style={{ fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {l.nome || phone || 'Sem nome'}
                             </div>
-                            {l.nome && phone && (
-                              <div style={{ fontSize: 11, color: '#64748B', fontFamily: 'monospace' }}>{phone}</div>
-                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+                              {l.nome && phone && (
+                                <span style={{ fontSize: 11, color: '#64748B', fontFamily: 'monospace' }}>{phone}</span>
+                              )}
+                              {(l.ad_title || l.ad_click_id) && (
+                                <span
+                                  title={l.ad_body ? l.ad_body.slice(0, 200) : 'Lead vindo de anúncio Meta'}
+                                  style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                                    fontSize: 10, fontWeight: 700, padding: '2px 6px 2px 4px', borderRadius: 999,
+                                    background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A',
+                                  }}
+                                >
+                                  {l.ad_thumbnail_url
+                                    ? <img src={l.ad_thumbnail_url} alt="" style={{ width: 14, height: 14, borderRadius: 3, objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
+                                    : <Megaphone size={10} />}
+                                  <span style={{ maxWidth: 140, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {l.ad_title || `Anúncio · ${(l.ad_click_id || '').slice(0, 8)}…`}
+                                  </span>
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div style={{ padding: '10px 14px', textAlign: 'center' }}>
                             <span style={{
@@ -1612,47 +1637,18 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
   )
 }
 
-// ─── Tab: Atribuição (anúncios pagos × orgânico, top criativos, cruzamento) ─
-function AtribuicaoTab({ leads, appts, range, period, loading, contactsTable }) {
-  const { from, to } = range
+// ─── Section: Atribuição (renderizada dentro da aba Leads) ─────────────────
+function AtribuicaoSection({ leadsWithAppt, period, loading, onDrilldown }) {
   const navigate = useNavigate()
   const [platformFilter, setPlatformFilter] = useState('all')   // all | paid | organic
   const [sortBy, setSortBy] = useState('total')                 // total | conv | receita
   const [drilldown, setDrilldown] = useState(null)
-
-  if (!contactsTable) {
-    return <div className="nx-card" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Tabela de contatos não configurada.</div>
-  }
-
-  const filtered = leads.filter(l => inPeriod(l.created_at, from, to) || (!from && !to))
-
-  // Index appointments por telefone
-  const apptsByPhone = useMemo(() => {
-    const map = {}
-    appts.forEach(a => {
-      const p = cleanPhone(a.patient_phone)
-      if (!p) return
-      if (!map[p]) map[p] = []
-      map[p].push(a)
-    })
-    return map
-  }, [appts])
-
-  const enriched = useMemo(() => filtered.map(l => {
-    const phone = cleanPhone(l.numero)
-    const myAppts = apptsByPhone[phone] || []
-    const concluded = myAppts.filter(a => a.status === 'concluido')
-    const revenue = concluded.reduce((s, a) => s + Number(a.price || 0), 0)
-    const isPaid = !!(l.ad_click_id || l.ad_title || l.ad_platform || l.ad_source)
-    return { ...l, appts: myAppts, concluded: concluded.length, revenue, isPaid }
-  }), [filtered, apptsByPhone])
-
-  // Aplica filtro de plataforma
-  const visible = useMemo(() => {
-    if (platformFilter === 'paid') return enriched.filter(l => l.isPaid)
-    if (platformFilter === 'organic') return enriched.filter(l => !l.isPaid)
-    return enriched
-  }, [enriched, platformFilter])
+  const enriched = useMemo(() =>
+    leadsWithAppt.map(l => ({
+      ...l,
+      isPaid: !!(l.ad_click_id || l.ad_title || l.ad_platform || l.ad_source),
+    })),
+  [leadsWithAppt])
 
   // Pago vs Orgânico — sempre baseado em todos os leads do período
   const pagoVsOrganico = useMemo(() => {
