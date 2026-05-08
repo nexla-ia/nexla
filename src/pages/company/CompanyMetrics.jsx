@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
@@ -1730,7 +1731,7 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
       </div>
 
       {/* Drill-down: leads de uma origem específica */}
-      {drilldown && (
+      {drilldown && createPortal(
         <div
           onClick={() => setDrilldown(null)}
           style={{
@@ -1860,7 +1861,8 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
@@ -2228,7 +2230,7 @@ function AtribuicaoSection({ leadsWithAppt, period, loading, onDrilldown }) {
       </div>
 
       {/* Drill-down de campanha */}
-      {drilldown && (
+      {drilldown && createPortal(
         <div onClick={() => setDrilldown(null)} style={{
           position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2281,7 +2283,8 @@ function AtribuicaoSection({ leadsWithAppt, period, loading, onDrilldown }) {
                 ))}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
