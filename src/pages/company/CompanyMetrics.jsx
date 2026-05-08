@@ -1327,6 +1327,10 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
     for (const lead of filtered) {
       const sid = lead.numero
       if (!sid) continue
+      // Ignora IDs internos do Instagram/Meta (PSIDs têm 15+ dígitos, telefone
+      // brasileiro tem 12-13). Esses leads não conseguem ser assumidos via
+      // numero pelo painel de Conversas mesmo, melhor não confundir o atendente.
+      if (cleanPhone(sid).length > 14) continue
       const info = lastByNum[sid]
       if (!info) continue
       // Última mensagem precisa ser da IA (paciente sumiu após resposta automática)
