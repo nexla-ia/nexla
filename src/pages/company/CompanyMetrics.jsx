@@ -8,7 +8,7 @@ import {
   Users, MessageSquare, TrendingUp, Clock, Inbox, BarChart2, RefreshCw,
   Calendar, BellRing, Kanban, Headset, CheckCircle2, XCircle, AlertCircle,
   Phone, Bot, ListChecks, Flag, ChevronRight, Layers, DollarSign, Stethoscope, Lock, X,
-  Sparkles, Megaphone, Filter,
+  Sparkles, Megaphone, Filter, AlertTriangle, AlertOctagon, UserPlus,
 } from 'lucide-react'
 import './Company.css'
 
@@ -1164,6 +1164,8 @@ function cleanPhone(p) {
 function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable }) {
   const { from, to } = range
   const navigate = useNavigate()
+  const { session } = useAuth()
+  const instance = session?.company?.instance
   const [drilldown, setDrilldown] = useState(null) // { origem, leads } — modal de leads por origem
 
   function openConversation(lead) {
@@ -1292,6 +1294,93 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
       .slice(0, 8)
   }, [filtered])
 
+  // ── Leads em risco / perdidos por desatenção ──────────────────────────────
+  // Detecta conversas onde:
+  //  - última mensagem é da IA
+  //  - cliente NÃO respondeu desde então
+  //  - ninguém assumiu (não tem entrada em attendances)
+  //  - conversa NÃO foi finalizada
+  // Classificação: em_risco (> 2h) | perdido (> 24h)
+  const SLA_RISCO_MS   = 2  * 3600 * 1000  //  2h
+  const SLA_PERDIDO_MS = 24 * 3600 * 1000  // 24h
+
+  const leadsEmRisco = useMemo(() => {
+    // Index das últimas mensagens por numero
+    const lastByNum = {}
+    msgs.forEach(m => {
+      const n = m.numero
+      if (!n) return
+      const ts = new Date(m.created_at).getTime()
+      const t = (m.type || '').toLowerCase()
+      const cur = lastByNum[n] || { last: 0, lastType: null, hasAtendente: false }
+      if (ts > cur.last) {
+        cur.last = ts
+        cur.lastType = t
+      }
+      if (t === 'atendente' || t === 'humano') cur.hasAtendente = true
+      lastByNum[n] = cur
+    })
+
+    const now = Date.now()
+    const risco = []
+    for (const lead of filtered) {
+      const sid = lead.numero
+      if (!sid) continue
+      const info = lastByNum[sid]
+      if (!info) continue
+      // Última mensagem precisa ser da IA (paciente sumiu após resposta automática)
+      if (info.lastType !== 'ia') continue
+      if (info.hasAtendente) continue          // alguém já tomou conta
+      if (lead.classificacao_lead === 'agendado' || lead.classificacao_lead === 'encerrado') continue
+      const elapsed = now - info.last
+      if (elapsed < SLA_RISCO_MS) continue     // ainda dentro do SLA
+      const status = elapsed >= SLA_PERDIDO_MS ? 'perdido' : 'em_risco'
+      risco.push({ ...lead, lastMsgTs: info.last, elapsed, status })
+    }
+    return risco.sort((a, b) => a.lastMsgTs - b.lastMsgTs)  // mais antigo primeiro (mais urgente)
+  }, [msgs, filtered])
+
+  const leadsPerdidos    = leadsEmRisco.filter(l => l.status === 'perdido')
+  const leadsEmRiscoOnly = leadsEmRisco.filter(l => l.status === 'em_risco')
+
+  // Dispara alertas no banco pra leads em risco (com dedup de 24h)
+  useEffect(() => {
+    if (!instance || !leadsEmRisco.length) return
+    let cancelled = false
+    async function fireAlerts() {
+      // Busca alertas recentes com tag de lead-perdido pra deduplicar
+      const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
+      const { data: existing } = await supabase
+        .from('alerts')
+        .select('numero, mensagem, created_at')
+        .eq('instancia', instance)
+        .gte('created_at', since)
+        .like('mensagem', '🚨 LEAD SUMINDO%')
+      if (cancelled) return
+      const alreadyAlerted = new Set((existing || []).map(a => a.numero))
+
+      const toInsert = []
+      for (const l of leadsEmRisco) {
+        if (alreadyAlerted.has(l.numero)) continue
+        const ageH = Math.floor(l.elapsed / 3600000)
+        const ageStr = ageH < 24 ? `${ageH}h` : `${Math.floor(ageH / 24)}d ${ageH % 24}h`
+        const sev = l.status === 'perdido' ? '⚠️ PERDENDO' : '🚨 EM RISCO'
+        toInsert.push({
+          instancia: instance,
+          numero: l.numero,
+          nome: l.nome || null,
+          mensagem: `🚨 LEAD SUMINDO · ${sev} — ${l.nome || cleanPhone(l.numero)} parou de responder há ${ageStr}. IA já respondeu mas não retornou. Assumir AGORA antes de perder o lead.`,
+          resolved: false,
+        })
+      }
+      if (toInsert.length && !cancelled) {
+        await supabase.from('alerts').insert(toInsert)
+      }
+    }
+    fireAlerts()
+    return () => { cancelled = true }
+  }, [instance, leadsEmRisco])
+
 
   function fmtAge(ts) {
     const ms = Date.now() - new Date(ts).getTime()
@@ -1319,6 +1408,8 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
         <KpiCard icon={<DollarSign size={18} color="#059669" />} bg="#ECFDF5" value={fmtMoney(receitaTotal)} label="Receita atribuída" sub={`ticket médio ${fmtMoney(ticketMedio)}`} loading={loading} />
         <KpiCard icon={<Clock size={18} color="#0891B2" />} bg="#ECFEFF" value={fmtMsCurta(tempoMedioContato)} label="Tempo até 1º contato" sub="lead → 1ª mensagem" loading={loading} />
         <KpiCard icon={<Inbox size={18} color="#F59E0B" />} bg="#FFFBEB" value={semResposta} label="Sem resposta" sub="aguardando retorno" loading={loading} alert={semResposta > 0} />
+        <KpiCard icon={<AlertTriangle size={18} color="#D97706" />} bg="#FFFBEB" value={leadsEmRiscoOnly.length} label="Em risco (> 2h)" sub="IA respondeu, paciente sumiu" loading={loading} alert={leadsEmRiscoOnly.length > 0} />
+        <KpiCard icon={<AlertOctagon size={18} color="#DC2626" />} bg="#FEF2F2" value={leadsPerdidos.length} label="Perdidos por desatenção" sub="> 24h sem ação humana" loading={loading} alert={leadsPerdidos.length > 0} />
       </div>
 
       {/* Funil */}
@@ -1521,6 +1612,113 @@ function LeadsTab({ leads, appts, msgs, range, period, loading, contactsTable })
           )}
         </div>
       </div>
+
+      {/* ════════ Leads em risco / perdidos por desatenção ═════════════════ */}
+      {leadsEmRisco.length > 0 && (
+        <div className="nx-card" style={{
+          padding: '1.25rem',
+          marginTop: 14,
+          border: leadsPerdidos.length > 0 ? '1.5px solid #FCA5A5' : '1.5px solid #FCD34D',
+          background: leadsPerdidos.length > 0
+            ? 'linear-gradient(180deg, #FEF2F2 0%, #FFFFFF 80%)'
+            : 'linear-gradient(180deg, #FFFBEB 0%, #FFFFFF 80%)',
+        }}>
+          <SectionTitle
+            icon={leadsPerdidos.length > 0 ? AlertOctagon : AlertTriangle}
+            text={leadsPerdidos.length > 0
+              ? '🚨 Leads sumindo — ação imediata necessária'
+              : 'Leads em risco — IA respondeu mas paciente sumiu'}
+            right={
+              <span style={{
+                color: leadsPerdidos.length > 0 ? '#DC2626' : '#D97706',
+                fontWeight: 800,
+                fontSize: 11,
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+              }}>
+                {leadsPerdidos.length > 0 ? `${leadsPerdidos.length} já passaram de 24h` : `${leadsEmRiscoOnly.length} pendentes`}
+              </span>
+            }
+          />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {leadsEmRisco.slice(0, 8).map(l => {
+              const phoneClean = cleanPhone(l.numero)
+              const saved = null // não temos savedContacts aqui, mas dá pra abrir conversa pelo numero
+              const isPerdido = l.status === 'perdido'
+              const ageH = Math.floor(l.elapsed / 3600000)
+              return (
+                <div
+                  key={l.id}
+                  onClick={() => navigate(`/painel/conversas?contact=${phoneClean}`)}
+                  title="Abrir conversa pra assumir"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 12px',
+                    background: '#fff',
+                    border: `1.5px solid ${isPerdido ? '#FECACA' : '#FDE68A'}`,
+                    borderRadius: 10,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 16px -6px ${isPerdido ? 'rgba(220,38,38,0.25)' : 'rgba(217,119,6,0.25)'}` }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none' }}
+                >
+                  <div style={{
+                    width: 34, height: 34, borderRadius: '50%',
+                    background: isPerdido
+                      ? 'linear-gradient(135deg, #DC2626, #991B1B)'
+                      : 'linear-gradient(135deg, #F59E0B, #B45309)',
+                    color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, fontWeight: 800, flexShrink: 0,
+                  }}>
+                    {(l.nome || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      <span style={{
+                        fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>{l.nome || phoneClean}</span>
+                      <span style={{
+                        fontSize: 9.5, fontWeight: 800, padding: '2px 7px', borderRadius: 999,
+                        background: isPerdido ? '#DC2626' : '#F59E0B',
+                        color: '#fff',
+                        textTransform: 'uppercase', letterSpacing: '0.05em',
+                        flexShrink: 0,
+                      }}>{isPerdido ? 'Perdendo' : 'Em risco'}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      IA respondeu há {ageH < 24 ? `${ageH}h` : `${Math.floor(ageH / 24)}d ${ageH % 24}h`}
+                      {l.origem && ` · ${l.origem}`}
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    fontSize: 11, fontWeight: 700,
+                    color: isPerdido ? '#DC2626' : '#D97706',
+                    flexShrink: 0,
+                  }}>
+                    <UserPlus size={12} /> Assumir
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {leadsEmRisco.length > 8 && (
+            <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>
+              + {leadsEmRisco.length - 8} lead(s) na fila
+            </div>
+          )}
+          <div style={{
+            marginTop: 14, padding: '10px 14px',
+            background: '#F8FAFC', borderRadius: 8,
+            fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.5,
+          }}>
+            <strong style={{ color: 'var(--text-primary)' }}>Como funciona:</strong> a IA responde a primeira mensagem, mas se o paciente não voltar a falar e ninguém assumir em até <strong>2h</strong>, o lead entra em <strong>risco</strong>. Após <strong>24h</strong> sem ação, é classificado como <strong>perdido por desatenção</strong> e contabilizado nas métricas como problema de operação.
+          </div>
+        </div>
+      )}
 
       {/* ════════ Atribuição (anúncios pagos × orgânico) ═══════════════════ */}
       <div style={{ marginTop: 14 }}>

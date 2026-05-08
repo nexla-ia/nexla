@@ -12,6 +12,6 @@ ALTER TABLE companies
 
 -- Centro Terapêutico Bem Estar usa o path piloto
 UPDATE companies
-SET instagram_webhook_path = 'envioNexlainstagram'
+SET instagram_webhook_path = 'enviocentroinstagram'
 WHERE instagram_enabled = true
   AND instagram_webhook_path IS NULL;
