@@ -4,9 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import ConfirmModal from '../../components/ConfirmModal'
+import { useContactTags, TAG_COLORS } from '../../hooks/useContactTags'
 import {
   Users, Search, Pencil, Trash2, X, Plus, Phone, Copy, Check, MessageSquare,
-  Mail, ShieldCheck, Sparkles,
+  Mail, ShieldCheck, Sparkles, Tag,
 } from 'lucide-react'
 import './Company.css'
 
@@ -35,16 +36,52 @@ const labelStyle = {
   textTransform: 'uppercase', letterSpacing: '0.05em',
 }
 
+function TagChip({ tag, onRemove, onClick, small }) {
+  return (
+    <span
+      onClick={onClick}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: small ? 3 : 4,
+        padding: small ? '1px 6px' : '3px 8px',
+        borderRadius: 20,
+        background: tag.cor + '22',
+        border: `1px solid ${tag.cor}55`,
+        color: tag.cor,
+        fontSize: small ? 10 : 11,
+        fontWeight: 600,
+        cursor: onClick || onRemove ? 'pointer' : 'default',
+        whiteSpace: 'nowrap',
+        lineHeight: '16px',
+      }}
+    >
+      <span style={{ width: small ? 5 : 6, height: small ? 5 : 6, borderRadius: '50%', background: tag.cor, flexShrink: 0 }} />
+      {tag.nome}
+      {onRemove && (
+        <span
+          onClick={e => { e.stopPropagation(); onRemove() }}
+          style={{ marginLeft: 2, opacity: 0.7, display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <X size={small ? 9 : 10} />
+        </span>
+      )}
+    </span>
+  )
+}
+
 export default function CompanyContacts() {
   const { session } = useAuth()
   const instance = session?.company?.instance
   const navigate = useNavigate()
 
+  // Tags hook — no topo, antes de qualquer early return
+  const { tags, tagsByContact, createTag, updateTag, deleteTag } = useContactTags(instance)
+
   const [patients, setPatients] = useState([])
   const [insurancePlans, setInsurancePlans] = useState([])
-  const [chatPhones, setChatPhones] = useState([]) // números das conversas que não estão salvos
+  const [chatPhones, setChatPhones] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [tagFilter, setTagFilter] = useState(null) // tag id | null
   const [newModal, setNewModal] = useState(null)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
@@ -52,6 +89,13 @@ export default function CompanyContacts() {
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [deletingNow, setDeletingNow] = useState(false)
   const [phoneFocus, setPhoneFocus] = useState(false)
+  // Tag management modal
+  const [tagModal, setTagModal] = useState(false)
+  const [newTagNome, setNewTagNome] = useState('')
+  const [newTagCor, setNewTagCor] = useState(TAG_COLORS[5])
+  const [savingTag, setSavingTag] = useState(false)
+  const [tagErr, setTagErr] = useState('')
+  const [editingTag, setEditingTag] = useState(null) // { id, nome, cor }
 
   useEffect(() => {
     if (!instance) return
@@ -113,9 +157,7 @@ export default function CompanyContacts() {
     if (data?.id) navigate(`/painel/contatos/${data.id}`)
   }
 
-  function handleDelete(patient) {
-    setConfirmDelete(patient)
-  }
+  function handleDelete(patient) { setConfirmDelete(patient) }
   async function confirmDeleteAction() {
     if (!confirmDelete) return
     setDeletingNow(true)
@@ -131,17 +173,46 @@ export default function CompanyContacts() {
     })
   }
 
-  const filtered = patients.filter(c => {
+  async function handleCreateTag() {
+    if (!newTagNome.trim()) { setTagErr('Nome é obrigatório'); return }
+    setSavingTag(true)
+    setTagErr('')
+    const { error } = await createTag(newTagNome, newTagCor)
+    setSavingTag(false)
+    if (error) { setTagErr(error.message.includes('unique') ? 'Já existe uma etiqueta com esse nome.' : 'Erro: ' + error.message); return }
+    setNewTagNome('')
+    setNewTagCor(TAG_COLORS[5])
+  }
+
+  async function handleUpdateTag() {
+    if (!editingTag?.nome?.trim()) return
+    setSavingTag(true)
+    await updateTag(editingTag.id, editingTag.nome, editingTag.cor)
+    setSavingTag(false)
+    setEditingTag(null)
+  }
+
+  async function handleDeleteTag(id) {
+    await deleteTag(id)
+    if (tagFilter === id) setTagFilter(null)
+  }
+
+  const filtered = useMemo(() => patients.filter(c => {
     const s = search.toLowerCase()
-    return (
+    const matchSearch = (
       c.nome?.toLowerCase().includes(s) ||
       (c.numero || '').includes(search) ||
       (c.cpf || '').includes(search.replace(/\D/g, '')) ||
       (c.email || '').toLowerCase().includes(s)
     )
-  })
+    if (!matchSearch) return false
+    if (tagFilter) {
+      const cTags = tagsByContact[c.id] || []
+      return cTags.some(t => t.id === tagFilter)
+    }
+    return true
+  }), [patients, search, tagFilter, tagsByContact])
 
-  // Sugestão de números das conversas conforme o digitado
   const phoneSuggestions = useMemo(() => {
     const q = (newModal?.numero || '').replace(/\D/g, '')
     if (!q || q.length < 3) return []
@@ -150,6 +221,7 @@ export default function CompanyContacts() {
 
   return (
     <div style={{ padding: '1.5rem' }}>
+      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.5rem', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.3rem', color: 'var(--text-primary)', marginBottom: 4 }}>
@@ -159,12 +231,19 @@ export default function CompanyContacts() {
             {loading ? 'Carregando...' : `${patients.length} paciente${patients.length === 1 ? '' : 's'} cadastrado${patients.length === 1 ? '' : 's'}`}
           </div>
         </div>
-        <button className="nx-btn-primary" onClick={openNew} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <Plus size={14} /> Novo paciente
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="nx-btn-ghost" onClick={() => { setTagModal(true); setTagErr(''); setNewTagNome(''); setNewTagCor(TAG_COLORS[5]); setEditingTag(null) }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Tag size={14} /> Etiquetas
+          </button>
+          <button className="nx-btn-primary" onClick={openNew} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Plus size={14} /> Novo paciente
+          </button>
+        </div>
       </div>
 
-      <div className="nx-card" style={{ padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+      {/* Search */}
+      <div className="nx-card" style={{ padding: '12px 16px', marginBottom: tags.length ? 10 : 16, display: 'flex', alignItems: 'center', gap: 10 }}>
         <Search size={15} style={{ color: 'var(--text-muted)' }} />
         <input
           style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--text-primary)' }}
@@ -174,11 +253,47 @@ export default function CompanyContacts() {
         />
       </div>
 
+      {/* Tag filter chips */}
+      {tags.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Filtrar:</span>
+          <button
+            onClick={() => setTagFilter(null)}
+            style={{
+              padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+              border: `1px solid ${tagFilter === null ? '#2563EB' : 'var(--border)'}`,
+              background: tagFilter === null ? '#EFF6FF' : 'transparent',
+              color: tagFilter === null ? '#2563EB' : 'var(--text-muted)',
+              cursor: 'pointer',
+            }}
+          >
+            Todos
+          </button>
+          {tags.map(t => (
+            <span
+              key={t.id}
+              onClick={() => setTagFilter(tagFilter === t.id ? null : t.id)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '3px 10px', borderRadius: 20,
+                background: tagFilter === t.id ? t.cor + '22' : 'transparent',
+                border: `1px solid ${tagFilter === t.id ? t.cor : 'var(--border)'}`,
+                color: tagFilter === t.id ? t.cor : 'var(--text-muted)',
+                fontSize: 11, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: t.cor }} />
+              {t.nome}
+            </span>
+          ))}
+        </div>
+      )}
+
       {!loading && filtered.length === 0 && (
         <div className="nx-card" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
           <Users size={28} style={{ opacity: 0.2 }} />
           <div style={{ fontSize: 14 }}>
-            {search ? 'Nenhum paciente encontrado.' : 'Nenhum paciente cadastrado. Cadastre o primeiro ou use o botão direito numa conversa para salvar rápido.'}
+            {search || tagFilter ? 'Nenhum paciente encontrado com esse filtro.' : 'Nenhum paciente cadastrado. Cadastre o primeiro ou use o botão direito numa conversa para salvar rápido.'}
           </div>
         </div>
       )}
@@ -199,6 +314,7 @@ export default function CompanyContacts() {
               {filtered.map(c => {
                 const plan = insurancePlans.find(p => p.id === c.insurance_plan_id)
                 const age = calcAge(c.birth_date)
+                const cTags = tagsByContact[c.id] || []
                 return (
                   <tr key={c.id}>
                     <td className="td-name" onClick={() => navigate(`/painel/contatos/${c.id}`)} style={{ cursor: 'pointer' }}>
@@ -217,10 +333,15 @@ export default function CompanyContacts() {
                         </div>
                         <div>
                           <div style={{ fontWeight: 600, color: '#2563EB' }}>{c.nome}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 8 }}>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 2 }}>
                             {c.cpf && <span>CPF {fmtCpf(c.cpf)}</span>}
                             {age != null && <span>{age} anos</span>}
                           </div>
+                          {cTags.length > 0 && (
+                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                              {cTags.map(t => <TagChip key={t.id} tag={t} small />)}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -303,7 +424,119 @@ export default function CompanyContacts() {
         onCancel={() => setConfirmDelete(null)}
       />
 
-      {/* Modal "Novo paciente" — só nome + telefone, depois redireciona pra ficha */}
+      {/* Modal: Gerenciar Etiquetas */}
+      {tagModal && createPortal(
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
+          backdropFilter: 'blur(4px)', padding: '1.5rem',
+        }}>
+          <div className="nx-card" style={{ width: '100%', maxWidth: 460 }}>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Tag size={16} style={{ color: '#6B7280' }} /> Gerenciar Etiquetas
+              </div>
+              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => { setTagModal(false); setEditingTag(null) }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ padding: '1rem 1.5rem', maxHeight: '50vh', overflowY: 'auto' }}>
+              {tags.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: '1.5rem 0' }}>
+                  Nenhuma etiqueta criada ainda.
+                </div>
+              )}
+              {tags.map(t => (
+                <div key={t.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 0', borderBottom: '1px solid var(--border)',
+                }}>
+                  {editingTag?.id === t.id ? (
+                    <>
+                      <input
+                        className="nx-input"
+                        style={{ flex: 1, fontSize: 13, padding: '5px 10px' }}
+                        value={editingTag.nome}
+                        onChange={e => setEditingTag(p => ({ ...p, nome: e.target.value }))}
+                        autoFocus
+                      />
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {TAG_COLORS.map(c => (
+                          <button key={c} onClick={() => setEditingTag(p => ({ ...p, cor: c }))}
+                            style={{
+                              width: 18, height: 18, borderRadius: '50%', background: c, border: 'none', cursor: 'pointer',
+                              outline: editingTag.cor === c ? `2px solid ${c}` : 'none',
+                              outlineOffset: 2,
+                            }} />
+                        ))}
+                      </div>
+                      <button className="nx-btn-primary" style={{ padding: '5px 12px', fontSize: 12 }}
+                        onClick={handleUpdateTag} disabled={savingTag}>
+                        {savingTag ? '...' : 'Salvar'}
+                      </button>
+                      <button className="nx-btn-ghost" style={{ padding: '5px 10px', fontSize: 12 }}
+                        onClick={() => setEditingTag(null)}>
+                        <X size={12} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <TagChip tag={t} />
+                      <span style={{ flex: 1 }} />
+                      <button className="nx-btn-ghost" style={{ padding: '4px 8px' }}
+                        onClick={() => setEditingTag({ id: t.id, nome: t.nome, cor: t.cor })}>
+                        <Pencil size={12} />
+                      </button>
+                      <button className="nx-btn-ghost" style={{ padding: '4px 8px', color: '#DC2626' }}
+                        onClick={() => handleDeleteTag(t.id)}>
+                        <Trash2 size={12} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Nova etiqueta
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  className="nx-input"
+                  style={{ flex: 1, minWidth: 120, fontSize: 13 }}
+                  placeholder="Ex: VIP, Urgente, Convênio..."
+                  value={newTagNome}
+                  onChange={e => setNewTagNome(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleCreateTag()}
+                />
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {TAG_COLORS.map(c => (
+                    <button key={c} onClick={() => setNewTagCor(c)}
+                      style={{
+                        width: 20, height: 20, borderRadius: '50%', background: c, border: 'none', cursor: 'pointer',
+                        outline: newTagCor === c ? `2px solid ${c}` : 'none',
+                        outlineOffset: 2, flexShrink: 0,
+                      }} />
+                  ))}
+                </div>
+                <button className="nx-btn-primary" style={{ padding: '7px 14px', fontSize: 13 }}
+                  onClick={handleCreateTag} disabled={savingTag || !newTagNome.trim()}>
+                  <Plus size={13} /> {savingTag ? '...' : 'Criar'}
+                </button>
+              </div>
+              {tagErr && (
+                <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#DC2626', marginTop: 8 }}>
+                  {tagErr}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      , document.body)}
+
+      {/* Modal: Novo paciente */}
       {newModal && createPortal(
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)',

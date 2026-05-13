@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft, ChevronLeft } from 'lucide-react'
+import { useContactTags } from '../../hooks/useContactTags'
+import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft, ChevronLeft, Plus } from 'lucide-react'
 import './Company.css'
 
 const CONV_TABLE = 'mensagens_geral'
@@ -113,6 +114,18 @@ export default function CompanyConversations() {
   const isAdmin = session?.user?.role === 'admin'
   const userSector = session?.user?.sector // { id, name, color } or null
   const aiEnabled = session?.company?.ai_enabled !== false
+
+  // Tags — no topo, antes de qualquer early return
+  const { tags, tagsByContact, addTag, removeTag } = useContactTags(instance)
+  const [tagFilter, setTagFilter] = useState(null) // tag id | null
+  const [chatTagPickerOpen, setChatTagPickerOpen] = useState(false)
+
+  useEffect(() => {
+    if (!chatTagPickerOpen) return
+    const close = () => setChatTagPickerOpen(false)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [chatTagPickerOpen])
 
   const [contacts, setContacts]         = useState([])
   const [closedMap, setClosedMap]       = useState({}) // session_id → reason
@@ -867,7 +880,17 @@ export default function CompanyConversations() {
   ]
 
   const currentList = tab === 'recepcao' ? recepcao : tab === 'meu-setor' ? meuSetor : finalizados
-  const filtered = currentList.filter(c => c.phone.includes(search))
+  const filtered = currentList.filter(c => {
+    if (!c.phone.includes(search)) return false
+    if (tagFilter) {
+      const cleanNum = c.phone.replace(/\D/g, '')
+      const saved = savedContacts[cleanNum]
+      if (!saved) return false
+      const cTags = tagsByContact[saved.id] || []
+      return cTags.some(t => t.id === tagFilter)
+    }
+    return true
+  })
   const isClosed = selected ? closed.has(selected.session_id) : false
 
   return (
@@ -878,7 +901,7 @@ export default function CompanyConversations() {
           {tabList.map(t => (
             <button
               key={t.id}
-              onClick={() => { setTab(t.id); setSelected(null) }}
+              onClick={() => { setTab(t.id); setSelected(null); setTagFilter(null) }}
               style={{
                 flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
                 padding: '10px 4px', border: 'none', background: 'none', cursor: 'pointer',
@@ -912,6 +935,36 @@ export default function CompanyConversations() {
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
+          {tags.length > 0 && (
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'nowrap', overflowX: 'auto', marginTop: 8, paddingBottom: 2 }}>
+              <button
+                onClick={() => setTagFilter(null)}
+                style={{
+                  flexShrink: 0, padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 600,
+                  border: `1px solid ${tagFilter === null ? '#2563EB' : 'var(--border)'}`,
+                  background: tagFilter === null ? '#EFF6FF' : 'transparent',
+                  color: tagFilter === null ? '#2563EB' : 'var(--text-muted)',
+                  cursor: 'pointer', whiteSpace: 'nowrap',
+                }}
+              >Todas</button>
+              {tags.map(t => (
+                <button key={t.id}
+                  onClick={() => setTagFilter(tagFilter === t.id ? null : t.id)}
+                  style={{
+                    flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 600,
+                    border: `1px solid ${tagFilter === t.id ? t.cor : 'var(--border)'}`,
+                    background: tagFilter === t.id ? t.cor + '22' : 'transparent',
+                    color: tagFilter === t.id ? t.cor : 'var(--text-muted)',
+                    cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: t.cor, flexShrink: 0 }} />
+                  {t.nome}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="contacts-list-body">
@@ -956,6 +1009,17 @@ export default function CompanyConversations() {
                     {saved && (
                       <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{c.phone}</span>
                     )}
+                    {saved && (tagsByContact[saved.id] || []).map(t => (
+                      <span key={t.id} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 3,
+                        padding: '1px 6px', borderRadius: 20, fontSize: 9, fontWeight: 700,
+                        background: t.cor + '22', border: `1px solid ${t.cor}55`,
+                        color: t.cor, lineHeight: '16px', flexShrink: 0,
+                      }}>
+                        <span style={{ width: 4, height: 4, borderRadius: '50%', background: t.cor }} />
+                        {t.nome}
+                      </span>
+                    ))}
                     {nextAppt && (
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -1046,7 +1110,7 @@ export default function CompanyConversations() {
                           ? <span style={{ fontWeight: 700, fontSize: 14, color: '#2563EB' }}>{saved.nome.charAt(0).toUpperCase()}</span>
                           : <User size={14} style={{ opacity: 0.4 }} />}
                     </div>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-primary)', cursor: saved ? 'pointer' : 'default' }}
                         onClick={() => saved && navigate(`/painel/contatos/${saved.id}`)}
@@ -1057,6 +1121,70 @@ export default function CompanyConversations() {
                         {saved && <span style={{ fontFamily: 'monospace' }}>{selected.phone}</span>}
                         {!loadingMsgs && <span>{messages.length} mensagem(ns)</span>}
                       </div>
+                      {saved && (() => {
+                        const patTags = tagsByContact[saved.id] || []
+                        const unassigned = tags.filter(t => !patTags.some(pt => pt.id === t.id))
+                        return (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4, alignItems: 'center' }}
+                            onClick={e => e.stopPropagation()}>
+                            {patTags.map(t => (
+                              <span key={t.id} style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 3,
+                                padding: '1px 7px', borderRadius: 20, fontSize: 10, fontWeight: 700,
+                                background: t.cor + '22', border: `1px solid ${t.cor}55`,
+                                color: t.cor, lineHeight: '16px',
+                              }}>
+                                <span style={{ width: 5, height: 5, borderRadius: '50%', background: t.cor }} />
+                                {t.nome}
+                                <span onClick={() => removeTag(saved.id, t.id)}
+                                  style={{ cursor: 'pointer', opacity: 0.6, display: 'inline-flex', alignItems: 'center', marginLeft: 1 }}>
+                                  <X size={9} />
+                                </span>
+                              </span>
+                            ))}
+                            {unassigned.length > 0 && (
+                              <div style={{ position: 'relative' }}>
+                                <button
+                                  onClick={() => setChatTagPickerOpen(p => !p)}
+                                  style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 3,
+                                    padding: '1px 7px', borderRadius: 20, fontSize: 10, fontWeight: 700,
+                                    background: 'transparent', border: '1px dashed var(--border)',
+                                    color: 'var(--text-muted)', cursor: 'pointer', lineHeight: '16px',
+                                  }}>
+                                  <Plus size={9} /> Etiqueta
+                                </button>
+                                {chatTagPickerOpen && (
+                                  <div style={{
+                                    position: 'absolute', top: '100%', left: 0, zIndex: 300,
+                                    background: '#fff', border: '1px solid var(--border)',
+                                    borderRadius: 10, marginTop: 4, padding: 6,
+                                    boxShadow: '0 8px 24px -8px rgba(15,14,27,0.18)',
+                                    minWidth: 150,
+                                  }}>
+                                    {unassigned.map(t => (
+                                      <button key={t.id}
+                                        onClick={() => { addTag(saved.id, t.id); setChatTagPickerOpen(false) }}
+                                        style={{
+                                          display: 'flex', alignItems: 'center', gap: 7,
+                                          width: '100%', padding: '6px 10px',
+                                          border: 'none', background: 'transparent',
+                                          cursor: 'pointer', borderRadius: 7, fontSize: 12,
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                      >
+                                        <span style={{ width: 9, height: 9, borderRadius: '50%', background: t.cor, flexShrink: 0 }} />
+                                        {t.nome}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </div>
                   </>
                 )

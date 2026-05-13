@@ -3,11 +3,12 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import ConfirmModal from '../../components/ConfirmModal'
+import { useContactTags, TAG_COLORS } from '../../hooks/useContactTags'
 import {
   ArrowLeft, Pencil, Camera, Phone, Mail, MapPin, Calendar, ShieldCheck,
   AlertTriangle, Pill, Heart, Cake, MessageSquare, X, Trash2, CreditCard,
   Activity, Briefcase, Users, Clock, CheckCircle2, XCircle, Clipboard,
-  FileText, Plus, AlertCircle,
+  FileText, Plus, AlertCircle, Tag,
 } from 'lucide-react'
 import './CompanyPatientDetail.css'
 
@@ -70,6 +71,17 @@ export default function CompanyPatientDetail() {
   const navigate = useNavigate()
   const { session } = useAuth()
   const instance = session?.company?.instance
+
+  // Tags — chamado aqui no topo, antes dos early returns
+  const { tags, tagsByContact, addTag, removeTag } = useContactTags(instance)
+  const [tagPickerOpen, setTagPickerOpen] = useState(false)
+
+  useEffect(() => {
+    if (!tagPickerOpen) return
+    const close = () => setTagPickerOpen(false)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [tagPickerOpen])
 
   const [patient, setPatient] = useState(null)
   const [appointments, setAppointments] = useState([])
@@ -309,6 +321,80 @@ export default function CompanyPatientDetail() {
               sub="há tempos com a gente"
             />
           </div>
+
+          {/* Etiquetas */}
+          {(() => {
+            const patTags = tagsByContact[patient.id] || []
+            const unassigned = tags.filter(t => !patTags.some(pt => pt.id === t.id))
+            return (
+              <div className="pat-section-card">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <SectionTitle icon={Tag} title="Etiquetas" />
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                  {patTags.map(t => (
+                    <span key={t.id} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      padding: '4px 10px', borderRadius: 20,
+                      background: t.cor + '22', border: `1px solid ${t.cor}55`,
+                      color: t.cor, fontSize: 12, fontWeight: 600,
+                    }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: t.cor }} />
+                      {t.nome}
+                      <span
+                        onClick={() => removeTag(patient.id, t.id)}
+                        style={{ cursor: 'pointer', opacity: 0.65, display: 'inline-flex', alignItems: 'center', marginLeft: 2 }}
+                        title="Remover etiqueta"
+                      >
+                        <X size={11} />
+                      </span>
+                    </span>
+                  ))}
+                  {patTags.length === 0 && (
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sem etiquetas.</span>
+                  )}
+                  {/* Adicionar etiqueta */}
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      className="nx-btn-ghost"
+                      style={{ padding: '4px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                      onClick={() => setTagPickerOpen(p => !p)}
+                      disabled={unassigned.length === 0}
+                      title={unassigned.length === 0 ? 'Todas as etiquetas já atribuídas' : 'Adicionar etiqueta'}
+                    >
+                      <Plus size={12} /> Etiqueta
+                    </button>
+                    {tagPickerOpen && unassigned.length > 0 && (
+                      <div style={{
+                        position: 'absolute', top: '100%', left: 0, zIndex: 200,
+                        background: '#fff', border: '1px solid var(--border)',
+                        borderRadius: 10, marginTop: 6, padding: 6,
+                        boxShadow: '0 8px 24px -8px rgba(15,14,27,0.18)',
+                        minWidth: 160,
+                      }}>
+                        {unassigned.map(t => (
+                          <button key={t.id}
+                            onClick={() => { addTag(patient.id, t.id); setTagPickerOpen(false) }}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 7,
+                              width: '100%', padding: '7px 10px',
+                              border: 'none', background: 'transparent',
+                              cursor: 'pointer', borderRadius: 7, fontSize: 13,
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <span style={{ width: 10, height: 10, borderRadius: '50%', background: t.cor, flexShrink: 0 }} />
+                            {t.nome}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
 
           {patient.notes && (
             <div className="pat-section-card">
