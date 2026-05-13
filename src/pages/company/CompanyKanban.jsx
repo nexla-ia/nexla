@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import ConfirmModal from '../../components/ConfirmModal'
 import {
   Plus, X, Trash2, Pencil, Calendar, User as UserIcon, Flag,
-  GripVertical, MoreVertical, Tag, ChevronRight,
+  GripVertical, MoreVertical, Tag, ChevronRight, Link as LinkIcon, MessageSquare,
 } from 'lucide-react'
 import './Company.css'
 
@@ -47,15 +48,17 @@ function dueBadge(dateStr) {
 
 export default function CompanyKanban() {
   const { session } = useAuth()
+  const navigate = useNavigate()
   const instance = session?.company?.instance
   const companyId = session?.company?.id
   const isAdmin = session?.user?.role === 'admin'
 
-  const [columns, setColumns]     = useState([])
-  const [cards, setCards]         = useState([])
-  const [users, setUsers]         = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [filter, setFilter]       = useState({ assignee: 'todos', priority: 'todas' })
+  const [columns, setColumns]         = useState([])
+  const [cards, setCards]             = useState([])
+  const [users, setUsers]             = useState([])
+  const [savedContacts, setSavedContacts] = useState([])
+  const [loading, setLoading]         = useState(true)
+  const [filter, setFilter]           = useState({ assignee: 'todos', priority: 'todas' })
 
   const [columnModal, setColumnModal] = useState(null)
   const [columnErr, setColumnErr]     = useState('')
@@ -68,6 +71,15 @@ export default function CompanyKanban() {
   const [confirmDeleteCard, setConfirmDeleteCard] = useState(false)
   const [deletingNow, setDeletingNow] = useState(false)
 
+  // Vinculação paciente
+  const [contactSearch, setContactSearch] = useState('')
+
+  // Comentários
+  const [comments, setComments]           = useState([])
+  const [loadingComments, setLoadingComments] = useState(false)
+  const [newComment, setNewComment]       = useState('')
+  const [savingComment, setSavingComment] = useState(false)
+
   const dragCard = useRef(null)
   const [dragOver, setDragOver] = useState({ columnId: null, position: null })
 
@@ -79,10 +91,12 @@ export default function CompanyKanban() {
       supabase.from('kanban_columns').select('*').eq('instancia', instance).order('position'),
       supabase.from('kanban_cards').select('*').eq('instancia', instance).order('position'),
       supabase.from('users').select('id, name, email, active').eq('company_id', companyId),
-    ]).then(([{ data: c }, { data: ca }, { data: u }]) => {
+      supabase.from('saved_contacts').select('id, nome, numero').eq('instancia', instance).order('nome'),
+    ]).then(([{ data: c }, { data: ca }, { data: u }, { data: sc }]) => {
       if (c) setColumns(c)
       if (ca) setCards(ca)
       if (u) setUsers(u.filter(x => x.active !== false))
+      if (sc) setSavedContacts(sc)
       setLoading(false)
     })
   }, [instance, companyId])
@@ -110,6 +124,32 @@ export default function CompanyKanban() {
       .subscribe()
     return () => supabase.removeChannel(ch)
   }, [instance])
+
+  // Carrega comentários ao abrir modal de card existente
+  useEffect(() => {
+    setContactSearch('')
+    setNewComment('')
+    if (!cardModal?.id) { setComments([]); return }
+    setLoadingComments(true)
+    supabase.from('kanban_card_comments')
+      .select('*').eq('card_id', cardModal.id).order('created_at')
+      .then(({ data }) => { setComments(data || []); setLoadingComments(false) })
+  }, [cardModal?.id])
+
+  async function handleSaveComment() {
+    const text = newComment.trim()
+    if (!text || !cardModal?.id) return
+    setSavingComment(true)
+    const { data, error } = await supabase.from('kanban_card_comments').insert({
+      card_id: cardModal.id,
+      instancia: instance,
+      user_id: session?.user?.id || null,
+      user_name: session?.user?.name || session?.user?.email || 'Usuário',
+      text,
+    }).select().single()
+    setSavingComment(false)
+    if (!error && data) { setComments(prev => [...prev, data]); setNewComment('') }
+  }
 
   // Coluna CRUD
   function openNewColumn() {
@@ -180,6 +220,7 @@ export default function CompanyKanban() {
       title: '', description: '',
       assigned_user_id: null, assigned_user_name: null,
       due_date: '', priority: 'normal',
+      contact_id: null, contact_nome: null,
     })
     setCardErr('')
   }
@@ -202,6 +243,8 @@ export default function CompanyKanban() {
       assigned_user_name: cardModal.assigned_user_name || null,
       due_date: cardModal.due_date || null,
       priority: cardModal.priority || 'normal',
+      contact_id: cardModal.contact_id || null,
+      contact_nome: cardModal.contact_nome || null,
       ...(isNew ? { position: maxPos + 1, created_by_email: session?.user?.email } : {}),
     }
     const { error } = isNew
@@ -422,6 +465,19 @@ export default function CompanyKanban() {
                           }}>
                             <Flag size={9} /> {prio.label}
                           </span>
+                          {card.contact_nome && (
+                            <span
+                              onClick={e => { e.stopPropagation(); navigate(`/painel/contatos/${card.contact_id}`) }}
+                              title={`Ver ficha de ${card.contact_nome}`}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 3,
+                                fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 5,
+                                color: '#0891B2', background: '#ECFEFF', border: '1px solid #A5F3FC',
+                                cursor: 'pointer',
+                              }}>
+                              <LinkIcon size={9} /> {card.contact_nome.split(' ')[0]}
+                            </span>
+                          )}
                           {card.assigned_user_name && (
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -544,6 +600,67 @@ export default function CompanyKanban() {
                   value={cardModal.description || ''}
                   onChange={e => setCardModal(p => ({ ...p, description: e.target.value }))} />
               </div>
+              {/* Vinculação com paciente */}
+              <div>
+                <label style={labelStyle}>Paciente vinculado</label>
+                {cardModal.contact_id ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 20,
+                      color: '#0891B2', background: '#ECFEFF', border: '1px solid #A5F3FC',
+                    }}>
+                      <LinkIcon size={12} /> {cardModal.contact_nome}
+                    </span>
+                    <button onClick={() => setCardModal(p => ({ ...p, contact_id: null, contact_nome: null }))}
+                      title="Desvincular"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626', padding: 2, display: 'flex', alignItems: 'center' }}>
+                      <X size={14} />
+                    </button>
+                    <button onClick={() => navigate(`/painel/contatos/${cardModal.contact_id}`)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0891B2', fontSize: 11, fontWeight: 600, padding: 2 }}>
+                      Ver ficha →
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ position: 'relative' }}>
+                    <input className="nx-input" placeholder="Buscar paciente por nome..."
+                      value={contactSearch}
+                      onChange={e => setContactSearch(e.target.value)} />
+                    {contactSearch.trim().length >= 1 && (
+                      <div style={{
+                        position: 'absolute', top: '100%', left: 0, right: 0,
+                        background: '#fff', border: '1px solid var(--border)', borderRadius: 8,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 50,
+                        maxHeight: 180, overflowY: 'auto',
+                      }}>
+                        {(() => {
+                          const q = contactSearch.toLowerCase()
+                          const hits = savedContacts.filter(c => c.nome.toLowerCase().includes(q)).slice(0, 8)
+                          if (!hits.length) return (
+                            <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-muted)' }}>Nenhum paciente encontrado</div>
+                          )
+                          return hits.map(c => (
+                            <div key={c.id}
+                              onMouseDown={() => {
+                                setCardModal(p => ({ ...p, contact_id: c.id, contact_nome: c.nome }))
+                                setContactSearch('')
+                              }}
+                              style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid var(--border)' }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <div style={{ fontWeight: 600 }}>{c.nome}</div>
+                              {c.numero && <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{c.numero}</div>}
+                            </div>
+                          ))
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
                   <label style={labelStyle}>Atribuir a</label>
@@ -589,6 +706,48 @@ export default function CompanyKanban() {
                 </div>
               </div>
             </div>
+            {/* Comentários — apenas em cards já salvos */}
+            {cardModal.id && (
+              <div style={{ borderTop: '1px solid var(--border)', padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <MessageSquare size={11} /> Comentários {comments.length > 0 && `(${comments.length})`}
+                </div>
+                {loadingComments ? (
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Carregando...</div>
+                ) : (
+                  <>
+                    {comments.length === 0 && (
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Nenhum comentário ainda.</div>
+                    )}
+                    {comments.map(c => (
+                      <div key={c.id} style={{ background: '#F8FAFC', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>{c.user_name}</span>
+                          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                            {new Date(c.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{c.text}</div>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <textarea className="nx-input" rows={2}
+                        placeholder="Escreva um comentário... (Ctrl+Enter para enviar)"
+                        value={newComment}
+                        onChange={e => setNewComment(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleSaveComment() } }} />
+                      <button className="nx-btn-primary"
+                        style={{ alignSelf: 'flex-end', fontSize: 12, padding: '6px 14px', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                        onClick={handleSaveComment}
+                        disabled={savingComment || !newComment.trim()}>
+                        <MessageSquare size={12} /> {savingComment ? 'Enviando...' : 'Comentar'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
               {cardErr && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#DC2626', marginBottom: 12 }}>{cardErr}</div>}
               <div style={{ display: 'flex', gap: 10 }}>
