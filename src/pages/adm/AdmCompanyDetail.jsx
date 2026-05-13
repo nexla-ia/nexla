@@ -94,6 +94,7 @@ export default function AdmCompanyDetail() {
       historyTable: company.history_table || '',
       contactsTable: company.contacts_table || 'clientes',
       plan: company.plan || 'Starter',
+      planPriceOverride: company.plan_price_override ?? '',
       extraUsers: company.extra_users ?? 0,
       maxUsers: company.max_users ?? '',
       maxProfessionals: company.max_professionals ?? '',
@@ -121,6 +122,8 @@ export default function AdmCompanyDetail() {
       history_table: companyForm.historyTable || null,
       contacts_table: companyForm.contactsTable || null,
       plan: companyForm.plan || 'Starter',
+      plan_price_override: companyForm.planPriceOverride === '' || companyForm.planPriceOverride == null
+        ? null : parseFloat(companyForm.planPriceOverride),
       extra_users: parseInt(companyForm.extraUsers) || 0,
       max_users: companyForm.maxUsers === '' || companyForm.maxUsers == null ? null : parseInt(companyForm.maxUsers),
       max_professionals: companyForm.maxProfessionals === '' || companyForm.maxProfessionals == null ? null : parseInt(companyForm.maxProfessionals),
@@ -607,10 +610,17 @@ export default function AdmCompanyDetail() {
                     </select>
                   </div>
                   <div>
-                    <label style={labelStyle}>Add-on usuários extras <span style={{ fontWeight: 400, textTransform: 'none' }}>(R$ 39/mês cada)</span></label>
-                    <input className="nx-input" type="number" min={0} max={200} value={companyForm.extraUsers}
-                      onChange={e => setCompanyForm(p => ({ ...p, extraUsers: e.target.value }))} />
+                    <label style={labelStyle}>Valor negociado (R$) <span style={{ fontWeight: 400, textTransform: 'none' }}>substitui preço padrão</span></label>
+                    <input className="nx-input" type="number" min={0} step="0.01"
+                      placeholder="Padrão do plano"
+                      value={companyForm.planPriceOverride}
+                      onChange={e => setCompanyForm(p => ({ ...p, planPriceOverride: e.target.value }))} />
                   </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Add-on usuários extras <span style={{ fontWeight: 400, textTransform: 'none' }}>(R$ 39/mês cada)</span></label>
+                  <input className="nx-input" type="number" min={0} max={200} value={companyForm.extraUsers}
+                    onChange={e => setCompanyForm(p => ({ ...p, extraUsers: e.target.value }))} />
                 </div>
                 <div style={{ fontSize: 11, color: '#92400E', fontWeight: 500, marginTop: -2 }}>
                   Overrides individuais — deixe vazio pra usar o default do plano:

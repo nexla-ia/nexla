@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { computeBillingStatus, statusBadge, BILLING_STATUS, fmtMoney, fmtDateBR } from '../../lib/billing'
+import { PLAN_DEFAULTS } from '../../lib/planLimits'
 import { CircleDollarSign, CheckCircle2, Calendar, Lock, Unlock, Plus, RefreshCw } from 'lucide-react'
 
 const labelStyle = {
@@ -117,21 +118,47 @@ export default function AdmCompanyBilling({ company, onUpdate }) {
       </div>
 
       {/* Status atual */}
-      <div className="nx-card" style={{ padding: '18px 20px', marginBottom: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16 }}>
-        <BillStat
-          label="Status"
-          value={
-            <span className="nx-badge" style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}>
-              {badge.label}
-            </span>
-          }
-        />
-        <BillStat label="Próximo vencimento" value={company.next_due_date ? fmtDateBR(company.next_due_date) : '—'} />
-        <BillStat label="Valor mensal"        value={company.billing_amount ? fmtMoney(company.billing_amount) : '—'} />
-        <BillStat label="Dia do mês"          value={company.billing_day || '—'} />
-        <BillStat label="Aviso prévio"        value={`${company.billing_reminder_days ?? 3} ${(company.billing_reminder_days ?? 3) === 1 ? 'dia' : 'dias'}`} />
-        <BillStat label="Carência após venc." value={`${company.billing_grace_days ?? 1} ${(company.billing_grace_days ?? 1) === 1 ? 'dia' : 'dias'}`} />
-      </div>
+      {(() => {
+        const planKey = company.plan && PLAN_DEFAULTS[company.plan] ? company.plan : 'Starter'
+        const planDef = PLAN_DEFAULTS[planKey]
+        const planLabel = planDef.price ? fmtMoney(planDef.price) : 'Sob medida'
+        return (
+          <div className="nx-card" style={{ padding: '18px 20px', marginBottom: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
+            <BillStat
+              label="Status"
+              value={
+                <span className="nx-badge" style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}>
+                  {badge.label}
+                </span>
+              }
+            />
+            <BillStat
+              label="Plano"
+              value={
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span className="nx-badge" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+                    {planKey}
+                  </span>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>{planLabel}</span>
+                </span>
+              }
+            />
+            <BillStat
+              label="Valor negociado"
+              value={
+                company.plan_price_override != null
+                  ? <span style={{ color: '#2563EB', fontWeight: 700 }}>{fmtMoney(company.plan_price_override)}</span>
+                  : <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>padrão do plano</span>
+              }
+            />
+            <BillStat label="Próximo vencimento" value={company.next_due_date ? fmtDateBR(company.next_due_date) : '—'} />
+            <BillStat label="Valor mensal"        value={company.billing_amount ? fmtMoney(company.billing_amount) : '—'} />
+            <BillStat label="Dia do mês"          value={company.billing_day || '—'} />
+            <BillStat label="Aviso prévio"        value={`${company.billing_reminder_days ?? 3} ${(company.billing_reminder_days ?? 3) === 1 ? 'dia' : 'dias'}`} />
+            <BillStat label="Carência após venc." value={`${company.billing_grace_days ?? 1} ${(company.billing_grace_days ?? 1) === 1 ? 'dia' : 'dias'}`} />
+          </div>
+        )
+      })()}
 
       {/* Status detail caso atrasado */}
       {(status.status === BILLING_STATUS.OVERDUE || status.status === BILLING_STATUS.BLOCKED) && status.daysOverdue && (
