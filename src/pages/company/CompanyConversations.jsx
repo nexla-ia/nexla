@@ -22,11 +22,16 @@ function getMessageType(row) { return (row.type || 'human').toLowerCase() }
 function parseTimestamp(val) {
   if (!val) return null
   if (/^\d{2}\/\d{2}\/\d{4}/.test(val)) {
-    const [date, time] = val.split(' ')
-    const [d, m, y] = date.split('/')
-    return new Date(`${y}-${m}-${d}T${time || '00:00:00'}`).toISOString()
+    const sp = val.indexOf(' ')
+    const datePart = sp >= 0 ? val.slice(0, sp) : val
+    const timePart = sp >= 0 ? val.slice(sp + 1) : '00:00:00'
+    const [d, m, y] = datePart.split('/')
+    if (!d || !m || !y) return null
+    const dt = new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T${timePart}`)
+    return isNaN(dt.getTime()) ? null : dt.toISOString()
   }
-  return val
+  const dt = new Date(val)
+  return isNaN(dt.getTime()) ? null : val
 }
 
 function getTimestamp(row) { return parseTimestamp(row.horaLastMessage) || row.created_at || null }
@@ -56,15 +61,18 @@ function isToolMessage(row) {
   return false
 }
 
-function formatMsgTime(ts) {
+function formatMsgTime(ts, tz = 'America/Sao_Paulo') {
   if (!ts) return ''
   const date = new Date(ts)
-  const now = new Date()
-  const hhmm = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-  if (date.toDateString() === now.toDateString()) return hhmm
-  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1)
-  if (date.toDateString() === yesterday.toDateString()) return `Ontem ${hhmm}`
-  return `${date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${hhmm}`
+  if (isNaN(date.getTime())) return ''
+  const opts = { timeZone: tz }
+  const hhmm = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', ...opts })
+  const dateStr = date.toLocaleDateString('pt-BR', opts)
+  const todayStr = new Date().toLocaleDateString('pt-BR', opts)
+  if (dateStr === todayStr) return hhmm
+  const yesterdayStr = new Date(Date.now() - 86400000).toLocaleDateString('pt-BR', opts)
+  if (dateStr === yesterdayStr) return `Ontem ${hhmm}`
+  return `${date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', ...opts })} ${hhmm}`
 }
 
 function formatApptShort(ts) {
@@ -79,18 +87,21 @@ function formatApptShort(ts) {
   return `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${hh}`
 }
 
-function formatContactTime(ts) {
+function formatContactTime(ts, tz = 'America/Sao_Paulo') {
   if (!ts) return ''
   const date = new Date(ts)
+  if (isNaN(date.getTime())) return ''
   const now = new Date()
   const diffMin = Math.floor((now - date) / 60000)
   const diffH = Math.floor(diffMin / 60)
   if (diffMin < 1) return 'agora'
   if (diffMin < 60) return `${diffMin}min`
   if (diffH < 24) return `${diffH}h`
-  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1)
-  if (date.toDateString() === yesterday.toDateString()) return 'Ontem'
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+  const opts = { timeZone: tz }
+  const dateStr = date.toLocaleDateString('pt-BR', opts)
+  const yesterdayStr = new Date(Date.now() - 86400000).toLocaleDateString('pt-BR', opts)
+  if (dateStr === yesterdayStr) return 'Ontem'
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', ...opts })
 }
 
 const REASONS = [
@@ -114,6 +125,15 @@ export default function CompanyConversations() {
   const isAdmin = session?.user?.role === 'admin'
   const userSector = session?.user?.sector // { id, name, color } or null
   const aiEnabled = session?.company?.ai_enabled !== false
+  const companyTz = session?.company?.timezone || 'America/Sao_Paulo'
+
+  async function checkSession() {
+    const { data: { session: live } } = await supabase.auth.getSession()
+    if (live) return true
+    setToast({ message: 'Sessão expirada. Recarregue a página.', color: '#DC2626' })
+    setTimeout(() => setToast(null), 5000)
+    return false
+  }
 
   // Tags — no topo, antes de qualquer early return
   const { tags, tagsByContact, addTag, removeTag } = useContactTags(instance)
@@ -418,7 +438,10 @@ export default function CompanyConversations() {
         instancia: instance,
         reason: 'auto_encerrado',
         closed_at: new Date().toISOString(),
-      }).then(() => {})
+      }).then(({ error }) => {
+        // 23505 = unique violation — outra aba já fechou, OK ignorar
+        if (error && error.code !== '23505') console.warn('auto-close:', error)
+      })
       supabase.from('attendances').delete().eq('numero', c.session_id).eq('instancia', instance).then(() => {})
     })
 
@@ -535,10 +558,13 @@ export default function CompanyConversations() {
     e?.stopPropagation()
     if (attendancesMap[contact.session_id] || assuming === contact.session_id) return
     setAssuming(contact.session_id)
+
+    if (!await checkSession()) { setAssuming(null); return }
+
     const name = session?.user?.name || 'Atendente'
     const sectorLabel = userSector ? ` (${userSector.name})` : ''
 
-    await supabase.from('attendances').upsert({
+    const { error: insErr } = await supabase.from('attendances').insert({
       numero: contact.session_id,
       instancia: instance,
       sector_id: userSector?.id || null,
@@ -547,7 +573,20 @@ export default function CompanyConversations() {
       attendant_name: name,
       attendant_email: session?.user?.email,
       assumed_at: new Date().toISOString(),
-    }, { onConflict: 'numero,instancia' })
+    })
+
+    if (insErr) {
+      if (insErr.code === '23505') {
+        const { data: holder } = await supabase.from('attendances')
+          .select('attendant_name').eq('numero', contact.session_id).eq('instancia', instance).maybeSingle()
+        setToast({ message: `Conversa já assumida por ${holder?.attendant_name || 'outro atendente'}.`, color: '#D97706' })
+      } else {
+        setToast({ message: 'Erro ao assumir: ' + insErr.message, color: '#DC2626' })
+      }
+      setTimeout(() => setToast(null), 3500)
+      setAssuming(null)
+      return
+    }
 
     const assumeMsg = `▶ Atendimento assumido por ${name}${sectorLabel}`
     await supabase.rpc('send_mensagem_geral', {
@@ -748,6 +787,7 @@ export default function CompanyConversations() {
 
   async function handleSend() {
     if (sending || !selected) return
+    if (!await checkSession()) return
     if (!canRespond(selected)) {
       const att = attendancesMap[selected.session_id]
       setToast({
@@ -775,9 +815,12 @@ export default function CompanyConversations() {
           attendant_name: name, attendant_email: session?.user?.email,
           assumed_at: new Date().toISOString(),
         }
-        await supabase.from('attendances').upsert(newAtt, { onConflict: 'numero,instancia' })
-        setAttendancesMap(prev => ({ ...prev, [selected.session_id]: newAtt }))
-        setTab('meu-setor')
+        const { error: attErr } = await supabase.from('attendances').insert(newAtt)
+        if (!attErr) {
+          setAttendancesMap(prev => ({ ...prev, [selected.session_id]: newAtt }))
+          setTab('meu-setor')
+        }
+        // 23505 = alguém assumiu exatamente ao mesmo tempo — não bloqueia o envio
       }
       const text = msgText.trim()
       const file = attachedFile
@@ -845,6 +888,7 @@ export default function CompanyConversations() {
 
   async function handleClose() {
     if (!reason || !closeModal) return
+    if (!await checkSession()) return
     setClosing(true)
     const { error } = await supabase.from('conversations').insert({
       session_id: closeModal.session_id,
@@ -1068,7 +1112,7 @@ export default function CompanyConversations() {
                   )}
                 </div>
                 <div className="contact-meta">
-                  {c.lastTs && <div className="contact-time">{formatContactTime(c.lastTs)}</div>}
+                  {c.lastTs && <div className="contact-time">{formatContactTime(c.lastTs, companyTz)}</div>}
                 </div>
               </div>
             )
@@ -1492,7 +1536,7 @@ export default function CompanyConversations() {
                     </div>
                     {msg.ts && (
                       <div className="msg-time" style={{ textAlign: isLeft ? 'left' : 'right' }}>
-                        {formatMsgTime(msg.ts)}
+                        {formatMsgTime(msg.ts, companyTz)}
                       </div>
                     )}
                   </div>
