@@ -85,6 +85,7 @@ export default function CompanyAgenda() {
   const [agendas, setAgendas]         = useState([])
   const [appointments, setAppointments] = useState([])
   const [savedContacts, setSavedContacts] = useState([])
+  const [allContacts, setAllContacts]     = useState([])
   const [professionals, setProfessionals] = useState([])
   const [procedures, setProcedures]   = useState([])
   const [insurancePlans, setInsurancePlans] = useState([])
@@ -120,12 +121,30 @@ export default function CompanyAgenda() {
       supabase.from('procedures').select('*').eq('instancia', instance).order('name'),
       supabase.from('insurance_plans').select('*').eq('instancia', instance).order('name'),
       supabase.from('procedure_prices').select('*'),
-    ]).then(([{ data: ag }, { data: sc }, { data: pros }, { data: procs }, { data: plans }, { data: prices }]) => {
+      supabase.from('mensagens_geral').select('numero, nome').eq('instancia', instance)
+        .not('numero', 'like', '%@g.us').not('numero', 'like', '%@lid')
+        .order('id', { ascending: false }).limit(400),
+    ]).then(([{ data: ag }, { data: sc }, { data: pros }, { data: procs }, { data: plans }, { data: prices }, { data: mg }]) => {
       if (ag) {
         setAgendas(ag)
         if (!selectedAgendaId && ag.length) setSelectedAgendaId(ag[0].id)
       }
       if (sc) setSavedContacts(sc)
+      // Mescla saved_contacts + contatos únicos de mensagens_geral (normaliza DDD)
+      const scNums = new Set((sc || []).map(c => (c.numero || '').replace(/\D/g, '')))
+      const seen = new Set(scNums)
+      const mgExtra = (mg || [])
+        .filter(m => {
+          const n = (m.numero || '').replace(/@.*$/, '').replace(/\D/g, '')
+          if (!n || seen.has(n)) return false
+          seen.add(n)
+          return true
+        })
+        .map(m => ({
+          nome: m.nome || (m.numero || '').replace(/@.*$/, '').replace(/\D/g, ''),
+          numero: (m.numero || '').replace(/@.*$/, '').replace(/\D/g, ''),
+        }))
+      setAllContacts([...(sc || []), ...mgExtra])
       if (pros) setProfessionals(pros.filter(p => p.active !== false))
       if (procs) setProcedures(procs.filter(p => p.active !== false))
       if (plans) setInsurancePlans(plans.filter(p => p.active !== false))
@@ -435,6 +454,40 @@ export default function CompanyAgenda() {
             sender_email: session?.user?.email,
           }),
         }).catch(e => console.warn('webhook cancelamento:', e))
+      }
+
+      // Criação: confirma agendamento via WhatsApp
+      if (isNew) {
+        const criacaoMsg = `Olá ${payload.contact_nome.split(' ')[0]}, seu agendamento foi criado para ${dateStr}${ag ? ` — ${ag.name}` : ''}. Estamos aguardando você!`
+        fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: criacaoMsg,
+            session_id: sessionId,
+            phone: numero,
+            instancia: instance,
+            api_instancia: apiInstancia,
+            company: session?.company?.name,
+          }),
+        }).catch(e => console.warn('webhook criação:', e))
+      }
+
+      // Confirmação: avisa paciente via WhatsApp ao mudar status para confirmado
+      if (!isNew && prevStatus !== 'confirmado' && payload.status === 'confirmado') {
+        const confirmMsg = `Olá ${payload.contact_nome.split(' ')[0]}, seu agendamento de ${dateStr} está confirmado! Estamos aguardando você.`
+        fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: confirmMsg,
+            session_id: sessionId,
+            phone: numero,
+            instancia: instance,
+            api_instancia: apiInstancia,
+            company: session?.company?.name,
+          }),
+        }).catch(e => console.warn('webhook confirmação:', e))
       }
     }
     setApptModal(null)
@@ -844,11 +897,11 @@ export default function CompanyAgenda() {
                   value={apptModal.contact_nome}
                   onChange={e => {
                     const value = e.target.value
-                    const match = savedContacts.find(c => c.nome === value)
+                    const match = allContacts.find(c => c.nome === value)
                     setApptModal(p => ({ ...p, contact_nome: value, contact_numero: match?.numero || p.contact_numero }))
                   }} />
                 <datalist id="agenda-contact-list">
-                  {savedContacts.map(c => <option key={c.id} value={c.nome}>{c.numero}</option>)}
+                  {allContacts.map((c, i) => <option key={c.id || i} value={c.nome}>{c.numero}</option>)}
                 </datalist>
               </div>
               <div>

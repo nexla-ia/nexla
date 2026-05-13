@@ -135,7 +135,8 @@ export default function CompanyCatalog() {
       name: '', type: 'consulta',
       duration_minutes: 30, price_particular: 0,
       professional_id: null, active: true,
-      _prices: {}, // map insurance_plan_id → price
+      reminder_message: null,
+      _prices: {},
     })
     setErr('')
   }
@@ -157,6 +158,7 @@ export default function CompanyCatalog() {
       price_particular: parseFloat(procModal.price_particular) || 0,
       professional_id: procModal.professional_id || null,
       active: procModal.active !== false,
+      reminder_message: procModal.reminder_message?.trim() || null,
       instancia: instance,
     }
     const { data, error } = procModal.id
@@ -534,6 +536,15 @@ export default function CompanyCatalog() {
             <Field label="Valor — Particular (R$)">
               <input className="nx-input" type="number" step="0.01" min={0}
                 value={procModal.price_particular} onChange={e => setProcModal(p => ({ ...p, price_particular: e.target.value }))} />
+            </Field>
+            <Field label="Mensagem de lembrete personalizada (opcional)">
+              <textarea className="nx-input" rows={3}
+                placeholder={`Olá {nome}, lembramos que você tem um agendamento amanhã ({data}). Estamos esperando por você!`}
+                value={procModal.reminder_message || ''}
+                onChange={e => setProcModal(p => ({ ...p, reminder_message: e.target.value }))} />
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                Variáveis: <code style={{ fontSize: 10 }}>{'{nome}'}</code>, <code style={{ fontSize: 10 }}>{'{data}'}</code>, <code style={{ fontSize: 10 }}>{'{agenda}'}</code>. Deixe vazio para usar a mensagem padrão.
+              </div>
             </Field>
             {plans.filter(p => p.active !== false).length > 0 && (
               <div>
