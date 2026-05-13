@@ -109,6 +109,8 @@ export default function CompanyAgenda() {
   const [confirmDeleteAgenda, setConfirmDeleteAgenda] = useState(null)
   const [confirmDeleteAppt, setConfirmDeleteAppt] = useState(false)
   const [deletingNow, setDeletingNow] = useState(false)
+  const [draggingId, setDraggingId]     = useState(null)
+  const [dragOverSlot, setDragOverSlot] = useState(null) // { dateStr, hhmm }
 
   // Carrega agendas + agendamentos + contatos
   useEffect(() => {
@@ -268,6 +270,8 @@ export default function CompanyAgenda() {
       insurance_plan_id: null,
       price: 0,
       payment_status: 'pendente',
+      recurrence: null,
+      recurrence_count: 4,
     })
     setApptErr('')
     setPatientHistory([])
@@ -320,6 +324,19 @@ export default function CompanyAgenda() {
     const startsAt = new Date(`${apptModal.date}T${apptModal.time}:00`)
     const duration = parseInt(apptModal.duration_minutes) || 30
     const endsAt = new Date(startsAt.getTime() + duration * 60000)
+
+    // Conflito de slot na mesma agenda
+    const slotConflict = appointments.find(a => {
+      if (a.id === apptModal.id) return false
+      if (a.agenda_id !== apptModal.agenda_id) return false
+      if (a.status === 'cancelado') return false
+      return new Date(a.starts_at).getTime() === startsAt.getTime()
+    })
+    if (slotConflict) {
+      const t = new Date(slotConflict.starts_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      setApptErr(`Horário já ocupado por ${slotConflict.contact_nome} às ${t} nesta agenda.`)
+      return
+    }
 
     // Validação: dia/horário do profissional
     if (apptModal.professional_id) {
@@ -398,11 +415,20 @@ export default function CompanyAgenda() {
 
     const isNew = !apptModal.id
     const prevStatus = apptModal._prevStatus
-    const { error } = isNew
-      ? await supabase.from('appointments').insert(payload)
-      : await supabase.from('appointments').update(payload).eq('id', apptModal.id)
+    let supaError
+    if (isNew && apptModal.recurrence) {
+      const count = Math.min(parseInt(apptModal.recurrence_count) || 1, 52)
+      const rows = buildRecurringRows(payload, startsAt, apptModal.recurrence, count)
+      const { error } = await supabase.from('appointments').insert(rows)
+      supaError = error
+    } else {
+      const { error } = isNew
+        ? await supabase.from('appointments').insert(payload)
+        : await supabase.from('appointments').update(payload).eq('id', apptModal.id)
+      supaError = error
+    }
     setSavingAppt(false)
-    if (error) { setApptErr('Erro: ' + error.message); return }
+    if (supaError) { setApptErr('Erro: ' + supaError.message); return }
 
     // Registra evento na conversa do paciente (se tem número)
     if (numero) {
@@ -532,6 +558,39 @@ export default function CompanyAgenda() {
   function isWorkingDay(day) {
     if (!selectedAgenda) return false
     return (selectedAgenda.working_days || []).includes(day.getDay())
+  }
+
+  // Gera múltiplas linhas para agendamento recorrente
+  function buildRecurringRows(base, startsAt, recurrence, count) {
+    const rows = []
+    for (let i = 0; i < count; i++) {
+      let d = new Date(startsAt)
+      if (recurrence === 'semanal')    d = new Date(startsAt.getTime() + i * 7 * 86400000)
+      else if (recurrence === 'quinzenal') d = new Date(startsAt.getTime() + i * 14 * 86400000)
+      else if (recurrence === 'mensal') { d = new Date(startsAt); d.setMonth(d.getMonth() + i) }
+      rows.push({ ...base, starts_at: d.toISOString() })
+    }
+    return rows
+  }
+
+  // Drag & drop: move agendamento para outro slot (otimista + rollback)
+  async function handleDrop(e, day, hhmm) {
+    e.preventDefault()
+    setDragOverSlot(null)
+    const id = draggingId
+    setDraggingId(null)
+    if (!id) return
+    const appt = appointments.find(a => a.id === id)
+    if (!appt) return
+    const occupied = apptAt(day, hhmm)
+    if (occupied && occupied.id !== id) return
+    const newStartsAt = new Date(`${fmtDateInput(day)}T${hhmm}:00`)
+    if (new Date(appt.starts_at).getTime() === newStartsAt.getTime()) return
+    const prev = appointments
+    setAppointments(p => p.map(a => a.id === id ? { ...a, starts_at: newStartsAt.toISOString() } : a))
+    const { error } = await supabase.from('appointments')
+      .update({ starts_at: newStartsAt.toISOString() }).eq('id', id)
+    if (error) setAppointments(prev)
   }
 
   return (
@@ -704,31 +763,60 @@ export default function CompanyAgenda() {
                         const working = isWorkingDay(d)
                         const appt = working ? apptAt(d, hhmm) : null
                         const status = appt ? STATUS_OPTIONS.find(s => s.value === appt.status) : null
+                        const dateStr = fmtDateInput(d)
+                        const isDragOver = dragOverSlot?.dateStr === dateStr && dragOverSlot?.hhmm === hhmm
+                        const isSource  = draggingId && appt?.id === draggingId
+                        const isBlocked = !!draggingId && appt && appt.id !== draggingId
+                        let cellBg = !working ? '#F9FAFB' : isDragOver ? '#DBEAFE' : 'transparent'
                         return (
                           <div key={i}
-                            onClick={() => working && (appt ? openEditAppt(appt) : openNewAppt(d, hhmm))}
+                            onClick={() => working && !draggingId && (appt ? openEditAppt(appt) : openNewAppt(d, hhmm))}
+                            onDragOver={e => {
+                              if (!draggingId || !working) return
+                              e.preventDefault()
+                              if (appt && appt.id !== draggingId) { e.dataTransfer.dropEffect = 'none'; return }
+                              e.dataTransfer.dropEffect = 'move'
+                              setDragOverSlot({ dateStr, hhmm })
+                            }}
+                            onDragLeave={() => setDragOverSlot(null)}
+                            onDrop={e => working && handleDrop(e, d, hhmm)}
                             style={{
                               minHeight: 46, borderLeft: '1px solid var(--border)',
-                              background: !working ? '#F9FAFB' : 'transparent',
-                              cursor: working ? 'pointer' : 'not-allowed',
+                              background: cellBg,
+                              cursor: draggingId ? (isBlocked ? 'not-allowed' : 'copy') : working ? 'pointer' : 'not-allowed',
                               padding: 3, position: 'relative',
+                              outline: isDragOver ? '2px dashed #2563EB' : 'none',
+                              outlineOffset: -2,
+                              transition: 'background 0.1s',
                             }}
-                            onMouseEnter={e => { if (working && !appt) e.currentTarget.style.background = '#EFF6FF' }}
-                            onMouseLeave={e => { if (working && !appt) e.currentTarget.style.background = 'transparent' }}
+                            onMouseEnter={e => { if (working && !appt && !draggingId) e.currentTarget.style.background = '#EFF6FF' }}
+                            onMouseLeave={e => { if (working && !appt && !draggingId) e.currentTarget.style.background = 'transparent' }}
                           >
                             {appt && status && (
-                              <div style={{
-                                background: status.color,
-                                color: '#fff',
-                                borderLeft: `3px solid ${status.color}`,
-                                borderRadius: 5,
-                                padding: '5px 8px',
-                                fontSize: 11, fontWeight: 700, lineHeight: 1.3,
-                                height: '100%',
-                                display: 'flex', flexDirection: 'column', justifyContent: 'center',
-                                overflow: 'hidden',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                              }}>
+                              <div
+                                draggable
+                                onDragStart={e => {
+                                  setDraggingId(appt.id)
+                                  e.dataTransfer.effectAllowed = 'move'
+                                  e.stopPropagation()
+                                }}
+                                onDragEnd={() => { setDraggingId(null); setDragOverSlot(null) }}
+                                onClick={e => { e.stopPropagation(); if (!draggingId) openEditAppt(appt) }}
+                                style={{
+                                  background: isBlocked ? '#94A3B8' : status.color,
+                                  color: '#fff',
+                                  borderLeft: `3px solid ${isBlocked ? '#64748B' : status.color}`,
+                                  borderRadius: 5,
+                                  padding: '5px 8px',
+                                  fontSize: 11, fontWeight: 700, lineHeight: 1.3,
+                                  height: '100%',
+                                  display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                                  overflow: 'hidden',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                                  opacity: isSource ? 0.45 : 1,
+                                  cursor: 'grab',
+                                  transition: 'opacity 0.15s',
+                                }}>
                                 <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                   {appt.contact_nome}
                                 </div>
@@ -1043,6 +1131,49 @@ export default function CompanyAgenda() {
                   })}
                 </div>
               </div>
+              {!apptModal.id && (
+                <div>
+                  <label style={labelStyle}>Recorrência</label>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {[
+                      { value: null,         label: 'Única' },
+                      { value: 'semanal',    label: 'Semanal' },
+                      { value: 'quinzenal',  label: 'Quinzenal' },
+                      { value: 'mensal',     label: 'Mensal' },
+                    ].map(opt => {
+                      const active = apptModal.recurrence === opt.value
+                      return (
+                        <button key={String(opt.value)}
+                          onClick={() => setApptModal(p => ({ ...p, recurrence: opt.value }))}
+                          style={{
+                            padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                            border: `1.5px solid ${active ? '#2563EB' : 'var(--border)'}`,
+                            background: active ? '#EFF6FF' : 'transparent',
+                            color: active ? '#2563EB' : 'var(--text-secondary)',
+                            cursor: 'pointer',
+                          }}>
+                          {opt.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {apptModal.recurrence && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                      <label style={{ ...labelStyle, marginBottom: 0, whiteSpace: 'nowrap' }}>Ocorrências</label>
+                      <input className="nx-input" type="number" min={2} max={52}
+                        style={{ width: 72 }}
+                        value={apptModal.recurrence_count}
+                        onChange={e => setApptModal(p => ({
+                          ...p,
+                          recurrence_count: Math.min(52, Math.max(2, parseInt(e.target.value) || 2)),
+                        }))} />
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        sessões (máx 52)
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
               <div>
                 <label style={labelStyle}>Observações (opcional)</label>
                 <textarea className="nx-input" rows={2} placeholder="Anotações sobre este agendamento..."
@@ -1107,7 +1238,11 @@ export default function CompanyAgenda() {
                 )}
                 <button className="nx-btn-ghost" style={{ flex: 1 }} onClick={() => setApptModal(null)}>Cancelar</button>
                 <button className="nx-btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={handleSaveAppt} disabled={savingAppt}>
-                  {savingAppt ? 'Salvando...' : 'Salvar'}
+                  {savingAppt
+                    ? 'Salvando...'
+                    : (!apptModal.id && apptModal.recurrence)
+                      ? `Criar ${Math.min(apptModal.recurrence_count, 52)} agendamentos`
+                      : 'Salvar'}
                 </button>
               </div>
             </div>
