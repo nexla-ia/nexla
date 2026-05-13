@@ -29,14 +29,24 @@ export default function Sidebar({ links, role, isMobileOpen, onClose }) {
 
       <nav className="sidebar-nav">
         {links.map(link => (
-          <NavLink key={link.to} to={link.to} end={link.end}
-            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
-            onClick={onClose}
-          >
-            <link.icon size={16} />
-            {link.label}
-            {link.badge ? <span className={`sidebar-badge nx-badge nx-badge-${link.badgeColor || 'cyan'}`}>{link.badge}</span> : null}
-          </NavLink>
+          link.to ? (
+            <NavLink key={link.to} to={link.to} end={link.end}
+              className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+              onClick={onClose}
+            >
+              <link.icon size={16} />
+              {link.label}
+              {link.badge ? <span className={`sidebar-badge nx-badge nx-badge-${link.badgeColor || 'cyan'}`}>{link.badge}</span> : null}
+            </NavLink>
+          ) : (
+            <button key={link.label} className={`sidebar-link${link.active ? ' active' : ''}`}
+              onClick={() => { link.onClick?.(); onClose?.() }}
+            >
+              <link.icon size={16} />
+              {link.label}
+              {link.badge ? <span className={`sidebar-badge nx-badge nx-badge-${link.badgeColor || 'cyan'}`}>{link.badge}</span> : null}
+            </button>
+          )
         ))}
       </nav>
 

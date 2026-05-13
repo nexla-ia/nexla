@@ -67,6 +67,13 @@
   color: var(--text-secondary);
   transition: all 0.15s;
   position: relative;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  font-family: inherit;
 }
 
 .sidebar-link:hover {
