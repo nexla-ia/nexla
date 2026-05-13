@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft } from 'lucide-react'
+import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft, ChevronLeft } from 'lucide-react'
 import './Company.css'
 
 const CONV_TABLE = 'mensagens_geral'
@@ -871,7 +871,7 @@ export default function CompanyConversations() {
   const isClosed = selected ? closed.has(selected.session_id) : false
 
   return (
-    <div className="contacts-root">
+    <div className={`contacts-root${selected ? ' chat-active' : ''}`}>
       <div className="contacts-list">
         {/* Abas */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)' }}>
@@ -1021,6 +1021,10 @@ export default function CompanyConversations() {
         ) : (
           <>
             <div className="chat-header">
+              <button className="chat-back-btn" onClick={() => setSelected(null)} aria-label="Voltar">
+                <ChevronLeft size={15} />
+                Voltar
+              </button>
               {(() => {
                 const cleanNum = selected.phone.replace(/\D/g, '')
                 const saved = savedContacts[cleanNum]

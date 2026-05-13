@@ -1,11 +1,11 @@
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { LogOut } from 'lucide-react'
+import { LogOut, X } from 'lucide-react'
 import BrandMark from './BrandMark'
 import './Sidebar.css'
 
-export default function Sidebar({ links, role }) {
+export default function Sidebar({ links, role, isMobileOpen, onClose }) {
   const { session, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -15,18 +15,24 @@ export default function Sidebar({ links, role }) {
   }
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${isMobileOpen ? ' mobile-open' : ''}`}>
       <div className="sidebar-brand">
         <BrandMark size={36} color="#C9A074" strokeWidth={1.5} />
         <div>
           <div className="sidebar-brand-name">MedicinaMKT</div>
           <div className="sidebar-brand-tag">{role === 'adm' ? 'ADM Global' : 'Painel'}</div>
         </div>
+        <button className="sidebar-close-btn" onClick={onClose} aria-label="Fechar menu">
+          <X size={16} />
+        </button>
       </div>
 
       <nav className="sidebar-nav">
         {links.map(link => (
-          <NavLink key={link.to} to={link.to} end={link.end} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+          <NavLink key={link.to} to={link.to} end={link.end}
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+            onClick={onClose}
+          >
             <link.icon size={16} />
             {link.label}
             {link.badge ? <span className={`sidebar-badge nx-badge nx-badge-${link.badgeColor || 'cyan'}`}>{link.badge}</span> : null}

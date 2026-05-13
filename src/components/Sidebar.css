@@ -50,6 +50,11 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow-y: auto;
+}
+
+.sidebar-close-btn {
+  display: none;
 }
 
 .sidebar-link {
@@ -146,4 +151,38 @@
   background: #FEF2F2;
   border-color: #FECACA;
   color: #DC2626;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: -240px;
+    top: 0;
+    height: 100vh;
+    z-index: 1001;
+    transition: left 0.25s ease;
+    box-shadow: none;
+    width: 220px;
+  }
+  .sidebar.mobile-open {
+    left: 0;
+    box-shadow: 4px 0 32px rgba(0, 0, 0, 0.18);
+  }
+  .sidebar-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .sidebar-close-btn:hover {
+    background: var(--bg-hover);
+  }
 }

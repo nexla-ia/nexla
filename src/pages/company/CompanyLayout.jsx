@@ -5,8 +5,9 @@ import Sidebar from '../../components/Sidebar'
 import BillingBanner from '../../components/BillingBanner'
 import BlockedScreen from '../../components/BlockedScreen'
 import SupportWidget from '../../components/SupportWidget'
+import BrandMark from '../../components/BrandMark'
 import { shouldBlockAccess } from '../../lib/billing'
-import { MessageSquare, History, BellRing, BarChart2, Settings2, Contact2, Calendar, Sparkles, Kanban, Stethoscope, GraduationCap, Instagram, ShieldCheck } from 'lucide-react'
+import { MessageSquare, History, BellRing, BarChart2, Settings2, Contact2, Calendar, Sparkles, Kanban, Stethoscope, GraduationCap, Instagram, ShieldCheck, Menu } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { latestUpdateDate } from '../../data/updates'
@@ -80,6 +81,8 @@ export default function CompanyLayout() {
     return () => supabase.removeChannel(ch)
   }, [instance, aiOn, userId])
 
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
   const isAdmin = session?.user?.role === 'admin'
   const aiEnabled = session?.company?.ai_enabled !== false
   const lastSeen = typeof window !== 'undefined' ? localStorage.getItem('nx_news_seen') : null
@@ -112,9 +115,18 @@ export default function CompanyLayout() {
 
   return (
     <div className="company-root">
-      <Sidebar links={links} role="company" />
+      {sidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
+      )}
+      <Sidebar links={links} role="company" isMobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="company-main-wrap">
         <div className="company-topbar">
+          <button className="topbar-hamburger" onClick={() => setSidebarOpen(true)} aria-label="Abrir menu">
+            <Menu size={20} />
+          </button>
+          <div className="topbar-logo-mobile">
+            <BrandMark size={26} color="#C9A074" strokeWidth={1.5} />
+          </div>
           <div className="company-topbar-name">{session?.company?.name}</div>
           <span className={`nx-badge nx-badge-${session?.company?.plan === 'Business' ? 'violet' : session?.company?.plan === 'Pro' ? 'cyan' : 'gray'}`}>
             {session?.company?.plan}

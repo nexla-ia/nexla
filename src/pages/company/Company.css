@@ -18,6 +18,22 @@
   min-height: 100vh;
 }
 
+.sidebar-overlay {
+  display: none;
+}
+
+.topbar-hamburger {
+  display: none;
+}
+
+.topbar-logo-mobile {
+  display: none;
+}
+
+.chat-back-btn {
+  display: none;
+}
+
 .company-main-wrap {
   flex: 1;
   display: flex;
@@ -318,4 +334,124 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* ── Mobile / Responsividade ─────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Overlay para fechar sidebar */
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 1000;
+  }
+
+  /* Topbar: hamburger + logo aparecem, nome vira flex:1 */
+  .topbar-hamburger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+  }
+  .topbar-hamburger:hover {
+    background: var(--bg-hover);
+  }
+  .topbar-logo-mobile {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .company-topbar-name {
+    flex: 1;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .company-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  /* Conversas: lista e chat empilhados, um de cada vez */
+  .contacts-root {
+    flex-direction: column;
+    height: calc(100vh - 50px);
+    position: relative;
+  }
+  .contacts-list {
+    width: 100%;
+    height: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .chat-panel {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+  }
+  /* Quando um contato está selecionado */
+  .contacts-root.chat-active .contacts-list {
+    display: none;
+  }
+  .contacts-root.chat-active .chat-panel {
+    display: flex;
+  }
+
+  /* Botão Voltar no header do chat */
+  .chat-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .chat-back-btn:hover {
+    background: var(--bg-hover);
+  }
+
+  /* Banner compacto no chat */
+  .chat-header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+
+  /* Previne auto-zoom iOS em todos os inputs */
+  .nx-input,
+  .contacts-search,
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Bloqueia pan horizontal no layout principal */
+  .company-main-wrap {
+    touch-action: pan-y;
+    overflow-x: hidden;
+  }
+
+  /* Seções de páginas internas em mobile */
+  .history-root,
+  .alerts-root {
+    padding: 1rem;
+  }
 }
