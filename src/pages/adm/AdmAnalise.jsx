@@ -7,9 +7,8 @@ import {
   Clock, Inbox, AlertOctagon, MessageSquare, Bot, Activity, RefreshCw,
   Building2, Crown, Award, TrendingUp, AlertTriangle, ChevronRight, Hourglass,
   Zap, Eye, Search, Wrench, User, Sparkles, FileText, Cake, Kanban, Filter,
-  Headset, Wifi, WifiOff, BarChart3,
+  Headset, Wifi, WifiOff, BarChart3, CheckCircle2, Flag,
 } from 'lucide-react'
-import CompanyMetrics from '../company/CompanyMetrics'
 import './AdmAnalise.css'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -70,6 +69,29 @@ const STATUS_LABELS = {
   concluido:  { label: 'Concluído',  color: '#16A34A', bg: '#F0FDF4' },
   faltou:     { label: 'Faltou',     color: '#DC2626', bg: '#FEF2F2' },
   cancelado:  { label: 'Cancelado',  color: '#6B7280', bg: '#F9FAFB' },
+}
+
+const REASON_META = {
+  agendado:       { label: 'Agendado',    color: '#16A34A' },
+  resolvido:      { label: 'Resolvido',   color: '#2563EB' },
+  encaminhado:    { label: 'Encaminhado', color: '#7C3AED' },
+  desistiu:       { label: 'Desistiu',    color: '#DC2626' },
+  auto_encerrado: { label: 'Expirado',    color: '#6B7280' },
+}
+const ORIGEM_COLORS = ['#2563EB','#16A34A','#F59E0B','#7C3AED','#DC2626','#0891B2','#D97706','#059669']
+
+function normOrigem(raw) {
+  if (!raw || /desconhecid|n[aã]o informad|sem rastreio/i.test(raw)) return 'WhatsApp · sem rastreio'
+  const t = String(raw).trim()
+  if (/^(whats\s*app|wpp|zap)$/i.test(t)) return 'WhatsApp · sem rastreio'
+  if (/conhec|amig|famil|parente|indic/i.test(t)) return 'Indicação'
+  if (/instagram|insta\b/i.test(t)) return 'Instagram'
+  if (/google|maps|pesquis/i.test(t)) return 'Google'
+  if (/facebook|fb\b/i.test(t)) return 'Facebook'
+  if (/tiktok/i.test(t)) return 'TikTok'
+  if (/\bsite\b/i.test(t)) return 'Site'
+  if (/anunci|patrocin/i.test(t)) return 'Anúncio'
+  return t.replace(/\b\w/g, c => c.toUpperCase())
 }
 
 // ─── Página principal ──────────────────────────────────────────────────────
@@ -216,26 +238,236 @@ export default function AdmAnalise() {
       {/* Conteúdo da tab */}
       {tab === 'operacao'  && <TabOperacao  data={data} loading={loading} />}
       {tab === 'qualidade' && <TabQualidade data={data} period={period} loading={loading} />}
-      {tab === 'metricas'  && <TabMetricas  company={company} />}
+      {tab === 'metricas'  && <TabMetricas  company={company} data={data} period={period} />}
       {tab === 'espiao'    && <TabEspiao    data={data} company={company} loading={loading} />}
     </div>
   )
 }
 
-// ─── TAB MÉTRICAS — embed do painel completo da empresa ────────────────────
-function TabMetricas({ company }) {
+// ─── TAB MÉTRICAS ────────────────────────────────────────────────────────────
+function TabMetricas({ company, data, period }) {
   if (!company) {
     return (
       <div className="an-empty">
         <Building2 size={32} style={{ opacity: 0.25 }} />
-        <div>Selecione uma empresa pra ver as métricas completas.</div>
+        <div>Selecione uma empresa pra ver as métricas.</div>
       </div>
     )
   }
+
+  const conversasTotais = useMemo(() => {
+    const phones = new Set()
+    data.msgs.forEach(m => { if (m.numero) phones.add(m.numero) })
+    return phones.size
+  }, [data.msgs])
+
+  const tmr = useMemo(() => {
+    const sessions = {}
+    data.msgs.forEach(m => {
+      if (!m.numero) return
+      if (!sessions[m.numero]) sessions[m.numero] = []
+      sessions[m.numero].push(m)
+    })
+    const times = []
+    Object.values(sessions).forEach(msgs => {
+      msgs.sort((a, b) => {
+        const ta = new Date(parseTimestamp(a.horaLastMessage) || a.created_at).getTime()
+        const tb = new Date(parseTimestamp(b.horaLastMessage) || b.created_at).getTime()
+        return ta - tb
+      })
+      const firstClientIdx = msgs.findIndex(m => (m.type || '').toLowerCase() === 'cliente')
+      if (firstClientIdx < 0) return
+      const t0 = new Date(parseTimestamp(msgs[firstClientIdx].horaLastMessage) || msgs[firstClientIdx].created_at).getTime()
+      const fh = msgs.slice(firstClientIdx + 1).find(m => ['humano', 'atendente'].includes((m.type || '').toLowerCase()))
+      if (fh) {
+        const t1 = new Date(parseTimestamp(fh.horaLastMessage) || fh.created_at).getTime()
+        if (t1 > t0) times.push(t1 - t0)
+      }
+    })
+    return median(times)
+  }, [data.msgs])
+
+  const taxaResolucao = useMemo(() => {
+    if (!data.convs.length) return 0
+    return Math.round((data.convs.filter(c => c.reason === 'resolvido').length / data.convs.length) * 100)
+  }, [data.convs])
+
+  const convsPorAtendente = useMemo(() => {
+    const map = {}
+    data.atts.forEach(a => {
+      if (!a.user_id) return
+      map[a.user_id] = (map[a.user_id] || 0) + 1
+    })
+    return Object.entries(map).map(([userId, count]) => {
+      const user = data.users.find(u => u.id === userId)
+      return { userId, name: user?.name || 'Desconhecido', count }
+    }).sort((a, b) => b.count - a.count).slice(0, 8)
+  }, [data.atts, data.users])
+
+  const fontesDeLead = useMemo(() => {
+    const map = {}
+    data.pacientes.forEach(p => {
+      const origem = normOrigem(p.origem)
+      map[origem] = (map[origem] || 0) + 1
+    })
+    return Object.entries(map)
+      .map(([origem, count]) => ({ origem, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8)
+  }, [data.pacientes])
+
+  const classificacao = useMemo(() => {
+    const map = {}
+    data.convs.forEach(c => {
+      const r = c.reason || 'sem_motivo'
+      map[r] = (map[r] || 0) + 1
+    })
+    return Object.entries(map)
+      .map(([reason, count]) => ({
+        reason, count,
+        ...(REASON_META[reason] || { label: reason, color: '#94A3B8' }),
+      }))
+      .sort((a, b) => b.count - a.count)
+  }, [data.convs])
+
+  const timeline = useMemo(() => {
+    const byDay = {}
+    data.msgs.forEach(m => {
+      const ts = parseTimestamp(m.horaLastMessage) || m.created_at
+      if (!ts || !m.numero) return
+      const day = new Date(ts).toISOString().slice(0, 10)
+      if (!byDay[day]) byDay[day] = new Set()
+      byDay[day].add(m.numero)
+    })
+    return Object.entries(byDay)
+      .map(([day, phones]) => ({ day, count: phones.size }))
+      .sort((a, b) => a.day.localeCompare(b.day))
+  }, [data.msgs])
+  const maxTimeline = Math.max(1, ...timeline.map(d => d.count))
+
+  const totalFontes = data.pacientes.length || 1
+  const totalConvs  = data.convs.length  || 1
+
   return (
-    <div className="an-metricas-embed">
-      <CompanyMetrics companyOverride={company} hideHeader />
-    </div>
+    <>
+      <div className="an-kpi-grid">
+        <KpiBig icon={MessageSquare} color="#2563EB" bg="#EFF6FF"
+          value={fmtNum(conversasTotais)} label="Conversas no período"
+          sub={period === '24h' ? '24h' : period === '7d' ? '7 dias' : '30 dias'} />
+        <KpiBig icon={Clock} color="#7C3AED" bg="#F5F3FF"
+          value={fmtMs(tmr)} label="TMR mediano (humano)" sub="até 1ª resposta" />
+        <KpiBig icon={CheckCircle2} color="#16A34A" bg="#F0FDF4"
+          value={`${taxaResolucao}%`} label="Taxa de resolução"
+          sub={`${data.convs.filter(c => c.reason === 'resolvido').length} resolvidas`} />
+        <KpiBig icon={Headset} color="#0891B2" bg="#ECFEFF"
+          value={fmtNum(data.users.filter(u => u.active).length)}
+          label="Atendentes ativos" sub={`de ${data.users.length} total`} />
+      </div>
+
+      <div className="an-card">
+        <div className="an-card-head"><BarChart3 size={14} /> Volume de conversas por dia <span className="an-card-sub">contatos únicos · {timeline.length} dias</span></div>
+        <div className="an-trend">
+          {timeline.length === 0
+            ? <Empty msg="Sem mensagens no período." />
+            : timeline.map(d => {
+                const h = Math.max(4, (d.count / maxTimeline) * 100)
+                return (
+                  <div key={d.day} className="an-trend-bar-wrap"
+                    title={`${new Date(d.day + 'T00:00:00').toLocaleDateString('pt-BR')} — ${d.count} conversas`}>
+                    <div className="an-trend-num">{d.count}</div>
+                    <div className="an-trend-bar-track">
+                      <div className="an-trend-bar" style={{ height: `${h}%`, background: '#2563EB' }} />
+                    </div>
+                    <div className="an-trend-day">
+                      {new Date(d.day + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                    </div>
+                  </div>
+                )
+              })
+          }
+        </div>
+      </div>
+
+      <div className="an-row-2">
+        <div className="an-card">
+          <div className="an-card-head"><TrendingUp size={14} /> Fontes de lead <span className="an-card-sub">{data.pacientes.length} contatos</span></div>
+          {fontesDeLead.length === 0
+            ? <Empty msg="Sem dados de origem." />
+            : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 0' }}>
+                {fontesDeLead.map(({ origem, count }, i) => {
+                  const pct = Math.round((count / totalFontes) * 100)
+                  const color = ORIGEM_COLORS[i % ORIGEM_COLORS.length]
+                  return (
+                    <div key={origem} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ minWidth: 130, fontSize: 12, fontWeight: 600, color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{origem}</div>
+                      <div style={{ flex: 1, height: 6, background: '#F1F5F9', borderRadius: 9999, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 9999 }} />
+                      </div>
+                      <div style={{ minWidth: 34, fontSize: 11, color: '#64748B', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{count}</div>
+                      <div style={{ minWidth: 38, fontSize: 11, color, fontWeight: 700, textAlign: 'right' }}>{pct}%</div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          }
+        </div>
+
+        <div className="an-card">
+          <div className="an-card-head"><Flag size={14} /> Motivo de encerramento <span className="an-card-sub">{data.convs.length} conversas</span></div>
+          {classificacao.length === 0
+            ? <Empty msg="Sem conversas encerradas." />
+            : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 0' }}>
+                {classificacao.map(({ reason, count, label, color }) => {
+                  const pct = Math.round((count / totalConvs) * 100)
+                  return (
+                    <div key={reason} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ minWidth: 130, fontSize: 12, fontWeight: 600, color: '#1E293B' }}>{label}</div>
+                      <div style={{ flex: 1, height: 6, background: '#F1F5F9', borderRadius: 9999, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 9999 }} />
+                      </div>
+                      <div style={{ minWidth: 34, fontSize: 11, color: '#64748B', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{count}</div>
+                      <div style={{ minWidth: 38, fontSize: 11, color, fontWeight: 700, textAlign: 'right' }}>{pct}%</div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          }
+        </div>
+      </div>
+
+      <div className="an-card">
+        <div className="an-card-head"><Headset size={14} /> Conversas por atendente</div>
+        {convsPorAtendente.length === 0
+          ? <Empty msg="Sem dados de atendimentos." />
+          : (
+            <div className="an-rank">
+              {convsPorAtendente.map((att, i) => {
+                const maxCount = convsPorAtendente[0]?.count || 1
+                const pct = Math.round((att.count / maxCount) * 100)
+                return (
+                  <div key={att.userId} className="an-rank-row">
+                    <div className="an-rank-num">{i + 1}</div>
+                    <div className="an-rank-info" style={{ flex: 1 }}>
+                      <div className="an-rank-name">{att.name}</div>
+                      <div style={{ marginTop: 4, height: 4, background: '#F1F5F9', borderRadius: 9999, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: '#2563EB', borderRadius: 9999 }} />
+                      </div>
+                    </div>
+                    <div className="an-rank-stats">
+                      <div className="an-rank-count" style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtNum(att.count)} atend.</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        }
+      </div>
+    </>
   )
 }
 
