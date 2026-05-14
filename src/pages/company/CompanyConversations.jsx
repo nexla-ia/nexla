@@ -1002,8 +1002,9 @@ export default function CompanyConversations() {
   ]
 
   const currentList = tab === 'recepcao' ? recepcao : tab === 'meu-setor' ? meuSetor : finalizados
+  const cleanSearch = search.replace(/\D/g, '')
   const filtered = currentList.filter(c => {
-    if (!c.phone.includes(search)) return false
+    if (cleanSearch && !c.phone.replace(/\D/g, '').includes(cleanSearch)) return false
     if (tagFilter) {
       const cleanNum = c.phone.replace(/\D/g, '')
       const saved = savedContacts[cleanNum]
