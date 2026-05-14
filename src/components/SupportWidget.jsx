@@ -87,7 +87,7 @@ export default function SupportWidget({ session, open, onClose, onUnreadChange }
   return (
     <>
       {open && createPortal(
-        <div className="sw-overlay" onClick={onClose}
+        <div className="sw-overlay" onClick={onClose}>
           <div className="sw-panel" onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="sw-header">
