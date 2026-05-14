@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { useContactTags } from '../../hooks/useContactTags'
-import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft, ChevronLeft, Plus } from 'lucide-react'
+import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft, ChevronLeft, Plus, Pencil } from 'lucide-react'
 import './Company.css'
 
 const CONV_TABLE = 'mensagens_geral'
@@ -178,6 +178,9 @@ export default function CompanyConversations() {
   const [contextMenu, setContextMenu] = useState(null) // { x, y, contact }
   const [saveContactModal, setSaveContactModal] = useState(null) // { numero, nome, notes }
   const [savingContact, setSavingContact] = useState(false)
+  const [editingMsgId, setEditingMsgId]   = useState(null)
+  const [editingText, setEditingText]     = useState('')
+  const [savingEdit, setSavingEdit]       = useState(false)
   const mediaRecorderRef = useRef(null)
   const audioChunksRef   = useRef([])
   const recordTimerRef   = useRef(null)
@@ -498,6 +501,7 @@ export default function CompanyConversations() {
           if (selectedRef.current?.session_id === sid) {
             setMessages(msgs => [...msgs, {
               id: row.id,
+              id_mensagem: row.id_mensagem || null,
               type: getMessageType(row),
               content: getMessageContent(row),
               base64: row.base64 || null,
@@ -540,6 +544,7 @@ export default function CompanyConversations() {
         if (!error && data) {
           setMessages(data.filter(r => !isToolMessage(r)).map(r => ({
             id: r.id,
+            id_mensagem: r.id_mensagem || null,
             type: getMessageType(r),
             content: getMessageContent(r),
             base64: r.base64 || null,
@@ -553,6 +558,12 @@ export default function CompanyConversations() {
   useEffect(() => {
     if (!loadingMsgs) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loadingMsgs])
+
+  useEffect(() => {
+    if (editingMsgId) {
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+    }
+  }, [editingMsgId])
 
   async function handleAssume(contact, e) {
     e?.stopPropagation()
@@ -869,9 +880,76 @@ export default function CompanyConversations() {
           sender_name: session?.user?.name,
           sender_email: session?.user?.email,
         }),
-      }).catch(e => console.warn('webhook envio:', e))
+      })
+        .then(r => r.text())
+        .then(async text => {
+          const [instResp, msgResp, msgId] = text.trim().split('\n').map(l => l.trim())
+          if (!msgId || !instResp || !msgResp) return
+          const { data: row } = await supabase
+            .from('mensagens_geral')
+            .select('id')
+            .eq('instancia', instResp)
+            .eq('numero', selected.session_id)
+            .eq('mensagem', msgResp)
+            .eq('type', 'atendente')
+            .order('id', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (row?.id) {
+            supabase.from('mensagens_geral')
+              .update({ id_mensagem: msgId })
+              .eq('id', row.id)
+              .then(() => {
+                setMessages(prev => prev.map(m => m.id === row.id ? { ...m, id_mensagem: msgId } : m))
+              })
+          }
+        })
+        .catch(e => console.warn('webhook envio:', e))
     } finally {
       setSending(false)
+    }
+  }
+
+  async function handleSaveEdit(msg) {
+    const newText = editingText.trim()
+    if (!newText || savingEdit) return
+    setSavingEdit(true)
+    try {
+      const { data: fresh } = await supabase
+        .from('mensagens_geral')
+        .select('id_mensagem')
+        .eq('id', msg.id)
+        .maybeSingle()
+      const id_mensagem = fresh?.id_mensagem || msg.id_mensagem
+
+      const res = await fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexlaeditar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: msg.id,
+          id_mensagem,
+          message: newText,
+          session_id: selected?.session_id,
+          phone: selected?.phone,
+          instancia: instance,
+          api_instancia: apiInstancia,
+          ai_enabled: session?.company?.ai_enabled !== false,
+          company: session?.company?.name,
+          sender_name: session?.user?.name,
+          sender_email: session?.user?.email,
+        }),
+      })
+      if (!res.ok) throw new Error('status ' + res.status)
+      setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, content: newText } : m))
+      setEditingMsgId(null)
+      setEditingText('')
+      setToast({ message: 'Mensagem editada', color: '#16A34A' })
+      setTimeout(() => setToast(null), 2500)
+    } catch (e) {
+      setToast({ message: 'Erro ao editar: ' + e.message, color: '#DC2626' })
+      setTimeout(() => setToast(null), 3500)
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -1527,18 +1605,79 @@ export default function CompanyConversations() {
                                 borderRadius: 6, padding: '2px 8px', marginBottom: 6,
                               }}>🖼️ Imagem enviada</div>
                             )}
-                            {displayContent && (
+                            {isAtendente && editingMsgId === msg.id ? (
+                              <div>
+                                <textarea
+                                  autoFocus
+                                  value={editingText}
+                                  onChange={e => setEditingText(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSaveEdit(msg) }
+                                    if (e.key === 'Escape') { setEditingMsgId(null); setEditingText('') }
+                                  }}
+                                  style={{
+                                    width: '100%', minHeight: 44, maxHeight: 120, boxSizing: 'border-box',
+                                    background: 'rgba(255,255,255,0.15)',
+                                    border: '1.5px solid rgba(255,255,255,0.45)',
+                                    borderRadius: 8, padding: '8px 10px',
+                                    color: '#fff', fontSize: 13.5,
+                                    lineHeight: 1.5, resize: 'none',
+                                    fontFamily: 'inherit', outline: 'none',
+                                  }}
+                                />
+                                <div style={{ display: 'flex', gap: 6, marginTop: 7, justifyContent: 'flex-end' }}>
+                                  <button
+                                    onClick={() => { setEditingMsgId(null); setEditingText('') }}
+                                    style={{
+                                      fontSize: 11, fontWeight: 600, padding: '4px 11px',
+                                      borderRadius: 6, border: '1px solid rgba(255,255,255,0.3)',
+                                      background: 'transparent', color: 'rgba(255,255,255,0.8)', cursor: 'pointer',
+                                    }}
+                                  >Cancelar</button>
+                                  <button
+                                    onClick={() => handleSaveEdit(msg)}
+                                    disabled={savingEdit}
+                                    style={{
+                                      fontSize: 11, fontWeight: 700, padding: '4px 13px',
+                                      borderRadius: 6, border: 'none',
+                                      background: 'rgba(255,255,255,0.92)', color: '#16A34A',
+                                      cursor: savingEdit ? 'default' : 'pointer',
+                                      opacity: savingEdit ? 0.65 : 1,
+                                    }}
+                                  >{savingEdit ? 'Salvando...' : 'Salvar'}</button>
+                                </div>
+                              </div>
+                            ) : displayContent ? (
                               <span style={{ whiteSpace: 'pre-wrap' }}>{displayContent}</span>
-                            )}
+                            ) : null}
                           </div>
                         )
                       })()}
                     </div>
-                    {msg.ts && (
-                      <div className="msg-time" style={{ textAlign: isLeft ? 'left' : 'right' }}>
-                        {formatMsgTime(msg.ts, companyTz)}
-                      </div>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: isLeft ? 'flex-start' : 'flex-end', gap: 5 }}>
+                      {isAtendente && !msg.base64 && editingMsgId !== msg.id && (
+                        <button
+                          onClick={() => { setEditingMsgId(msg.id); setEditingText(msg.content || '') }}
+                          title="Editar mensagem"
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            width: 18, height: 18, borderRadius: 4, border: 'none',
+                            background: 'transparent', cursor: 'pointer',
+                            color: 'var(--text-muted)', opacity: 0.55, padding: 0,
+                            transition: 'opacity 0.15s',
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                          onMouseLeave={e => e.currentTarget.style.opacity = '0.55'}
+                        >
+                          <Pencil size={10} />
+                        </button>
+                      )}
+                      {msg.ts && (
+                        <div className="msg-time" style={{ textAlign: isLeft ? 'left' : 'right' }}>
+                          {formatMsgTime(msg.ts, companyTz)}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )
               })}
