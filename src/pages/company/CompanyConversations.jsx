@@ -376,7 +376,7 @@ export default function CompanyConversations() {
   useEffect(() => {
     if (!instance) return
     setLoadingContacts(true)
-    supabase.from(CONV_TABLE).select('*')
+    supabase.from(CONV_TABLE).select('numero, type, created_at, horaLastMessage, aplicativo')
       .eq('instancia', instance)
       .or('aplicativo.eq.whatsapp,aplicativo.is.null')
       .order('id', { ascending: false })
