@@ -127,9 +127,8 @@ export default function CompanyConversations() {
   const aiEnabled = session?.company?.ai_enabled !== false
   const companyTz = session?.company?.timezone || 'America/Sao_Paulo'
 
-  async function checkSession() {
-    const { data: { session: live } } = await supabase.auth.getSession()
-    if (live) return true
+  function checkSession() {
+    if (session) return true
     setToast({ message: 'Sessão expirada. Recarregue a página.', color: '#DC2626' })
     setTimeout(() => setToast(null), 5000)
     return false
@@ -572,7 +571,7 @@ export default function CompanyConversations() {
     if (attendancesMap[contact.session_id] || assuming === contact.session_id) return
     setAssuming(contact.session_id)
 
-    if (!await checkSession()) { setAssuming(null); return }
+    if (!checkSession()) { setAssuming(null); return }
 
     const name = session?.user?.name || 'Atendente'
     const sectorLabel = userSector ? ` (${userSector.name})` : ''
@@ -800,7 +799,7 @@ export default function CompanyConversations() {
 
   async function handleSend() {
     if (sending || !selected) return
-    if (!await checkSession()) return
+    if (!checkSession()) return
     if (!canRespond(selected)) {
       const att = attendancesMap[selected.session_id]
       setToast({
@@ -968,7 +967,7 @@ export default function CompanyConversations() {
 
   async function handleClose() {
     if (!reason || !closeModal) return
-    if (!await checkSession()) return
+    if (!checkSession()) return
     setClosing(true)
     const { error } = await supabase.from('conversations').insert({
       session_id: closeModal.session_id,
