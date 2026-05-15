@@ -158,6 +158,8 @@ export default function CompanyConversations() {
   const [tab, setTab]                 = useState('recepcao')
   const [loadingContacts, setLoadingContacts] = useState(false)
   const [search, setSearch]           = useState('')
+  const [msgMatchNums, setMsgMatchNums] = useState(null) // Set<string> | null
+  const searchDebounce = useRef(null)
   const [selected, setSelected]       = useState(null)
   const [messages, setMessages]       = useState([])
   const [loadingMsgs, setLoadingMsgs] = useState(false)
@@ -989,6 +991,24 @@ export default function CompanyConversations() {
     setTimeout(() => setToast(null), 3500)
   }
 
+  // Busca por conteúdo de mensagem (com debounce de 400ms)
+  const hasLetters = /[a-zA-ZÀ-ú]/.test(search)
+  useEffect(() => {
+    if (!instance) return
+    if (!hasLetters) { setMsgMatchNums(null); return }
+    clearTimeout(searchDebounce.current)
+    searchDebounce.current = setTimeout(async () => {
+      const { data } = await supabase
+        .from('mensagens_geral')
+        .select('numero')
+        .eq('instancia', instance)
+        .ilike('mensagem', `%${search}%`)
+      const nums = new Set((data || []).map(r => r.numero.replace(/\D/g, '')))
+      setMsgMatchNums(nums)
+    }, 400)
+    return () => clearTimeout(searchDebounce.current)
+  }, [search, instance, hasLetters])
+
   const closed = new Set(Object.keys(closedMap))
   const recepcao    = contacts.filter(c => !closed.has(c.session_id) && !attendancesMap[c.session_id])
   const meuSetor    = contacts.filter(c => !closed.has(c.session_id) && attendancesMap[c.session_id] &&
@@ -1004,7 +1024,12 @@ export default function CompanyConversations() {
   const currentList = tab === 'recepcao' ? recepcao : tab === 'meu-setor' ? meuSetor : finalizados
   const cleanSearch = search.replace(/\D/g, '')
   const filtered = currentList.filter(c => {
-    if (cleanSearch && !c.phone.replace(/\D/g, '').includes(cleanSearch)) return false
+    if (hasLetters) {
+      if (!msgMatchNums) return false // ainda carregando
+      if (!msgMatchNums.has(c.phone.replace(/\D/g, ''))) return false
+    } else if (cleanSearch) {
+      if (!c.phone.replace(/\D/g, '').includes(cleanSearch)) return false
+    }
     if (tagFilter) {
       const cleanNum = c.phone.replace(/\D/g, '')
       const saved = savedContacts[cleanNum]
@@ -1054,7 +1079,7 @@ export default function CompanyConversations() {
         <div className="contacts-list-header" style={{ paddingTop: 10 }}>
           <input
             className="contacts-search"
-            placeholder="Buscar por telefone..."
+            placeholder="Buscar por telefone ou mensagem..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
