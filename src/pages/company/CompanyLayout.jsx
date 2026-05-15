@@ -43,11 +43,13 @@ export default function CompanyLayout() {
 
     async function refresh() {
       const [{ data: msgs }, { data: closed }] = await Promise.all([
-        supabase.from('mensagens_geral').select('numero').eq('instancia', instance),
+        supabase.from('mensagens_geral').select('numero')
+          .eq('instancia', instance)
+          .or('aplicativo.eq.whatsapp,aplicativo.is.null'),
         supabase.from('conversations').select('session_id').eq('instancia', instance),
       ])
       const closedSet = new Set((closed || []).map(r => r.session_id))
-      const unique = new Set((msgs || []).map(r => r.numero))
+      const unique = new Set((msgs || []).map(r => r.numero).filter(n => !n?.includes('@g.us')))
       setActiveCount([...unique].filter(s => !closedSet.has(s)).length)
     }
     refresh()
