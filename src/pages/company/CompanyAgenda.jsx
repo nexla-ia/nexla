@@ -386,7 +386,14 @@ export default function CompanyAgenda() {
     }
 
     setSavingAppt(true)
-    const numero = apptModal.contact_numero?.replace(/\D/g, '') || null
+    const rawNum = apptModal.contact_numero?.replace(/\D/g, '') || ''
+    // Normaliza para 55DDDnúmero sem o 9 extra (13 dígitos → 12)
+    let numero = rawNum
+    if (numero) {
+      if (!numero.startsWith('55')) numero = '55' + numero
+      if (numero.length === 13) numero = numero.slice(0, 4) + numero.slice(5)
+    }
+    numero = numero || null
     const payload = {
       agenda_id: apptModal.agenda_id,
       instancia: instance,
