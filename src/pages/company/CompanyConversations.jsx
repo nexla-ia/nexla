@@ -1399,9 +1399,9 @@ export default function CompanyConversations() {
                       {hasContact ? <UserCheck size={14} /> : <UserPlus size={14} />}
                       {hasContact ? `Editar ${saved.nome}` : 'Salvar contato'}
                     </button>
-                    {saved && (() => {
-                      const patTags = tagsByContact[saved.id] || []
-                      const unassigned = tags.filter(t => !patTags.some(pt => pt.id === t.id))
+                    {(() => {
+                      const patTags = saved ? (tagsByContact[saved.id] || []) : []
+                      const unassigned = saved ? tags.filter(t => !patTags.some(pt => pt.id === t.id)) : []
                       return (
                         <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
                           <button
@@ -1418,28 +1418,36 @@ export default function CompanyConversations() {
                           </button>
                           {headerTagOpen && (
                             <div style={{
-                              position: 'absolute', top: '100%', right: 0, zIndex: 400, minWidth: 170,
+                              position: 'absolute', top: '100%', right: 0, zIndex: 400, minWidth: 180,
                               background: '#fff', border: '1px solid var(--border)',
                               borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', padding: 6,
                             }}>
-                              {patTags.map(t => (
-                                <button key={t.id} onClick={() => removeTag(saved.id, t.id)}
-                                  style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '5px 8px', border: 'none', background: 'none', cursor: 'pointer', borderRadius: 6, fontSize: 12, color: '#374151' }}>
-                                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.color, flexShrink: 0 }} />
-                                  {t.name}
-                                  <X size={10} style={{ marginLeft: 'auto', color: '#9CA3AF' }} />
-                                </button>
-                              ))}
-                              {unassigned.map(t => (
-                                <button key={t.id} onClick={() => { addTag(saved.id, t.id); setHeaderTagOpen(false) }}
-                                  style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '5px 8px', border: 'none', background: 'none', cursor: 'pointer', borderRadius: 6, fontSize: 12, color: '#374151' }}>
-                                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.color, flexShrink: 0 }} />
-                                  {t.name}
-                                  <Plus size={10} style={{ marginLeft: 'auto', color: '#9CA3AF' }} />
-                                </button>
-                              ))}
-                              {tags.length === 0 && (
-                                <p style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 8px', margin: 0 }}>Nenhuma etiqueta criada</p>
+                              {!saved ? (
+                                <p style={{ fontSize: 11, color: 'var(--text-muted)', padding: '6px 8px', margin: 0 }}>
+                                  Salve o contato primeiro para adicionar etiquetas
+                                </p>
+                              ) : (
+                                <>
+                                  {patTags.map(t => (
+                                    <button key={t.id} onClick={() => removeTag(saved.id, t.id)}
+                                      style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '5px 8px', border: 'none', background: 'none', cursor: 'pointer', borderRadius: 6, fontSize: 12, color: '#374151' }}>
+                                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.color, flexShrink: 0 }} />
+                                      {t.name}
+                                      <X size={10} style={{ marginLeft: 'auto', color: '#9CA3AF' }} />
+                                    </button>
+                                  ))}
+                                  {unassigned.map(t => (
+                                    <button key={t.id} onClick={() => { addTag(saved.id, t.id); setHeaderTagOpen(false) }}
+                                      style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '5px 8px', border: 'none', background: 'none', cursor: 'pointer', borderRadius: 6, fontSize: 12, color: '#374151' }}>
+                                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.color, flexShrink: 0 }} />
+                                      {t.name}
+                                      <Plus size={10} style={{ marginLeft: 'auto', color: '#9CA3AF' }} />
+                                    </button>
+                                  ))}
+                                  {tags.length === 0 && (
+                                    <p style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 8px', margin: 0 }}>Nenhuma etiqueta criada</p>
+                                  )}
+                                </>
                               )}
                             </div>
                           )}
