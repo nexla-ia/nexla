@@ -371,6 +371,12 @@ export default function CompanyConversations() {
     return () => supabase.removeChannel(ch)
   }, [instance])
 
+  // Garante que mensagens_geral está no Realtime (idempotente)
+  useEffect(() => {
+    if (!instance) return
+    supabase.rpc('ensure_table_setup', { p_table: CONV_TABLE })
+  }, [instance])
+
   // Carrega todos os contatos únicos da mensagens_geral (apenas WhatsApp)
   useEffect(() => {
     if (!instance) return
@@ -464,54 +470,60 @@ export default function CompanyConversations() {
   // Realtime: nova mensagem
   useEffect(() => {
     if (!instance) return
-    const ch = supabase.channel(`convs-msgs-${instance}`)
+
+    function handleNewMsg(p) {
+      const row = p.new
+      if (!row || isToolMessage(row)) return
+      if (row.aplicativo && row.aplicativo !== 'whatsapp') return
+      const sid = row.numero
+      if (!sid || sid.includes('@g.us')) return
+      const ts = getTimestamp(row)
+
+      setClosedMap(prev => {
+        if (!prev[sid]) return prev
+        supabase.from('conversations').delete().eq('session_id', sid).eq('instancia', instance)
+        supabase.from('attendances').delete().eq('numero', sid).eq('instancia', instance)
+        setAttendancesMap(at => { const n = { ...at }; delete n[sid]; return n })
+        const next = { ...prev }; delete next[sid]; return next
+      })
+
+      setContacts(prev => {
+        const exists = prev.find(c => c.session_id === sid)
+        const incomingType = (row.type || '').toLowerCase()
+        const isOutsideHuman = incomingType === 'atendente' || incomingType === 'humano'
+        if (exists) {
+          return [
+            { ...exists, lastTs: ts, outsideAssumed: exists.outsideAssumed || isOutsideHuman },
+            ...prev.filter(c => c.session_id !== sid)
+          ]
+        }
+        return [{ session_id: sid, phone: formatPhone(sid), lastTs: ts, outsideAssumed: isOutsideHuman }, ...prev]
+      })
+
+      if (selectedRef.current?.session_id === sid) {
+        setMessages(msgs => {
+          if (msgs.some(m => m.id === row.id)) return msgs
+          return [...msgs, {
+            id: row.id,
+            id_mensagem: row.id_mensagem || null,
+            type: getMessageType(row),
+            content: getMessageContent(row),
+            base64: row.base64 || null,
+            ts,
+          }]
+        })
+      }
+    }
+
+    const ch = supabase.channel(`convs-msgs-${instance}`, { config: { broadcast: { ack: true } } })
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: CONV_TABLE, filter: `instancia=eq.${instance}` },
-        (p) => {
-          const row = p.new
-          if (!row || isToolMessage(row)) return
-          // Ignora mensagens que não são do WhatsApp (Instagram tem tela separada)
-          if (row.aplicativo && row.aplicativo !== 'whatsapp') return
-          const sid = row.numero
-          if (!sid || sid.includes('@g.us')) return
-          const ts = getTimestamp(row)
-
-          // Reabre ticket encerrado: remove do closed e limpa attendance
-          setClosedMap(prev => {
-            if (!prev[sid]) return prev
-            supabase.from('conversations').delete().eq('session_id', sid).eq('instancia', instance)
-            supabase.from('attendances').delete().eq('numero', sid).eq('instancia', instance)
-            setAttendancesMap(at => { const n = { ...at }; delete n[sid]; return n })
-            const next = { ...prev }; delete next[sid]; return next
-          })
-
-          setContacts(prev => {
-            const exists = prev.find(c => c.session_id === sid)
-            const incomingType = (row.type || '').toLowerCase()
-            const isOutsideHuman = incomingType === 'atendente' || incomingType === 'humano'
-            if (exists) {
-              return [
-                { ...exists, lastTs: ts, outsideAssumed: exists.outsideAssumed || isOutsideHuman },
-                ...prev.filter(c => c.session_id !== sid)
-              ]
-            }
-            return [{ session_id: sid, phone: formatPhone(sid), lastTs: ts, outsideAssumed: isOutsideHuman }, ...prev]
-          })
-
-
-          if (selectedRef.current?.session_id === sid) {
-            setMessages(msgs => [...msgs, {
-              id: row.id,
-              id_mensagem: row.id_mensagem || null,
-              type: getMessageType(row),
-              content: getMessageContent(row),
-              base64: row.base64 || null,
-              ts,
-            }])
-          }
+        handleNewMsg)
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          supabase.removeChannel(ch)
         }
-      )
-      .subscribe()
+      })
     return () => supabase.removeChannel(ch)
   }, [instance])
 
@@ -559,6 +571,34 @@ export default function CompanyConversations() {
   useEffect(() => {
     if (!loadingMsgs) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loadingMsgs])
+
+  // Fallback: recarrega mensagens a cada 30s para cobrir falhas de Realtime
+  useEffect(() => {
+    if (!selected || !instance) return
+    const interval = setInterval(() => {
+      supabase.from(CONV_TABLE).select('id, id_mensagem, type, mensagem, base64, created_at, horaLastMessage, aplicativo')
+        .eq('instancia', instance)
+        .eq('numero', selected.session_id)
+        .or('aplicativo.eq.whatsapp,aplicativo.is.null')
+        .order('id', { ascending: true })
+        .then(({ data }) => {
+          if (!data) return
+          const fresh = data.filter(r => !isToolMessage(r))
+          setMessages(prev => {
+            if (fresh.length <= prev.length) return prev
+            return fresh.map(r => ({
+              id: r.id,
+              id_mensagem: r.id_mensagem || null,
+              type: getMessageType(r),
+              content: getMessageContent(r),
+              base64: r.base64 || null,
+              ts: getTimestamp(r),
+            }))
+          })
+        })
+    }, 30_000)
+    return () => clearInterval(interval)
+  }, [selected, instance])
 
   useEffect(() => {
     if (editingMsgId) {
