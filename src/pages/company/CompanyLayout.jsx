@@ -110,10 +110,10 @@ export default function CompanyLayout() {
     { label: 'Suporte', icon: Headset, onClick: () => setSupportOpen(true),
       badge: supportUnread > 0 ? supportUnread : null, badgeColor: 'amber',
       active: supportOpen },
+    { to: '/painel/catalogo', icon: Stethoscope, label: 'Catálogo Clínico' },
     ...(isAdmin ? [
-      { to: '/painel/metricas', icon: BarChart2,    label: 'Métricas' },
-      { to: '/painel/catalogo', icon: Stethoscope,  label: 'Catálogo Clínico' },
-      { to: '/painel/admin',    icon: Settings2,    label: 'Configuração' },
+      { to: '/painel/metricas', icon: BarChart2, label: 'Métricas' },
+      { to: '/painel/admin',    icon: Settings2, label: 'Configuração' },
     ] : []),
   ]
 
