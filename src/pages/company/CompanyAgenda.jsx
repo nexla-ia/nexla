@@ -9,7 +9,7 @@ import { getEffectiveLimits, reachedLimit, upgradeMessage, formatLimit } from '.
 import {
   Calendar, Plus, X, Pencil, Trash2, ChevronLeft, ChevronRight,
   Clock, User as UserIcon, Phone, ListChecks, CheckCircle2, XCircle, AlertCircle, Settings,
-  MessageSquare, History, Lock
+  MessageSquare, History, Lock, Bell, BellOff
 } from 'lucide-react'
 import './Company.css'
 
@@ -601,6 +601,13 @@ export default function CompanyAgenda() {
     if (error) setAppointments(prev)
   }
 
+  async function toggleAgendaNotification(key) {
+    if (!selectedAgenda) return
+    const newVal = selectedAgenda[key] === false ? true : !selectedAgenda[key]
+    setAgendas(prev => prev.map(a => a.id === selectedAgenda.id ? { ...a, [key]: newVal } : a))
+    await supabase.from('agendas').update({ [key]: newVal }).eq('id', selectedAgenda.id)
+  }
+
   return (
     <div style={{ padding: '1.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
@@ -715,11 +722,51 @@ export default function CompanyAgenda() {
           ) : (
             <div className="nx-card" style={{ padding: 0, overflow: 'hidden' }}>
               {/* Toolbar */}
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <select className="nx-select" style={{ fontSize: 13 }}
                   value={selectedAgendaId || ''} onChange={e => setSelectedAgendaId(e.target.value)}>
                   {agendas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
+
+                {/* Toggles de notificação WhatsApp */}
+                {selectedAgenda && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: 2 }}>
+                      Notif.
+                    </span>
+                    {[
+                      { key: 'notify_created',   label: 'Criar' },
+                      { key: 'notify_confirmed', label: 'Confirmar' },
+                      { key: 'notify_cancelled', label: 'Cancelar' },
+                      { key: 'notify_updated',   label: 'Atualizar' },
+                    ].map(({ key, label }) => {
+                      const active = selectedAgenda[key] !== false && selectedAgenda[key] !== undefined
+                        ? selectedAgenda[key] !== false
+                        : key !== 'notify_updated'
+                      const color = selectedAgenda.color || '#16A34A'
+                      return (
+                        <button key={key}
+                          onClick={() => toggleAgendaNotification(key)}
+                          title={`${active ? 'Desativar' : 'Ativar'} aviso de ${label.toLowerCase()}`}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 3,
+                            padding: '3px 8px', borderRadius: 20,
+                            border: `1.5px solid ${active ? color : 'var(--border)'}`,
+                            background: active ? color + '18' : 'transparent',
+                            color: active ? color : 'var(--text-muted)',
+                            fontSize: 10, fontWeight: 700,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s',
+                            lineHeight: 1,
+                          }}>
+                          {active ? <Bell size={9} /> : <BellOff size={9} />}
+                          {label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
                   <button className="nx-btn-ghost" style={{ padding: '6px 10px' }} onClick={() => setWeekStart(addDays(weekStart, -7))}>
                     <ChevronLeft size={14} />
