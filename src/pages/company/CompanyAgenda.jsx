@@ -720,6 +720,63 @@ export default function CompanyAgenda() {
               <button className="nx-btn-primary" onClick={() => setTab('agendas')} style={{ marginTop: 8 }}>Ir para Agendas</button>
             </div>
           ) : (
+            <>
+            {/* Card de notificações WhatsApp */}
+            {selectedAgenda && (
+              <div style={{
+                marginBottom: 12,
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                padding: '14px 18px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 8, flexShrink: 0, marginTop: 1,
+                    background: selectedAgenda.color + '18',
+                    border: `1px solid ${selectedAgenda.color}33`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <Bell size={15} style={{ color: selectedAgenda.color }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>
+                      Notificações WhatsApp — {selectedAgenda.name}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.5 }}>
+                      Escolha em quais momentos o paciente recebe um aviso automático via WhatsApp sobre o agendamento.
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                      {[
+                        { key: 'notify_created',   label: 'Criação do agendamento',   desc: 'Avisa ao criar' },
+                        { key: 'notify_confirmed', label: 'Confirmação',               desc: 'Avisa ao confirmar' },
+                        { key: 'notify_cancelled', label: 'Cancelamento',              desc: 'Avisa ao cancelar' },
+                        { key: 'notify_updated',   label: 'Atualização de status',     desc: 'Avisa em qualquer mudança' },
+                      ].map(({ key, label, desc }) => {
+                        const active = selectedAgenda[key] !== false && selectedAgenda[key] !== undefined
+                          ? selectedAgenda[key] !== false
+                          : key !== 'notify_updated'
+                        return (
+                          <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
+                            <input
+                              type="checkbox"
+                              checked={active}
+                              onChange={() => toggleAgendaNotification(key)}
+                              style={{ width: 15, height: 15, accentColor: selectedAgenda.color, cursor: 'pointer' }}
+                            />
+                            <div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>{label}</div>
+                              <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{desc}</div>
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="nx-card" style={{ padding: 0, overflow: 'hidden' }}>
               {/* Toolbar */}
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -727,45 +784,6 @@ export default function CompanyAgenda() {
                   value={selectedAgendaId || ''} onChange={e => setSelectedAgendaId(e.target.value)}>
                   {agendas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
-
-                {/* Toggles de notificação WhatsApp */}
-                {selectedAgenda && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: 2 }}>
-                      Notif.
-                    </span>
-                    {[
-                      { key: 'notify_created',   label: 'Criar' },
-                      { key: 'notify_confirmed', label: 'Confirmar' },
-                      { key: 'notify_cancelled', label: 'Cancelar' },
-                      { key: 'notify_updated',   label: 'Atualizar' },
-                    ].map(({ key, label }) => {
-                      const active = selectedAgenda[key] !== false && selectedAgenda[key] !== undefined
-                        ? selectedAgenda[key] !== false
-                        : key !== 'notify_updated'
-                      const color = selectedAgenda.color || '#16A34A'
-                      return (
-                        <button key={key}
-                          onClick={() => toggleAgendaNotification(key)}
-                          title={`${active ? 'Desativar' : 'Ativar'} aviso de ${label.toLowerCase()}`}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 3,
-                            padding: '3px 8px', borderRadius: 20,
-                            border: `1.5px solid ${active ? color : 'var(--border)'}`,
-                            background: active ? color + '18' : 'transparent',
-                            color: active ? color : 'var(--text-muted)',
-                            fontSize: 10, fontWeight: 700,
-                            cursor: 'pointer',
-                            transition: 'all 0.15s',
-                            lineHeight: 1,
-                          }}>
-                          {active ? <Bell size={9} /> : <BellOff size={9} />}
-                          {label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
                   <button className="nx-btn-ghost" style={{ padding: '6px 10px' }} onClick={() => setWeekStart(addDays(weekStart, -7))}>
@@ -891,6 +909,7 @@ export default function CompanyAgenda() {
                 </div>
               </div>
             </div>
+            </>
           )}
         </>
       )}
