@@ -77,6 +77,12 @@ function minutesToTime(min) {
 export default function CompanyAgenda() {
   const { session } = useAuth()
   const navigate = useNavigate()
+
+  function getUserName(email) {
+    if (!email) return ''
+    const u = (session?.company?.users || []).find(u => u.email === email)
+    return u?.name?.split(' ')[0] || email
+  }
   const [searchParams, setSearchParams] = useSearchParams()
   const instance = session?.company?.instance
   const apiInstancia = session?.company?.api_instancia
@@ -830,6 +836,11 @@ export default function CompanyAgenda() {
                                 <div style={{ fontSize: 9, fontWeight: 600, opacity: 0.85, marginTop: 1 }}>
                                   {hhmm} · {status.label}
                                 </div>
+                                {appt.created_by_email && (
+                                  <div style={{ fontSize: 8, opacity: 0.7, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    por {getUserName(appt.created_by_email)}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1187,6 +1198,17 @@ export default function CompanyAgenda() {
                   value={apptModal.notes || ''}
                   onChange={e => setApptModal(p => ({ ...p, notes: e.target.value }))} />
               </div>
+
+              {apptModal.id && apptModal.created_by_email && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: '#F8FAFC', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <UserIcon size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    Agendado por <strong style={{ color: 'var(--text-secondary)' }}>
+                      {(session?.company?.users || []).find(u => u.email === apptModal.created_by_email)?.name || apptModal.created_by_email}
+                    </strong>
+                  </span>
+                </div>
+              )}
 
               {apptModal.contact_numero && (
                 <div style={{
