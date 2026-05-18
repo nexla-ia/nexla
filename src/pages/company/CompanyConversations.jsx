@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { useContactTags } from '../../hooks/useContactTags'
-import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft, ChevronLeft, Plus, Pencil } from 'lucide-react'
+import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft, ChevronLeft, Plus, Pencil, Users } from 'lucide-react'
 import './Company.css'
 
 const CONV_TABLE = 'mensagens_geral'
@@ -423,7 +423,6 @@ export default function CompanyConversations() {
           for (const row of data) {
             const sid = row.numero
             if (!sid || seen.has(sid)) continue
-            if (sid.includes('@g.us')) continue  // ignora grupos do WhatsApp
             seen.add(sid)
             unique.push({
               session_id: sid,
@@ -431,6 +430,7 @@ export default function CompanyConversations() {
               lastTs: getTimestamp(row),
               outsideAssumed: hasOutsideHuman.has(sid),
               pushname: row.nome || null,
+              isGroup: sid.includes('@g.us'),
             })
           }
           setContacts(unique)
@@ -500,7 +500,7 @@ export default function CompanyConversations() {
       if (!row || isToolMessage(row)) return
       if (row.aplicativo && row.aplicativo !== 'whatsapp') return
       const sid = row.numero
-      if (!sid || sid.includes('@g.us')) return
+      if (!sid) return
       const ts = getTimestamp(row)
 
       setClosedMap(prev => {
@@ -521,7 +521,7 @@ export default function CompanyConversations() {
             ...prev.filter(c => c.session_id !== sid)
           ]
         }
-        return [{ session_id: sid, phone: formatPhone(sid), lastTs: ts, outsideAssumed: isOutsideHuman }, ...prev]
+        return [{ session_id: sid, phone: formatPhone(sid), lastTs: ts, outsideAssumed: isOutsideHuman, isGroup: sid.includes('@g.us') }, ...prev]
       })
 
       if (selectedRef.current?.session_id === sid) {
@@ -1205,19 +1205,24 @@ export default function CompanyConversations() {
                   setContextMenu({ x: e.clientX, y: e.clientY, contact: c })
                 }}
               >
-                <div className="contact-avatar" style={saved?.photo ? { background: 'transparent', overflow: 'hidden' } : {}}>
+                <div className="contact-avatar" style={saved?.photo ? { background: 'transparent', overflow: 'hidden' } : c.isGroup ? { background: '#EDE9FE' } : {}}>
                   {saved?.photo
                     ? <img src={saved.photo} alt={saved.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : getContactName(c) !== c.phone
-                      ? <span style={{ fontWeight: 700, fontSize: 12, color: '#2563EB' }}>{getContactName(c).charAt(0).toUpperCase()}</span>
-                      : <User size={14} style={{ opacity: 0.4 }} />}
+                    : c.isGroup
+                      ? <Users size={14} style={{ color: '#7C3AED' }} />
+                      : getContactName(c) !== c.phone
+                        ? <span style={{ fontWeight: 700, fontSize: 12, color: '#2563EB' }}>{getContactName(c).charAt(0).toUpperCase()}</span>
+                        : <User size={14} style={{ opacity: 0.4 }} />}
                 </div>
                 <div className="contact-info" style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                     <div className="contact-name" style={getContactName(c) !== c.phone ? { fontWeight: 600 } : {}}>
                       {getContactName(c)}
                     </div>
-                    {getContactName(c) !== c.phone && (
+                    {c.isGroup && (
+                      <span style={{ fontSize: 9, fontWeight: 700, color: '#7C3AED', background: '#EDE9FE', border: '1px solid #DDD6FE', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.04em' }}>GRUPO</span>
+                    )}
+                    {!c.isGroup && getContactName(c) !== c.phone && (
                       <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{c.phone}</span>
                     )}
                     {saved && (tagsByContact[saved.id] || []).map(t => (
