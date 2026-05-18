@@ -119,13 +119,20 @@ export default function CompanyConversations() {
   const { session } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const instance     = session?.company?.instance
-  const apiInstancia = session?.company?.api_instancia
+  const instance      = session?.company?.instance
+  const apiInstancia  = session?.company?.api_instancia
+  const contactsTable = session?.company?.contacts_table
 
   const isAdmin = session?.user?.role === 'admin'
   const userSector = session?.user?.sector // { id, name, color } or null
   const aiEnabled = session?.company?.ai_enabled !== false
   const companyTz = session?.company?.timezone || 'America/Sao_Paulo'
+
+  // Prioridade: saved_contacts > contacts_table (clientes) > pushname > telefone
+  function getContactName(contact) {
+    const num = contact.phone.replace(/\D/g, '')
+    return savedContacts[num]?.nome || clientesMap[num] || contact.pushname || contact.phone
+  }
 
   function checkSession() {
     if (session) return true
@@ -176,6 +183,7 @@ export default function CompanyConversations() {
   const [recordTime, setRecordTime]   = useState(0)
   const [attachedFile, setAttachedFile] = useState(null) // { base64, mime, name, size, kind: 'image'|'pdf'|'file' }
   const [savedContacts, setSavedContacts] = useState({}) // numero (só dígitos) → { id, nome, notes }
+  const [clientesMap, setClientesMap]     = useState({}) // numero (só dígitos) → nome
   const [futureAppts, setFutureAppts]     = useState({}) // numero (só dígitos) → { starts_at, status, agenda_name }
   const [contextMenu, setContextMenu] = useState(null) // { x, y, contact }
   const [saveContactModal, setSaveContactModal] = useState(null) // { numero, nome, notes }
@@ -271,6 +279,20 @@ export default function CompanyConversations() {
       .subscribe()
     return () => supabase.removeChannel(ch)
   }, [instance])
+
+  // Carrega nomes da tabela de clientes da empresa (contacts_table)
+  useEffect(() => {
+    if (!contactsTable) return
+    supabase.from(contactsTable).select('nome, numero')
+      .then(({ data }) => {
+        if (!data) return
+        const map = {}
+        data.forEach(r => {
+          if (r.numero) map[String(r.numero).replace(/\D/g, '')] = r.nome
+        })
+        setClientesMap(map)
+      })
+  }, [contactsTable])
 
   // Abre conversa via ?contact=xxxx (vindo da página Contatos)
   useEffect(() => {
@@ -382,7 +404,7 @@ export default function CompanyConversations() {
   useEffect(() => {
     if (!instance) return
     setLoadingContacts(true)
-    supabase.from(CONV_TABLE).select('numero, type, created_at, horaLastMessage, aplicativo')
+    supabase.from(CONV_TABLE).select('numero, type, created_at, horaLastMessage, aplicativo, nome')
       .eq('instancia', instance)
       .or('aplicativo.eq.whatsapp,aplicativo.is.null')
       .order('id', { ascending: false })
@@ -408,6 +430,7 @@ export default function CompanyConversations() {
               phone: formatPhone(sid),
               lastTs: getTimestamp(row),
               outsideAssumed: hasOutsideHuman.has(sid),
+              pushname: row.nome || null,
             })
           }
           setContacts(unique)
@@ -1185,16 +1208,16 @@ export default function CompanyConversations() {
                 <div className="contact-avatar" style={saved?.photo ? { background: 'transparent', overflow: 'hidden' } : {}}>
                   {saved?.photo
                     ? <img src={saved.photo} alt={saved.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : saved?.nome
-                      ? <span style={{ fontWeight: 700, fontSize: 12, color: '#2563EB' }}>{saved.nome.charAt(0).toUpperCase()}</span>
+                    : getContactName(c) !== c.phone
+                      ? <span style={{ fontWeight: 700, fontSize: 12, color: '#2563EB' }}>{getContactName(c).charAt(0).toUpperCase()}</span>
                       : <User size={14} style={{ opacity: 0.4 }} />}
                 </div>
                 <div className="contact-info" style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-                    <div className="contact-name" style={saved ? { fontWeight: 600 } : {}}>
-                      {saved ? saved.nome : c.phone}
+                    <div className="contact-name" style={getContactName(c) !== c.phone ? { fontWeight: 600 } : {}}>
+                      {getContactName(c)}
                     </div>
-                    {saved && (
+                    {getContactName(c) !== c.phone && (
                       <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{c.phone}</span>
                     )}
                     {saved && (tagsByContact[saved.id] || []).map(t => (
@@ -1294,8 +1317,8 @@ export default function CompanyConversations() {
                     >
                       {saved?.photo
                         ? <img src={saved.photo} alt={saved.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : saved?.nome
-                          ? <span style={{ fontWeight: 700, fontSize: 14, color: '#2563EB' }}>{saved.nome.charAt(0).toUpperCase()}</span>
+                        : getContactName(selected) !== selected.phone
+                          ? <span style={{ fontWeight: 700, fontSize: 14, color: '#2563EB' }}>{getContactName(selected).charAt(0).toUpperCase()}</span>
                           : <User size={14} style={{ opacity: 0.4 }} />}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -1303,10 +1326,10 @@ export default function CompanyConversations() {
                         style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-primary)', cursor: saved ? 'pointer' : 'default' }}
                         onClick={() => saved && navigate(`/painel/contatos/${saved.id}`)}
                       >
-                        {saved ? saved.nome : selected.phone}
+                        {getContactName(selected)}
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {saved && <span style={{ fontFamily: 'monospace' }}>{selected.phone}</span>}
+                        {getContactName(selected) !== selected.phone && <span style={{ fontFamily: 'monospace' }}>{selected.phone}</span>}
                         {!loadingMsgs && <span>{messages.length} mensagem(ns)</span>}
                       </div>
                       {saved && (() => {
