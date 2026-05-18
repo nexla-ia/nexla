@@ -43,6 +43,12 @@ function PrivateCompany({ children }) {
   return children
 }
 
+function PainelIndex() {
+  const { session } = useAuth()
+  const isAdmin = session?.user?.role === 'admin'
+  return <Navigate to={isAdmin ? '/painel/metricas' : '/painel/conversas'} replace />
+}
+
 function RootRedirect() {
   return <Landing />
 }
@@ -67,7 +73,7 @@ export default function App() {
           </Route>
 
           <Route path="/painel" element={<PrivateCompany><CompanyLayout /></PrivateCompany>}>
-            <Route index element={<Navigate to="/painel/conversas" replace />} />
+            <Route index element={<PainelIndex />} />
             <Route path="conversas" element={<CompanyConversations />} />
             <Route path="historico" element={<CompanyHistory />} />
             <Route path="contatos" element={<CompanyContacts />} />
