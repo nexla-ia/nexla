@@ -372,7 +372,7 @@ const MODULES = [
     color: '#475569',
     bg: '#E2E8F0',
     emoji: '⚙️',
-    title: 'Administração',
+    title: 'Configuração',
     subtitle: 'Conexão, equipe e setores',
     intro: 'Painel de configurações. Visível só para usuários com perfil Admin.',
     steps: [
@@ -390,7 +390,7 @@ const MODULES = [
       },
     ],
     tip: 'Operadores só veem conversas do setor deles + Recepção. Use isso para organizar grupos de atendimento sem confundir.',
-    cta: { label: 'Abrir Administração', to: '/painel/admin' },
+    cta: { label: 'Abrir Configuração', to: '/painel/admin' },
   },
 ]
 

@@ -113,7 +113,7 @@ export default function CompanyLayout() {
     ...(isAdmin ? [
       { to: '/painel/metricas', icon: BarChart2,    label: 'Métricas' },
       { to: '/painel/catalogo', icon: Stethoscope,  label: 'Catálogo Clínico' },
-      { to: '/painel/admin',    icon: Settings2,    label: 'Administração' },
+      { to: '/painel/admin',    icon: Settings2,    label: 'Configuração' },
     ] : []),
   ]
 

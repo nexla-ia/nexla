@@ -204,6 +204,10 @@ export default function CompanyAgenda() {
       start_time: '08:00', end_time: '18:00',
       slot_minutes: 30,
       professional_id: null,
+      notify_created: true,
+      notify_updated: false,
+      notify_cancelled: true,
+      notify_confirmed: true,
     })
     setAgendaErr('')
   }
@@ -228,6 +232,10 @@ export default function CompanyAgenda() {
       end_time: agendaModal.end_time,
       slot_minutes: agendaModal.slot_minutes,
       professional_id: agendaModal.professional_id || null,
+      notify_created: agendaModal.notify_created !== false,
+      notify_updated: agendaModal.notify_updated === true,
+      notify_cancelled: agendaModal.notify_cancelled !== false,
+      notify_confirmed: agendaModal.notify_confirmed !== false,
       instancia: instance,
     }
     const { data, error } = agendaModal.id
@@ -330,19 +338,6 @@ export default function CompanyAgenda() {
     const startsAt = new Date(`${apptModal.date}T${apptModal.time}:00`)
     const duration = parseInt(apptModal.duration_minutes) || 30
     const endsAt = new Date(startsAt.getTime() + duration * 60000)
-
-    // Conflito de slot na mesma agenda
-    const slotConflict = appointments.find(a => {
-      if (a.id === apptModal.id) return false
-      if (a.agenda_id !== apptModal.agenda_id) return false
-      if (a.status === 'cancelado') return false
-      return new Date(a.starts_at).getTime() === startsAt.getTime()
-    })
-    if (slotConflict) {
-      const t = new Date(slotConflict.starts_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-      setApptErr(`Horário já ocupado por ${slotConflict.contact_nome} às ${t} nesta agenda.`)
-      return
-    }
 
     // Validação: dia/horário do profissional
     if (apptModal.professional_id) {
@@ -479,24 +474,26 @@ export default function CompanyAgenda() {
           p_hora: new Date().toISOString(),
           p_base64: null,
         })
-        fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: aviso,
-            session_id: sessionId,
-            phone: numero,
-            instancia: instance,
-            api_instancia: apiInstancia,
-            company: session?.company?.name,
-            sender_name: session?.user?.name,
-            sender_email: session?.user?.email,
-          }),
-        }).catch(e => console.warn('webhook cancelamento:', e))
+        if (ag?.notify_cancelled !== false) {
+          fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: aviso,
+              session_id: sessionId,
+              phone: numero,
+              instancia: instance,
+              api_instancia: apiInstancia,
+              company: session?.company?.name,
+              sender_name: session?.user?.name,
+              sender_email: session?.user?.email,
+            }),
+          }).catch(e => console.warn('webhook cancelamento:', e))
+        }
       }
 
       // Criação: confirma agendamento via WhatsApp
-      if (isNew) {
+      if (isNew && ag?.notify_created !== false) {
         const criacaoMsg = `Olá ${payload.contact_nome.split(' ')[0]}, seu agendamento foi criado para ${dateStr}${ag ? ` — ${ag.name}` : ''}. Estamos aguardando você!`
         fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
           method: 'POST',
@@ -513,7 +510,7 @@ export default function CompanyAgenda() {
       }
 
       // Confirmação: avisa paciente via WhatsApp ao mudar status para confirmado
-      if (!isNew && prevStatus !== 'confirmado' && payload.status === 'confirmado') {
+      if (!isNew && prevStatus !== 'confirmado' && payload.status === 'confirmado' && ag?.notify_confirmed !== false) {
         const confirmMsg = `Olá ${payload.contact_nome.split(' ')[0]}, seu agendamento de ${dateStr} está confirmado! Estamos aguardando você.`
         fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
           method: 'POST',
@@ -559,10 +556,10 @@ export default function CompanyAgenda() {
     return arr
   }, [selectedAgenda])
 
-  function apptAt(day, hhmm) {
-    if (!selectedAgenda) return null
+  function apptsAt(day, hhmm) {
+    if (!selectedAgenda) return []
     const slotMs = new Date(`${fmtDateInput(day)}T${hhmm}:00`).getTime()
-    return appointments.find(a => {
+    return appointments.filter(a => {
       if (a.agenda_id !== selectedAgenda.id) return false
       return new Date(a.starts_at).getTime() === slotMs
     })
@@ -595,8 +592,6 @@ export default function CompanyAgenda() {
     if (!id) return
     const appt = appointments.find(a => a.id === id)
     if (!appt) return
-    const occupied = apptAt(day, hhmm)
-    if (occupied && occupied.id !== id) return
     const newStartsAt = new Date(`${fmtDateInput(day)}T${hhmm}:00`)
     if (new Date(appt.starts_at).getTime() === newStartsAt.getTime()) return
     const prev = appointments
@@ -774,20 +769,16 @@ export default function CompanyAgenda() {
                       </div>
                       {weekDays.map((d, i) => {
                         const working = isWorkingDay(d)
-                        const appt = working ? apptAt(d, hhmm) : null
-                        const status = appt ? STATUS_OPTIONS.find(s => s.value === appt.status) : null
+                        const appts = working ? apptsAt(d, hhmm) : []
                         const dateStr = fmtDateInput(d)
                         const isDragOver = dragOverSlot?.dateStr === dateStr && dragOverSlot?.hhmm === hhmm
-                        const isSource  = draggingId && appt?.id === draggingId
-                        const isBlocked = !!draggingId && appt && appt.id !== draggingId
-                        let cellBg = !working ? '#F9FAFB' : isDragOver ? '#DBEAFE' : 'transparent'
+                        const cellBg = !working ? '#F9FAFB' : isDragOver ? '#DBEAFE' : 'transparent'
                         return (
                           <div key={i}
-                            onClick={() => working && !draggingId && (appt ? openEditAppt(appt) : openNewAppt(d, hhmm))}
+                            onClick={() => working && !draggingId && openNewAppt(d, hhmm)}
                             onDragOver={e => {
                               if (!draggingId || !working) return
                               e.preventDefault()
-                              if (appt && appt.id !== draggingId) { e.dataTransfer.dropEffect = 'none'; return }
                               e.dataTransfer.dropEffect = 'move'
                               setDragOverSlot({ dateStr, hhmm })
                             }}
@@ -796,53 +787,55 @@ export default function CompanyAgenda() {
                             style={{
                               minHeight: 46, borderLeft: '1px solid var(--border)',
                               background: cellBg,
-                              cursor: draggingId ? (isBlocked ? 'not-allowed' : 'copy') : working ? 'pointer' : 'not-allowed',
+                              cursor: working ? 'pointer' : 'not-allowed',
                               padding: 3, position: 'relative',
+                              display: 'flex', flexDirection: 'column', gap: 2,
                               outline: isDragOver ? '2px dashed #2563EB' : 'none',
                               outlineOffset: -2,
                               transition: 'background 0.1s',
                             }}
-                            onMouseEnter={e => { if (working && !appt && !draggingId) e.currentTarget.style.background = '#EFF6FF' }}
-                            onMouseLeave={e => { if (working && !appt && !draggingId) e.currentTarget.style.background = 'transparent' }}
+                            onMouseEnter={e => { if (working && appts.length === 0 && !draggingId) e.currentTarget.style.background = '#EFF6FF' }}
+                            onMouseLeave={e => { if (working && appts.length === 0 && !draggingId) e.currentTarget.style.background = 'transparent' }}
                           >
-                            {appt && status && (
-                              <div
-                                draggable
-                                onDragStart={e => {
-                                  setDraggingId(appt.id)
-                                  e.dataTransfer.effectAllowed = 'move'
-                                  e.stopPropagation()
-                                }}
-                                onDragEnd={() => { setDraggingId(null); setDragOverSlot(null) }}
-                                onClick={e => { e.stopPropagation(); if (!draggingId) openEditAppt(appt) }}
-                                style={{
-                                  background: isBlocked ? '#94A3B8' : status.color,
-                                  color: '#fff',
-                                  borderLeft: `3px solid ${isBlocked ? '#64748B' : status.color}`,
-                                  borderRadius: 5,
-                                  padding: '5px 8px',
-                                  fontSize: 11, fontWeight: 700, lineHeight: 1.3,
-                                  height: '100%',
-                                  display: 'flex', flexDirection: 'column', justifyContent: 'center',
-                                  overflow: 'hidden',
-                                  boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                                  opacity: isSource ? 0.45 : 1,
-                                  cursor: 'grab',
-                                  transition: 'opacity 0.15s',
-                                }}>
-                                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {appt.contact_nome}
-                                </div>
-                                <div style={{ fontSize: 9, fontWeight: 600, opacity: 0.85, marginTop: 1 }}>
-                                  {hhmm} · {status.label}
-                                </div>
-                                {appt.created_by_email && (
-                                  <div style={{ fontSize: 8, opacity: 0.7, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    por {getUserName(appt.created_by_email)}
+                            {appts.map(appt => {
+                              const status = STATUS_OPTIONS.find(s => s.value === appt.status)
+                              if (!status) return null
+                              const isSource = draggingId && appt.id === draggingId
+                              const isEncaixe = appts.length > 1
+                              return (
+                                <div key={appt.id}
+                                  draggable
+                                  onDragStart={e => { setDraggingId(appt.id); e.dataTransfer.effectAllowed = 'move'; e.stopPropagation() }}
+                                  onDragEnd={() => { setDraggingId(null); setDragOverSlot(null) }}
+                                  onClick={e => { e.stopPropagation(); if (!draggingId) openEditAppt(appt) }}
+                                  style={{
+                                    background: status.color,
+                                    color: '#fff',
+                                    borderLeft: `3px solid ${status.color}`,
+                                    borderRadius: 5,
+                                    padding: '4px 7px',
+                                    fontSize: 10, fontWeight: 700, lineHeight: 1.3,
+                                    display: 'flex', flexDirection: 'column',
+                                    overflow: 'hidden',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                                    opacity: isSource ? 0.45 : 1,
+                                    cursor: 'grab',
+                                    transition: 'opacity 0.15s',
+                                  }}>
+                                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {appt.contact_nome}
                                   </div>
-                                )}
-                              </div>
-                            )}
+                                  <div style={{ fontSize: 8, fontWeight: 600, opacity: 0.85, marginTop: 1 }}>
+                                    {status.label}{isEncaixe ? ' · Encaixe' : ''}
+                                  </div>
+                                  {appt.created_by_email && (
+                                    <div style={{ fontSize: 8, opacity: 0.7, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      por {getUserName(appt.created_by_email)}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
                           </div>
                         )
                       })}
@@ -936,6 +929,29 @@ export default function CompanyAgenda() {
                   </div>
                 </div>
               )}
+              <div>
+                <label style={labelStyle}>Notificações WhatsApp ao paciente</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[
+                    { key: 'notify_created',   label: 'Aviso de criação do agendamento' },
+                    { key: 'notify_confirmed', label: 'Aviso de confirmação' },
+                    { key: 'notify_cancelled', label: 'Aviso de cancelamento' },
+                    { key: 'notify_updated',   label: 'Aviso de atualização de status' },
+                  ].map(({ key, label }) => (
+                    <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)' }}>
+                      <input type="checkbox"
+                        checked={agendaModal[key] !== false && agendaModal[key] !== undefined ? agendaModal[key] : false}
+                        onChange={e => setAgendaModal(p => ({ ...p, [key]: e.target.checked }))}
+                        style={{ width: 15, height: 15, accentColor: agendaModal.color, cursor: 'pointer' }}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                  Mensagens enviadas via WhatsApp quando marcadas como ativas.
+                </div>
+              </div>
             </div>
             <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
               {agendaErr && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#DC2626', marginBottom: 12 }}>{agendaErr}</div>}
