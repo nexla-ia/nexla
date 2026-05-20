@@ -491,6 +491,29 @@ export default function CompanyConversations() {
     })
   }, [loadingContacts, closedLoaded, contacts, closedMap, instance])
 
+  // Realtime: conversa encerrada por qualquer usuário → atualiza closedMap
+  useEffect(() => {
+    if (!instance) return
+    const ch = supabase.channel(`convs-closed-${instance}`)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'conversations', filter: `instancia=eq.${instance}` },
+        (p) => {
+          const sid = p.new?.session_id
+          if (!sid) return
+          setClosedMap(prev => ({ ...prev, [sid]: p.new.reason || 'resolvido' }))
+          setAttendancesMap(prev => { const n = { ...prev }; delete n[sid]; return n })
+        })
+      .on('postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'conversations', filter: `instancia=eq.${instance}` },
+        (p) => {
+          const sid = p.old?.session_id
+          if (!sid) return
+          setClosedMap(prev => { const n = { ...prev }; delete n[sid]; return n })
+        })
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [instance])
+
   // Realtime: nova mensagem
   useEffect(() => {
     if (!instance) return
