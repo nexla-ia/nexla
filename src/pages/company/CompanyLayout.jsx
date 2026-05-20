@@ -49,7 +49,7 @@ export default function CompanyLayout() {
         supabase.from('conversations').select('session_id').eq('instancia', instance),
       ])
       const closedSet = new Set((closed || []).map(r => r.session_id))
-      const unique = new Set((msgs || []).map(r => r.numero).filter(n => !n?.includes('@g.us')))
+      const unique = new Set((msgs || []).map(r => r.numero).filter(Boolean))
       setActiveCount([...unique].filter(s => !closedSet.has(s)).length)
     }
     refresh()
