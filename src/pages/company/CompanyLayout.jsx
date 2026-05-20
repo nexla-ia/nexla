@@ -19,7 +19,6 @@ export default function CompanyLayout() {
   const navigate = useNavigate()
   const blocked = shouldBlockAccess(session?.company)
   const instance = session?.company?.instance
-  const [activeCount, setActiveCount] = useState(0)
   const [pendingAlerts, setPendingAlerts] = useState(0)
 
   // Onboarding obrigatório: força usuário novo para o tutorial até concluir
@@ -36,32 +35,6 @@ export default function CompanyLayout() {
   useEffect(() => {
     supabase.rpc('ensure_table_setup', { p_table: 'conversations' })
   }, [])
-
-  // Conta conversas ativas = números únicos na mensagens_geral - encerradas
-  useEffect(() => {
-    if (!instance) return
-
-    async function refresh() {
-      const [{ data: msgs }, { data: closed }] = await Promise.all([
-        supabase.from('mensagens_geral').select('numero')
-          .eq('instancia', instance)
-          .or('aplicativo.eq.whatsapp,aplicativo.is.null'),
-        supabase.from('conversations').select('session_id').eq('instancia', instance),
-      ])
-      const closedSet = new Set((closed || []).map(r => r.session_id))
-      const unique = new Set((msgs || []).map(r => r.numero).filter(Boolean))
-      setActiveCount([...unique].filter(s => !closedSet.has(s)).length)
-    }
-    refresh()
-
-    const ch = supabase.channel('layout-conversations')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensagens_geral', filter: `instancia=eq.${instance}` },
-        () => refresh())
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations', filter: `instancia=eq.${instance}` },
-        () => refresh())
-      .subscribe()
-    return () => supabase.removeChannel(ch)
-  }, [instance])
 
   // Conta alertas pendentes reais (sem IA: conta só encaminhamentos para o usuário)
   const userId = session?.user?.id
@@ -93,8 +66,7 @@ export default function CompanyLayout() {
   const hasNewUpdate = !lastSeen || lastSeen < latestUpdateDate()
 
   const links = [
-    { to: '/painel/conversas', icon: MessageSquare, label: 'Conversas',
-      badge: activeCount > 0 ? activeCount : null, badgeColor: 'cyan' },
+    { to: '/painel/conversas', icon: MessageSquare, label: 'Conversas' },
     ...(aiEnabled ? [{ to: '/painel/historico', icon: History, label: 'Conversas IA' }] : []),
     { to: '/painel/instagram', icon: Instagram,     label: 'Instagram' },
     { to: '/painel/contatos',  icon: Contact2,      label: 'Pacientes' },
