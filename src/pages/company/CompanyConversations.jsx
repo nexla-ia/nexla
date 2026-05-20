@@ -502,6 +502,7 @@ export default function CompanyConversations() {
           if (!sid) return
           setClosedMap(prev => ({ ...prev, [sid]: p.new.reason || 'resolvido' }))
           setAttendancesMap(prev => { const n = { ...prev }; delete n[sid]; return n })
+          setSelected(prev => prev?.session_id === sid ? null : prev)
         })
       .on('postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'conversations', filter: `instancia=eq.${instance}` },
@@ -571,22 +572,6 @@ export default function CompanyConversations() {
           supabase.removeChannel(ch)
         }
       })
-    return () => supabase.removeChannel(ch)
-  }, [instance])
-
-  // Realtime: conversa encerrada por outro usuário
-  useEffect(() => {
-    if (!instance) return
-    const ch = supabase.channel(`convs-closed-${instance}`)
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'conversations', filter: `instancia=eq.${instance}` },
-        (p) => {
-          if (!p.new) return
-          setClosedMap(prev => ({ ...prev, [p.new.session_id]: p.new.reason || 'resolvido' }))
-          setSelected(prev => prev?.session_id === p.new.session_id ? null : prev)
-        }
-      )
-      .subscribe()
     return () => supabase.removeChannel(ch)
   }, [instance])
 
