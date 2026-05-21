@@ -714,7 +714,7 @@ export default function CompanyConversations() {
       p_instancia: instance,
       p_numero: contact.session_id,
       p_mensagem: assumeMsg,
-      p_type: 'atendente',
+      p_type: 'sistema',
       p_hora: new Date().toISOString(),
     })
 
@@ -1716,6 +1716,13 @@ export default function CompanyConversations() {
                 <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', marginTop: '2rem' }}>Sem mensagens.</div>
               )}
               {messages.map(msg => {
+                if (msg.type === 'sistema') return (
+                  <div key={msg.id} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0', padding: '0 8px' }}>
+                    <div style={{ flex: 1, height: 1, background: '#E2E8F0' }} />
+                    <span style={{ fontSize: 11, color: '#94A3B8', whiteSpace: 'nowrap', fontStyle: 'italic' }}>{msg.content}</span>
+                    <div style={{ flex: 1, height: 1, background: '#E2E8F0' }} />
+                  </div>
+                )
                 const isCliente    = msg.type === 'cliente'
                 const isAtendente  = msg.type === 'atendente'
                 const isLeft       = isCliente
