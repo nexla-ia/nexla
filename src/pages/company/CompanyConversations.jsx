@@ -26,7 +26,10 @@ function formatPhone(val) {
 }
 
 function getMessageContent(row) {
-  return (row.mensagem || '').replace(/^\*[^*]+\*:\n/, '').trim()
+  return (row.mensagem || '')
+    .replace(/^\*[^*]+\*:\n/, '')
+    .replace(/\\n/g, '\n')
+    .trim()
 }
 
 function getMessageType(row) { return (row.type || 'human').toLowerCase() }
