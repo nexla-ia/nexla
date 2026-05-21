@@ -227,7 +227,6 @@ export default function AdmAnalise() {
           { k: 'operacao',  l: 'Operação',  ico: Activity },
           { k: 'qualidade', l: 'Qualidade', ico: Hourglass },
           { k: 'metricas',  l: 'Métricas',  ico: BarChart3 },
-          { k: 'espiao',    l: 'Conversas', ico: Eye },
         ].map(t => (
           <button key={t.k} className={`an-tab ${tab === t.k ? 'on' : ''}`} onClick={() => setTab(t.k)}>
             <t.ico size={14} /> {t.l}
@@ -239,7 +238,6 @@ export default function AdmAnalise() {
       {tab === 'operacao'  && <TabOperacao  data={data} loading={loading} />}
       {tab === 'qualidade' && <TabQualidade data={data} period={period} loading={loading} />}
       {tab === 'metricas'  && <TabMetricas  company={company} data={data} period={period} />}
-      {tab === 'espiao'    && <TabEspiao    data={data} company={company} loading={loading} />}
     </div>
   )
 }
