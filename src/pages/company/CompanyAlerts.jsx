@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { BellRing, CheckCircle2, Clock, MessageCircle, Forward, X, Copy, User, Phone } from 'lucide-react'
+import { BellRing, CheckCircle2, Clock, MessageCircle, Forward, X, Copy, User, Phone, Calendar } from 'lucide-react'
 import './Company.css'
 
 let _audioCtx = null
@@ -129,9 +129,10 @@ export default function CompanyAlerts() {
           // Sem IA: só notifica encaminhamentos para mim. Com IA: notifica alertas gerais e encaminhados.
           const isForwardedToMe = payload.new.forwarded_to_user_id === currentUser?.id
           const isGeneralAlert = !payload.new.forwarded_to_user_id
-          const shouldNotify = aiEnabled
+          const isAgendaAlert = payload.new.type === 'agenda'
+          const shouldNotify = isAgendaAlert || (aiEnabled
             ? (isGeneralAlert || isForwardedToMe)
-            : isForwardedToMe
+            : isForwardedToMe)
           if (shouldNotify) {
             setUnreadCount(c => c + 1)
             playNotificationSound()
@@ -178,10 +179,11 @@ export default function CompanyAlerts() {
   }, [])
 
   // Filtra: mostra alertas gerais + encaminhados para mim
-  // Alertas encaminhados para outra pessoa somem da tela de quem encaminhou
-  // Quando IA está desativada, só mostra encaminhamentos (alertas da IA não devem aparecer)
+  // Alertas de agenda sempre visíveis para todos
+  // Quando IA está desativada, esconde alertas gerais da IA mas mantém agenda e encaminhamentos
   const visible = alerts.filter(a => {
-    if (!aiEnabled && !a.forwarded_to_user_id) return false       // sem IA, esconde alertas gerais
+    if (a.type === 'agenda') return true                           // alerta de agendamento, todos veem
+    if (!aiEnabled && !a.forwarded_to_user_id) return false       // sem IA, esconde alertas da IA
     if (!a.forwarded_to_user_id) return true                      // alerta geral, todos veem
     if (a.forwarded_to_user_id === currentUser?.id) return true   // encaminhado para mim, vejo
     return false                                                   // encaminhado para outro, não vejo
@@ -294,10 +296,17 @@ export default function CompanyAlerts() {
 
         return (
           <div key={alert.id} className={`alert-card ${alert.resolved ? 'resolved' : 'unresolved'}`}
-            style={{ borderLeft: isForMe ? '3px solid #7C3AED' : undefined }}
+            style={{ borderLeft: alert.type === 'agenda' ? '3px solid #2563EB' : isForMe ? '3px solid #7C3AED' : undefined }}
           >
-            <div className="alert-icon" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', alignSelf: 'flex-start' }}>
-              <BellRing size={16} style={{ color: '#D97706' }} />
+            <div className="alert-icon" style={{
+              background: alert.type === 'agenda' ? '#EFF6FF' : '#FFFBEB',
+              border: `1px solid ${alert.type === 'agenda' ? '#BFDBFE' : '#FDE68A'}`,
+              alignSelf: 'flex-start',
+            }}>
+              {alert.type === 'agenda'
+                ? <Calendar size={16} style={{ color: '#2563EB' }} />
+                : <BellRing size={16} style={{ color: '#D97706' }} />
+              }
             </div>
 
             <div className="alert-body">
