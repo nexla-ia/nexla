@@ -218,6 +218,8 @@ export default function CompanyConversations() {
   const maxMsgIdRef      = useRef(0)
 
   useEffect(() => { selectedRef.current = selected }, [selected])
+  const closedMapRef = useRef({})
+  useEffect(() => { closedMapRef.current = closedMap }, [closedMap])
 
   // Carrega agendamentos futuros (próximo por contato)
   useEffect(() => {
@@ -544,13 +546,7 @@ export default function CompanyConversations() {
       if (!sid) return
       const ts = getTimestamp(row)
 
-      setClosedMap(prev => {
-        if (!prev[sid]) return prev
-        supabase.from('conversations').delete().eq('session_id', sid).eq('instancia', instance)
-        supabase.from('attendances').delete().eq('numero', sid).eq('instancia', instance)
-        setAttendancesMap(at => { const n = { ...at }; delete n[sid]; return n })
-        const next = { ...prev }; delete next[sid]; return next
-      })
+      if (closedMapRef.current[sid]) reopenConversation(sid)
 
       setContacts(prev => {
         const exists = prev.find(c => c.session_id === sid)
@@ -656,6 +652,8 @@ export default function CompanyConversations() {
           if (!data || data.length === 0) return
           const fresh = data.filter(r => !isToolMessage(r)).map(mapRow)
           if (!fresh.length) return
+          const sid = selected?.session_id
+          if (sid && closedMapRef.current[sid]) reopenConversation(sid)
           setMessages(prev => {
             const ids = new Set(prev.map(m => m.id))
             const novo = fresh.filter(m => !ids.has(m.id))
@@ -674,6 +672,15 @@ export default function CompanyConversations() {
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
     }
   }, [editingMsgId])
+
+  async function reopenConversation(sid) {
+    await Promise.all([
+      supabase.from('conversations').delete().eq('session_id', sid).eq('instancia', instance),
+      supabase.from('attendances').delete().eq('numero', sid).eq('instancia', instance),
+    ])
+    setClosedMap(prev => { const n = { ...prev }; delete n[sid]; return n })
+    setAttendancesMap(prev => { const n = { ...prev }; delete n[sid]; return n })
+  }
 
   async function handleAssume(contact, e) {
     e?.stopPropagation()
