@@ -8,6 +8,18 @@ import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sp
 import './Company.css'
 
 const CONV_TABLE = 'mensagens_geral'
+const PAGE_SIZE  = 50
+
+function mapRow(r) {
+  return {
+    id: r.id,
+    id_mensagem: r.id_mensagem || null,
+    type: getMessageType(r),
+    content: getMessageContent(r),
+    base64: r.base64 || null,
+    ts: getTimestamp(r),
+  }
+}
 
 function formatPhone(val) {
   return (val || '').replace(/@.*$/, '')
@@ -170,6 +182,8 @@ export default function CompanyConversations() {
   const [selected, setSelected]       = useState(null)
   const [messages, setMessages]       = useState([])
   const [loadingMsgs, setLoadingMsgs] = useState(false)
+  const [hasMore, setHasMore]         = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [closeModal, setCloseModal]   = useState(null)
   const [reason, setReason]           = useState('')
   const [closing, setClosing]         = useState(false)
@@ -196,9 +210,12 @@ export default function CompanyConversations() {
   const recordTimerRef   = useRef(null)
   const recordStartRef   = useRef(0)
   const fileInputRef     = useRef(null)
-  const bottomRef    = useRef(null)
-  const selectedRef  = useRef(null)
-  const autoCloseDone = useRef(false)
+  const bottomRef        = useRef(null)
+  const selectedRef      = useRef(null)
+  const autoCloseDone    = useRef(false)
+  const chatBodyRef      = useRef(null)
+  const isLoadingMoreRef = useRef(false)
+  const maxMsgIdRef      = useRef(0)
 
   useEffect(() => { selectedRef.current = selected }, [selected])
 
@@ -551,14 +568,8 @@ export default function CompanyConversations() {
       if (selectedRef.current?.session_id === sid) {
         setMessages(msgs => {
           if (msgs.some(m => m.id === row.id)) return msgs
-          return [...msgs, {
-            id: row.id,
-            id_mensagem: row.id_mensagem || null,
-            type: getMessageType(row),
-            content: getMessageContent(row),
-            base64: row.base64 || null,
-            ts,
-          }]
+          maxMsgIdRef.current = Math.max(maxMsgIdRef.current, row.id)
+          return [...msgs, mapRow(row)]
         })
       }
     }
@@ -575,57 +586,83 @@ export default function CompanyConversations() {
     return () => supabase.removeChannel(ch)
   }, [instance])
 
-  // Carrega mensagens da conversa selecionada
+  // Carrega mensagens da conversa selecionada (últimas PAGE_SIZE)
   useEffect(() => {
     if (!selected || !instance) return
     setLoadingMsgs(true)
     setMessages([])
+    setHasMore(false)
+    maxMsgIdRef.current = 0
     supabase.from(CONV_TABLE).select('*')
       .eq('instancia', instance)
       .eq('numero', selected.session_id)
       .or('aplicativo.eq.whatsapp,aplicativo.is.null')
-      .order('id', { ascending: true })
+      .order('id', { ascending: false })
+      .limit(PAGE_SIZE)
       .then(({ data, error }) => {
         if (!error && data) {
-          setMessages(data.filter(r => !isToolMessage(r)).map(r => ({
-            id: r.id,
-            id_mensagem: r.id_mensagem || null,
-            type: getMessageType(r),
-            content: getMessageContent(r),
-            base64: r.base64 || null,
-            ts: getTimestamp(r),
-          })))
+          const msgs = data.filter(r => !isToolMessage(r)).reverse().map(mapRow)
+          setMessages(msgs)
+          setHasMore(data.length === PAGE_SIZE)
+          maxMsgIdRef.current = msgs.length ? msgs[msgs.length - 1].id : 0
         }
         setLoadingMsgs(false)
       })
   }, [selected, instance])
 
+  async function loadMore() {
+    if (loadingMore || !hasMore || !selected || !instance || !messages.length) return
+    const oldestId = messages[0].id
+    const container = chatBodyRef.current
+    const scrollHeightBefore = container?.scrollHeight || 0
+    const scrollTopBefore    = container?.scrollTop    || 0
+    setLoadingMore(true)
+    const { data } = await supabase.from(CONV_TABLE).select('*')
+      .eq('instancia', instance)
+      .eq('numero', selected.session_id)
+      .or('aplicativo.eq.whatsapp,aplicativo.is.null')
+      .lt('id', oldestId)
+      .order('id', { ascending: false })
+      .limit(PAGE_SIZE)
+    const older = (data || []).filter(r => !isToolMessage(r)).reverse().map(mapRow)
+    isLoadingMoreRef.current = true
+    setMessages(prev => [...older, ...prev])
+    setHasMore((data?.length || 0) === PAGE_SIZE)
+    setLoadingMore(false)
+    requestAnimationFrame(() => {
+      if (container) container.scrollTop = scrollTopBefore + (container.scrollHeight - scrollHeightBefore)
+    })
+  }
+
   useEffect(() => {
+    if (isLoadingMoreRef.current) { isLoadingMoreRef.current = false; return }
     if (!loadingMsgs) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loadingMsgs])
 
-  // Fallback: recarrega mensagens a cada 30s para cobrir falhas de Realtime
+  // Fallback: busca só mensagens novas a cada 30s para cobrir falhas de Realtime
   useEffect(() => {
     if (!selected || !instance) return
     const interval = setInterval(() => {
-      supabase.from(CONV_TABLE).select('id, id_mensagem, type, mensagem, base64, created_at, horaLastMessage, aplicativo')
+      const maxId = maxMsgIdRef.current
+      if (!maxId) return
+      supabase.from(CONV_TABLE)
+        .select('id, id_mensagem, type, mensagem, base64, created_at, horaLastMessage, aplicativo')
         .eq('instancia', instance)
         .eq('numero', selected.session_id)
         .or('aplicativo.eq.whatsapp,aplicativo.is.null')
+        .gt('id', maxId)
         .order('id', { ascending: true })
         .then(({ data }) => {
-          if (!data) return
-          const fresh = data.filter(r => !isToolMessage(r))
+          if (!data || data.length === 0) return
+          const fresh = data.filter(r => !isToolMessage(r)).map(mapRow)
+          if (!fresh.length) return
           setMessages(prev => {
-            if (fresh.length <= prev.length) return prev
-            return fresh.map(r => ({
-              id: r.id,
-              id_mensagem: r.id_mensagem || null,
-              type: getMessageType(r),
-              content: getMessageContent(r),
-              base64: r.base64 || null,
-              ts: getTimestamp(r),
-            }))
+            const ids = new Set(prev.map(m => m.id))
+            const novo = fresh.filter(m => !ids.has(m.id))
+            if (!novo.length) return prev
+            const next = [...prev, ...novo]
+            maxMsgIdRef.current = next[next.length - 1].id
+            return next
           })
         })
     }, 30_000)
@@ -1653,7 +1690,23 @@ export default function CompanyConversations() {
               </div>
             )}
 
-            <div className="chat-body">
+            <div className="chat-body" ref={chatBodyRef}>
+              {hasMore && !loadingMsgs && (
+                <div style={{ textAlign: 'center', padding: '10px 0 4px' }}>
+                  <button
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    style={{
+                      fontSize: 12, padding: '5px 16px', borderRadius: 20,
+                      background: '#F1F5F9', border: '1px solid #E2E8F0',
+                      color: '#475569', cursor: loadingMore ? 'default' : 'pointer',
+                      fontWeight: 500, opacity: loadingMore ? 0.6 : 1,
+                    }}
+                  >
+                    {loadingMore ? 'Carregando...' : '⬆ Ver mensagens anteriores'}
+                  </button>
+                </div>
+              )}
               {loadingMsgs && (
                 <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', marginTop: '2rem' }}>
                   Carregando mensagens...
