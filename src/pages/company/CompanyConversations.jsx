@@ -68,7 +68,6 @@ function isToolMessage(row) {
   const content = row.mensagem || ''
   if (type === 'tool') return true
   if (type === 'ia' && /^Calling \w+ with input:/i.test(content.trim())) return true
-  if (type === 'ia' && content.length > 800) return true
   if (type === 'cliente' && content.length > 200 && INJECTED_PROMPT_RE.test(content)) return true
   return false
 }
