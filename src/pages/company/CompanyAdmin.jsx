@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 import ConfirmModal from '../../components/ConfirmModal'
 import LimitReachedModal from '../../components/LimitReachedModal'
 import { getEffectiveLimits, reachedLimit, upgradeMessage, formatLimit } from '../../lib/planLimits'
-import { Plus, X, UserMinus, RefreshCw, UserCheck, UserX, Pencil, QrCode, Wifi, WifiOff, LogOut, Trash2, Lock } from 'lucide-react'
+import { Plus, X, UserMinus, RefreshCw, UserCheck, UserX, Pencil, QrCode, Wifi, WifiOff, LogOut, Trash2, Lock, Bell } from 'lucide-react'
 import './Company.css'
 
 const SECTOR_COLORS = ['#2563EB', '#16A34A', '#7C3AED', '#DC2626', '#D97706', '#0891B2']
@@ -27,7 +27,7 @@ const labelStyle = {
 }
 
 export default function CompanyAdmin() {
-  const { session } = useAuth()
+  const { session, patchCompany } = useAuth()
   const instance  = session?.company?.instance
   const companyId = session?.company?.id
   const limits    = getEffectiveLimits(session?.company)
@@ -62,6 +62,21 @@ export default function CompanyAdmin() {
   const [qrErr, setQrErr]           = useState('')
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+
+  const co = session?.company || {}
+  const [notifs, setNotifs] = useState({
+    notify_agenda_created:   co.notify_agenda_created   !== false,
+    notify_agenda_confirmed: co.notify_agenda_confirmed !== false,
+    notify_agenda_cancelled: co.notify_agenda_cancelled !== false,
+    notify_agenda_updated:   co.notify_agenda_updated   === true,
+  })
+
+  async function toggleNotif(key) {
+    const newVal = !notifs[key]
+    setNotifs(prev => ({ ...prev, [key]: newVal }))
+    await supabase.from('companies').update({ [key]: newVal }).eq('id', companyId)
+    patchCompany({ [key]: newVal })
+  }
 
   async function fetchState() {
     if (!evolutionUrl || !instance || !apiKey) return null
@@ -423,6 +438,60 @@ export default function CompanyAdmin() {
             })}
           </div>
         )}
+      </div>
+
+      {/* Notificações para Pacientes */}
+      <div className="page-body" style={{ marginTop: 0 }}>
+        <div className="section-title" style={{ marginBottom: 14 }}>Notificações para Pacientes</div>
+        <div className="nx-card" style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: '#EFF6FF', border: '1px solid #BFDBFE', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Bell size={16} style={{ color: '#2563EB' }} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>Mensagens automáticas via WhatsApp</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                Controle quais ações disparam mensagem ao paciente. Desative para silenciar globalmente.
+              </div>
+            </div>
+          </div>
+          {[
+            { key: 'notify_agenda_created',   label: 'Agendamento criado',    desc: 'Avisa o paciente quando um novo agendamento é registrado no sistema.' },
+            { key: 'notify_agenda_confirmed', label: 'Agendamento confirmado', desc: 'Avisa o paciente quando o status muda para "confirmado".' },
+            { key: 'notify_agenda_cancelled', label: 'Agendamento cancelado',  desc: 'Avisa o paciente quando o agendamento é cancelado.' },
+            { key: 'notify_agenda_updated',   label: 'Agendamento atualizado', desc: 'Avisa o paciente quando data, hora ou detalhes são alterados.' },
+          ].map(({ key, label, desc }, i, arr) => (
+            <div key={key} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+              padding: '12px 0',
+              borderTop: i > 0 ? '1px solid var(--border)' : 'none',
+            }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{desc}</div>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0 }}>
+                <div
+                  onClick={() => toggleNotif(key)}
+                  style={{
+                    width: 40, height: 22, borderRadius: 11, cursor: 'pointer', flexShrink: 0,
+                    background: notifs[key] ? '#2563EB' : '#D1D5DB',
+                    position: 'relative', transition: 'background 0.2s',
+                  }}
+                >
+                  <div style={{
+                    position: 'absolute', top: 3, left: notifs[key] ? 21 : 3,
+                    width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)', transition: 'left 0.2s',
+                  }} />
+                </div>
+                <span style={{ fontSize: 12, color: notifs[key] ? '#2563EB' : 'var(--text-muted)', fontWeight: 600, minWidth: 30 }}>
+                  {notifs[key] ? 'Ativo' : 'Off'}
+                </span>
+              </label>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Usuários */}

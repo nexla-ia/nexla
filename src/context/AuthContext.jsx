@@ -238,8 +238,14 @@ export function AuthProvider({ children }) {
     if (!error) await loadDB()
   }
 
+  function patchCompany(fields) {
+    setSession(prev => prev?.company
+      ? { ...prev, company: { ...prev.company, ...fields } }
+      : prev)
+  }
+
   return (
-    <AuthContext.Provider value={{ session, db, dbLoading, dbError, login, logout, loadDB, addCompany, addUser, updateUser, toggleUserActive, toggleCompanyActive }}>
+    <AuthContext.Provider value={{ session, db, dbLoading, dbError, login, logout, loadDB, addCompany, addUser, updateUser, toggleUserActive, toggleCompanyActive, patchCompany }}>
       {children}
     </AuthContext.Provider>
   )

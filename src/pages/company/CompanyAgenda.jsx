@@ -474,7 +474,7 @@ export default function CompanyAgenda() {
           p_hora: new Date().toISOString(),
           p_base64: null,
         })
-        if (ag?.notify_cancelled !== false) {
+        if (ag?.notify_cancelled !== false && session?.company?.notify_agenda_cancelled !== false) {
           fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -493,7 +493,7 @@ export default function CompanyAgenda() {
       }
 
       // Criação: confirma agendamento via WhatsApp
-      if (isNew && ag?.notify_created !== false) {
+      if (isNew && ag?.notify_created !== false && session?.company?.notify_agenda_created !== false) {
         const criacaoMsg = `Olá ${payload.contact_nome.split(' ')[0]}, seu agendamento foi criado para ${dateStr}${ag ? ` — ${ag.name}` : ''}. Estamos aguardando você!`
         fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
           method: 'POST',
@@ -510,7 +510,7 @@ export default function CompanyAgenda() {
       }
 
       // Confirmação: avisa paciente via WhatsApp ao mudar status para confirmado
-      if (!isNew && prevStatus !== 'confirmado' && payload.status === 'confirmado' && ag?.notify_confirmed !== false) {
+      if (!isNew && prevStatus !== 'confirmado' && payload.status === 'confirmado' && ag?.notify_confirmed !== false && session?.company?.notify_agenda_confirmed !== false) {
         const confirmMsg = `Olá ${payload.contact_nome.split(' ')[0]}, seu agendamento de ${dateStr} está confirmado! Estamos aguardando você.`
         fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
           method: 'POST',
