@@ -422,7 +422,7 @@ export default function CompanyConversations() {
     setLoadingContacts(true)
     supabase.from(CONV_TABLE).select('numero, type, created_at, horaLastMessage, aplicativo, nome')
       .eq('instancia', instance)
-      .or('aplicativo.eq.whatsapp,aplicativo.is.null')
+      .or('aplicativo.neq.instagram,aplicativo.is.null')
       .order('id', { ascending: false })
       .then(({ data, error }) => {
         if (!error && data) {
@@ -538,7 +538,7 @@ export default function CompanyConversations() {
     function handleNewMsg(p) {
       const row = p.new
       if (!row || isToolMessage(row)) return
-      if (row.aplicativo && row.aplicativo !== 'whatsapp') return
+      if (row.aplicativo === 'instagram') return
       const sid = row.numero
       if (!sid) return
       const ts = getTimestamp(row)
@@ -595,7 +595,7 @@ export default function CompanyConversations() {
     supabase.from(CONV_TABLE).select('*')
       .eq('instancia', instance)
       .eq('numero', selected.session_id)
-      .or('aplicativo.eq.whatsapp,aplicativo.is.null')
+      .or('aplicativo.neq.instagram,aplicativo.is.null')
       .order('id', { ascending: false })
       .limit(PAGE_SIZE)
       .then(({ data, error }) => {
@@ -619,7 +619,7 @@ export default function CompanyConversations() {
     const { data } = await supabase.from(CONV_TABLE).select('*')
       .eq('instancia', instance)
       .eq('numero', selected.session_id)
-      .or('aplicativo.eq.whatsapp,aplicativo.is.null')
+      .or('aplicativo.neq.instagram,aplicativo.is.null')
       .lt('id', oldestId)
       .order('id', { ascending: false })
       .limit(PAGE_SIZE)
@@ -648,7 +648,7 @@ export default function CompanyConversations() {
         .select('id, id_mensagem, type, mensagem, base64, created_at, horaLastMessage, aplicativo')
         .eq('instancia', instance)
         .eq('numero', selected.session_id)
-        .or('aplicativo.eq.whatsapp,aplicativo.is.null')
+        .or('aplicativo.neq.instagram,aplicativo.is.null')
         .gt('id', maxId)
         .order('id', { ascending: true })
         .then(({ data }) => {
