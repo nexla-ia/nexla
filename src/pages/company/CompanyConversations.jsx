@@ -48,7 +48,6 @@ function parseTimestamp(val) {
 
 function getTimestamp(row) { return parseTimestamp(row.horaLastMessage) || row.created_at || null }
 
-const INJECTED_PROMPT_RE = /responda em portugu[eê]s|de forma objetiva|solicite\s|n[aã]o informar|indicar que|apresentaremos|breve explica[çc][aã]o|orienta[çc][õo]es gerais|avalia[çc][aã]o pr[eé]-operat/i
 
 function detectMedia(b64) {
   if (!b64 || b64.length < 10) return null
@@ -68,7 +67,6 @@ function isToolMessage(row) {
   const content = row.mensagem || ''
   if (type === 'tool') return true
   if (type === 'ia' && /^Calling \w+ with input:/i.test(content.trim())) return true
-  if (type === 'cliente' && content.length > 200 && INJECTED_PROMPT_RE.test(content)) return true
   return false
 }
 
