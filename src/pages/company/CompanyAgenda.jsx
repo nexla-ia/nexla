@@ -850,11 +850,12 @@ export default function CompanyAgenda() {
                             onDragLeave={() => setDragOverSlot(null)}
                             onDrop={e => working && handleDrop(e, d, hhmm)}
                             style={{
-                              minHeight: 46, borderLeft: '1px solid var(--border)',
+                              height: 46, borderLeft: '1px solid var(--border)',
                               background: cellBg,
                               cursor: working ? 'pointer' : 'not-allowed',
                               padding: 3, position: 'relative',
                               display: 'flex', flexDirection: 'column', gap: 2,
+                              overflow: 'visible',
                               outline: isDragOver ? '2px dashed #2563EB' : 'none',
                               outlineOffset: -2,
                               transition: 'background 0.1s',
@@ -867,6 +868,9 @@ export default function CompanyAgenda() {
                               if (!status) return null
                               const isSource = draggingId && appt.id === draggingId
                               const isEncaixe = appts.length > 1
+                              const slotMin = selectedAgenda?.slot_minutes || 30
+                              const spanSlots = isEncaixe ? 1 : Math.max(1, Math.round((appt.duration_minutes || slotMin) / slotMin))
+                              const isSpanning = spanSlots > 1
                               return (
                                 <div key={appt.id}
                                   draggable
@@ -874,6 +878,10 @@ export default function CompanyAgenda() {
                                   onDragEnd={() => { setDraggingId(null); setDragOverSlot(null) }}
                                   onClick={e => { e.stopPropagation(); if (!draggingId) openEditAppt(appt) }}
                                   style={{
+                                    ...(isSpanning ? {
+                                      position: 'absolute', top: 2, left: 2, right: 2,
+                                      height: spanSlots * 46 - 4, zIndex: 2,
+                                    } : {}),
                                     background: status.color,
                                     color: '#fff',
                                     borderLeft: `3px solid ${status.color}`,
