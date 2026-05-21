@@ -104,6 +104,7 @@ export default function CompanyAgenda() {
   const [agendaErr, setAgendaErr]     = useState('')
   const [savingAgenda, setSavingAgenda] = useState(false)
   const [limitModal, setLimitModal]   = useState(null)
+  const [tooltip, setTooltip]         = useState(null) // { appt, x, y }
 
   const limits = getEffectiveLimits(session?.company)
 
@@ -799,6 +800,20 @@ export default function CompanyAgenda() {
                     Hoje
                   </button>
                 </div>
+                <button
+                  className="nx-btn-primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '6px 14px' }}
+                  onClick={() => {
+                    const now = new Date()
+                    const slotMin = selectedAgenda?.slot_minutes || 30
+                    const roundedMin = Math.ceil((now.getHours() * 60 + now.getMinutes()) / slotMin) * slotMin
+                    const hh = String(Math.floor(roundedMin / 60) % 24).padStart(2, '0')
+                    const mm = String(roundedMin % 60).padStart(2, '0')
+                    openNewAppt(now, `${hh}:${mm}`)
+                  }}
+                >
+                  <Plus size={13} /> Novo agendamento
+                </button>
               </div>
 
               {/* Grid */}
@@ -876,6 +891,9 @@ export default function CompanyAgenda() {
                                   draggable
                                   onDragStart={e => { setDraggingId(appt.id); e.dataTransfer.effectAllowed = 'move'; e.stopPropagation() }}
                                   onDragEnd={() => { setDraggingId(null); setDragOverSlot(null) }}
+                                  onMouseEnter={e => setTooltip({ appt, x: e.clientX, y: e.clientY })}
+                                  onMouseMove={e => setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : prev)}
+                                  onMouseLeave={() => setTooltip(null)}
                                   onClick={e => { e.stopPropagation(); if (!draggingId) openEditAppt(appt) }}
                                   style={{
                                     ...(isSpanning ? {
@@ -1368,6 +1386,61 @@ export default function CompanyAgenda() {
           </div>
         </div>
       , document.body)}
+
+    {tooltip && (() => {
+      const a = tooltip.appt
+      const st = STATUS_OPTIONS.find(s => s.value === a.status)
+      const startDt = new Date(a.starts_at)
+      const endDt = new Date(startDt.getTime() + (a.duration_minutes || 30) * 60000)
+      const fmtTime = dt => dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+      const pro = professionals.find(p => p.id === a.professional_id)
+      const proc = procedures.find(p => p.id === a.procedure_id)
+      const vx = Math.min(tooltip.x + 14, window.innerWidth - 260)
+      const vy = Math.min(tooltip.y - 10, window.innerHeight - 220)
+      return createPortal(
+        <div style={{
+          position: 'fixed', zIndex: 9999, pointerEvents: 'none',
+          left: vx, top: vy,
+          background: '#fff', borderRadius: 10,
+          boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
+          border: '1px solid #E2E8F0',
+          padding: '12px 16px', minWidth: 220, maxWidth: 280, fontSize: 12,
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 13, color: '#0F172A', marginBottom: 8, lineHeight: 1.3 }}>
+            {a.contact_nome}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, color: '#475569' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Clock size={12} style={{ flexShrink: 0 }} />
+              {fmtTime(startDt)} – {fmtTime(endDt)} · {a.duration_minutes} min
+            </div>
+            {st && (
+              <span style={{ alignSelf: 'flex-start', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, color: st.color, background: st.bg, border: `1px solid ${st.border}` }}>
+                {st.label}
+              </span>
+            )}
+            {pro && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <UserIcon size={12} style={{ flexShrink: 0 }} />
+                {pro.name}{pro.specialty ? ` — ${pro.specialty}` : ''}
+              </div>
+            )}
+            {proc && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <ListChecks size={12} style={{ flexShrink: 0 }} />
+                {proc.name}
+              </div>
+            )}
+            {a.notes && (
+              <div style={{ color: '#94A3B8', fontStyle: 'italic', borderTop: '1px solid #F1F5F9', paddingTop: 5, marginTop: 2 }}>
+                {a.notes}
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )
+    })()}
     </div>
   )
 }
