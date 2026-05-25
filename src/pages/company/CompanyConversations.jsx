@@ -25,6 +25,12 @@ function formatPhone(val) {
   return (val || '').replace(/@.*$/, '')
 }
 
+// Normaliza para deduplicação: strip sufixo @, dígitos apenas, remove 55 de prefixo se presente
+function normPhoneKey(sid) {
+  const n = (sid || '').replace(/@.*$/, '').replace(/\D/g, '')
+  return n.startsWith('55') && n.length > 10 ? n.slice(2) : n
+}
+
 function getMessageContent(row) {
   return (row.mensagem || '')
     .replace(/^\*[^*]+\*:\n/, '')
@@ -436,18 +442,20 @@ export default function CompanyConversations() {
           for (const row of data) {
             const t = (row.type || '').toLowerCase()
             if ((t === 'atendente' || t === 'humano') && row.numero) {
-              hasOutsideHuman.add(row.numero)
+              hasOutsideHuman.add(normPhoneKey(row.numero))
             }
           }
           for (const row of data) {
             const sid = row.numero
-            if (!sid || seen.has(sid)) continue
-            seen.add(sid)
+            if (!sid) continue
+            const norm = normPhoneKey(sid)
+            if (seen.has(norm)) continue
+            seen.add(norm)
             unique.push({
               session_id: sid,
               phone: formatPhone(sid),
               lastTs: getTimestamp(row),
-              outsideAssumed: hasOutsideHuman.has(sid),
+              outsideAssumed: hasOutsideHuman.has(normPhoneKey(sid)),
               pushname: row.nome || null,
               isGroup: sid.includes('@g.us'),
             })
@@ -549,13 +557,14 @@ export default function CompanyConversations() {
       if (closedMapRef.current[sid]) reopenConversation(sid)
 
       setContacts(prev => {
-        const exists = prev.find(c => c.session_id === sid)
+        const normSid = normPhoneKey(sid)
+        const exists = prev.find(c => normPhoneKey(c.session_id) === normSid)
         const incomingType = (row.type || '').toLowerCase()
         const isOutsideHuman = incomingType === 'atendente' || incomingType === 'humano'
         if (exists) {
           return [
             { ...exists, lastTs: ts, outsideAssumed: exists.outsideAssumed || isOutsideHuman },
-            ...prev.filter(c => c.session_id !== sid)
+            ...prev.filter(c => normPhoneKey(c.session_id) !== normSid)
           ]
         }
         return [{ session_id: sid, phone: formatPhone(sid), lastTs: ts, outsideAssumed: isOutsideHuman, isGroup: sid.includes('@g.us') }, ...prev]
