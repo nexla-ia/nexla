@@ -2195,7 +2195,7 @@ export default function CompanyConversations() {
             </div>
             <div style={{ padding: '1rem 1.5rem', flex: 1, overflowY: 'auto', minHeight: 0 }}>
               {(() => {
-                const others = companyUsers.filter(u => u.email !== session?.user?.email && u.role !== 'admin')
+                const others = companyUsers.filter(u => u.email !== session?.user?.email)
                 if (!others.length) {
                   return (
                     <div style={{ padding: 24, textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
