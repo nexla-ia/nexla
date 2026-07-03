@@ -191,6 +191,7 @@ export default function CompanyConversations() {
   }, [chatTagPickerOpen, headerTagOpen])
 
   const [contacts, setContacts]         = useState([])
+  const [unreadMap, setUnreadMap]       = useState({}) // session_id → count
   const [closedMap, setClosedMap]       = useState({}) // session_id → reason
   const [attendancesMap, setAttendancesMap] = useState({}) // numero → attendance record
   const [assuming, setAssuming]         = useState(null)
@@ -575,10 +576,11 @@ export default function CompanyConversations() {
 
       if (closedMapRef.current[sid]) reopenConversation(sid)
 
-      // Notificação sonora: toca se for mensagem do cliente e não é a conversa aberta
+      // Som + contador de não lidos: só para mensagens do cliente fora da conversa aberta
       const incomingType2 = (row.type || '').toLowerCase()
       if (incomingType2 === 'cliente' && selectedRef.current?.session_id !== sid) {
         playNotificationSound()
+        setUnreadMap(prev => ({ ...prev, [sid]: (prev[sid] || 0) + 1 }))
       }
 
       setContacts(prev => {
@@ -1266,7 +1268,7 @@ export default function CompanyConversations() {
               <div
                 key={c.session_id}
                 className={`contact-item ${selected?.session_id === c.session_id ? 'selected' : ''}`}
-                onClick={() => setSelected(c)}
+                onClick={() => { setSelected(c); setUnreadMap(prev => { const n = { ...prev }; delete n[c.session_id]; return n }) }}
                 onContextMenu={(e) => {
                   e.preventDefault()
                   setContextMenu({ x: e.clientX, y: e.clientY, contact: c })
@@ -1352,6 +1354,17 @@ export default function CompanyConversations() {
                 </div>
                 <div className="contact-meta">
                   {c.lastTs && <div className="contact-time">{formatContactTime(c.lastTs, companyTz)}</div>}
+                  {unreadMap[c.session_id] > 0 && (
+                    <div style={{
+                      minWidth: 18, height: 18, borderRadius: 9,
+                      background: '#16A34A', color: '#fff',
+                      fontSize: 10, fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      padding: '0 5px', marginTop: 4,
+                    }}>
+                      {unreadMap[c.session_id] > 99 ? '99+' : unreadMap[c.session_id]}
+                    </div>
+                  )}
                 </div>
               </div>
             )
