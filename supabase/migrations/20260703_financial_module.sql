@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS public.financial_transactions (
   forma_pagamento   text,
   contact_id        uuid REFERENCES public.saved_contacts(id) ON DELETE SET NULL,
   contact_nome      text,
+  profissional      text,
   appointment_id    uuid REFERENCES public.appointments(id) ON DELETE SET NULL,
   centro_custo      text,
   observacoes       text,
