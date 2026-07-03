@@ -25,6 +25,7 @@ import CompanyTutorial from './pages/company/CompanyTutorial'
 import CompanyInstagram from './pages/company/CompanyInstagram'
 import CompanyNews from './pages/company/CompanyNews'
 import CompanyMetrics from './pages/company/CompanyMetrics'
+import CompanyFinanceiro from './pages/company/CompanyFinanceiro'
 import CompanyAdmin from './pages/company/CompanyAdmin'
 import CompanySeguranca from './pages/company/CompanySeguranca'
 import CompanyFeedback from './pages/company/CompanyFeedback'
@@ -86,6 +87,7 @@ export default function App() {
             <Route path="novidades" element={<CompanyNews />} />
             <Route path="alertas" element={<CompanyAlerts />} />
             <Route path="metricas" element={<CompanyMetrics />} />
+            <Route path="financeiro" element={<CompanyFinanceiro />} />
             <Route path="admin" element={<CompanyAdmin />} />
             <Route path="seguranca" element={<CompanySeguranca />} />
             <Route path="feedback" element={<CompanyFeedback />} />

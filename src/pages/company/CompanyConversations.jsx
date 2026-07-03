@@ -25,6 +25,24 @@ function formatPhone(val) {
   return (val || '').replace(/@.*$/, '')
 }
 
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.value = 880
+    osc.type = 'sine'
+    gain.gain.setValueAtTime(0, ctx.currentTime)
+    gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.01)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.4)
+    osc.onended = () => ctx.close()
+  } catch (_) {}
+}
+
 // Normaliza para deduplicação: strip sufixo @, dígitos apenas, remove 55 de prefixo se presente
 function normPhoneKey(sid) {
   const n = (sid || '').replace(/@.*$/, '').replace(/\D/g, '')
@@ -433,6 +451,7 @@ export default function CompanyConversations() {
       .eq('instancia', instance)
       .or('aplicativo.neq.instagram,aplicativo.is.null')
       .order('id', { ascending: false })
+      .limit(5000)
       .then(({ data, error }) => {
         if (!error && data) {
           const seen = new Set()
@@ -555,6 +574,12 @@ export default function CompanyConversations() {
       const ts = getTimestamp(row)
 
       if (closedMapRef.current[sid]) reopenConversation(sid)
+
+      // Notificação sonora: toca se for mensagem do cliente e não é a conversa aberta
+      const incomingType2 = (row.type || '').toLowerCase()
+      if (incomingType2 === 'cliente' && selectedRef.current?.session_id !== sid) {
+        playNotificationSound()
+      }
 
       setContacts(prev => {
         const normSid = normPhoneKey(sid)
