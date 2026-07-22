@@ -157,6 +157,9 @@ export default function CompanyConversations() {
   const [searchParams, setSearchParams] = useSearchParams()
   const instance      = session?.company?.instance
   const apiInstancia  = session?.company?.api_instancia
+  const sendWebhookUrl = (session?.company?.whatsapp_api_type || 'evolution') === 'oficial'
+    ? 'https://n8n.nexladesenvolvimento.com.br/webhook/respondeplataforma'
+    : 'https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla'
   const contactsTable = session?.company?.contacts_table
 
   const isAdmin = session?.user?.role === 'admin'
@@ -993,7 +996,7 @@ export default function CompanyConversations() {
       })
       if (insErr) console.error('send_mensagem_geral:', insErr)
 
-      fetch('https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla', {
+      fetch(sendWebhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

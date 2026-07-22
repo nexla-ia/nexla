@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 import ConfirmModal from '../../components/ConfirmModal'
 import LimitReachedModal from '../../components/LimitReachedModal'
 import { getEffectiveLimits, reachedLimit, upgradeMessage, formatLimit } from '../../lib/planLimits'
-import { Plus, X, UserMinus, RefreshCw, UserCheck, UserX, Pencil, QrCode, Wifi, WifiOff, LogOut, Trash2, Lock, Bell } from 'lucide-react'
+import { Plus, X, UserMinus, RefreshCw, UserCheck, UserX, Pencil, QrCode, Wifi, WifiOff, LogOut, Trash2, Lock, Bell, Zap, Globe } from 'lucide-react'
 import './Company.css'
 
 const SECTOR_COLORS = ['#2563EB', '#16A34A', '#7C3AED', '#DC2626', '#D97706', '#0891B2']
@@ -64,6 +64,18 @@ export default function CompanyAdmin() {
   const [loggingOut, setLoggingOut] = useState(false)
 
   const co = session?.company || {}
+
+  const [apiType, setApiType] = useState(co.whatsapp_api_type || 'evolution')
+  const [savingApiType, setSavingApiType] = useState(false)
+
+  async function handleSaveApiType(type) {
+    setSavingApiType(true)
+    setApiType(type)
+    await supabase.from('companies').update({ whatsapp_api_type: type }).eq('id', companyId)
+    patchCompany({ whatsapp_api_type: type })
+    setSavingApiType(false)
+  }
+
   const [notifs, setNotifs] = useState({
     notify_agenda_created:   co.notify_agenda_created   !== false,
     notify_agenda_confirmed: co.notify_agenda_confirmed !== false,
@@ -286,8 +298,68 @@ export default function CompanyAdmin() {
 
   return (
     <div className="page-enter">
-      {/* Conexão WhatsApp */}
+
+      {/* Tipo de API WhatsApp */}
       <div className="page-body">
+        <div className="section-title" style={{ marginBottom: 6 }}>Tipo de API WhatsApp</div>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px' }}>
+          Define qual infraestrutura é usada para enviar e receber mensagens. Altere apenas se o suporte orientar.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {[
+            {
+              key: 'evolution',
+              icon: <Zap size={18} />,
+              title: 'Evolution API',
+              desc: 'Conexão via QR Code (WhatsApp pessoal). Padrão Nexla.',
+              color: '#7C3AED',
+              bg: '#FAF5FF',
+              border: '#DDD6FE',
+            },
+            {
+              key: 'oficial',
+              icon: <Globe size={18} />,
+              title: 'API Oficial (Meta)',
+              desc: 'WhatsApp Business API oficial. Requer número verificado pela Meta.',
+              color: '#16A34A',
+              bg: '#F0FDF4',
+              border: '#BBF7D0',
+            },
+          ].map(opt => (
+            <button
+              key={opt.key}
+              onClick={() => handleSaveApiType(opt.key)}
+              disabled={savingApiType}
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: 12,
+                padding: '16px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                border: `2px solid ${apiType === opt.key ? opt.color : 'var(--border)'}`,
+                background: apiType === opt.key ? opt.bg : 'var(--bg-card)',
+                transition: 'all 0.15s', opacity: savingApiType ? 0.7 : 1,
+              }}
+            >
+              <div style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: apiType === opt.key ? opt.color : '#F1F5F9', color: apiType === opt.key ? '#fff' : 'var(--text-muted)', transition: 'all 0.15s' }}>
+                {opt.icon}
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: apiType === opt.key ? opt.color : 'var(--text-primary)', marginBottom: 3 }}>{opt.title}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>{opt.desc}</div>
+                {apiType === opt.key && (
+                  <div style={{ marginTop: 6, fontSize: 10, fontWeight: 700, color: opt.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>✓ Em uso</div>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+        {apiType === 'oficial' && (
+          <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: '#FFFBEB', border: '1px solid #FDE68A', fontSize: 12, color: '#92400E' }}>
+            <strong>API Oficial ativa.</strong> As mensagens serão enviadas pelo webhook da Meta. O QR Code de conexão Evolution está desativado.
+          </div>
+        )}
+      </div>
+
+      {/* Conexão WhatsApp — só para Evolution */}
+      {apiType !== 'oficial' && <div className="page-body">
         <div className="section-header">
           <div className="section-title">Conexão WhatsApp</div>
         </div>
@@ -369,7 +441,7 @@ export default function CompanyAdmin() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* Setores */}
       <div className="page-body">
