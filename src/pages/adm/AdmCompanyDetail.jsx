@@ -104,6 +104,7 @@ export default function AdmCompanyDetail() {
       instagramEnabled: company.instagram_enabled === true,
       instagramWebhookPath: company.instagram_webhook_path || '',
       evolutionUrl: company.evolution_url || '',
+      whatsappApiType: company.whatsapp_api_type || 'evolution',
     })
     setCompanyErr('')
     setCompanyModal(true)
@@ -135,6 +136,7 @@ export default function AdmCompanyDetail() {
         ? (companyForm.instagramWebhookPath?.trim().replace(/^\/+|\/+$/g, '') || null)
         : null,
       evolution_url: companyForm.evolutionUrl?.trim().replace(/\/+$/, '') || null,
+      whatsapp_api_type: companyForm.whatsappApiType || 'evolution',
     }
     const { error } = await supabase.from('companies').update(updates).eq('id', company.id)
     setSaving(false)
@@ -739,6 +741,28 @@ export default function AdmCompanyDetail() {
               {companyErr && (
                 <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#DC2626', marginBottom: 12 }}>{companyErr}</div>
               )}
+              {/* Tipo de API WhatsApp */}
+              <div>
+                <label style={labelStyle}>Tipo de API WhatsApp</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[
+                    { key: 'evolution', label: 'Evolution API', desc: 'QR Code — padrão Nexla' },
+                    { key: 'oficial',   label: 'API Oficial (Meta)', desc: 'Webhook /respondeplataforma' },
+                  ].map(opt => (
+                    <button key={opt.key}
+                      onClick={() => setCompanyForm(p => ({ ...p, whatsappApiType: opt.key }))}
+                      style={{
+                        flex: 1, padding: '10px 12px', borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+                        border: `2px solid ${companyForm.whatsappApiType === opt.key ? (opt.key === 'oficial' ? '#16A34A' : '#7C3AED') : 'var(--border)'}`,
+                        background: companyForm.whatsappApiType === opt.key ? (opt.key === 'oficial' ? '#F0FDF4' : '#FAF5FF') : 'transparent',
+                      }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: companyForm.whatsappApiType === opt.key ? (opt.key === 'oficial' ? '#16A34A' : '#7C3AED') : 'var(--text-primary)' }}>{opt.label}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{opt.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="nx-btn-ghost" style={{ flex: 1 }} onClick={() => setCompanyModal(false)}>Cancelar</button>
                 <button className="nx-btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={handleSaveCompany} disabled={saving}>
