@@ -7,7 +7,7 @@ import BlockedScreen from '../../components/BlockedScreen'
 import SupportWidget from '../../components/SupportWidget'
 import BrandMark from '../../components/BrandMark'
 import { shouldBlockAccess } from '../../lib/billing'
-import { MessageSquare, History, BellRing, BarChart2, Settings2, Contact2, Calendar, Sparkles, Kanban, Stethoscope, GraduationCap, Instagram, ShieldCheck, Menu, Headset, MessagesSquare, Wallet } from 'lucide-react'
+import { MessageSquare, History, BellRing, BarChart2, Settings2, Contact2, Calendar, Sparkles, Kanban, Stethoscope, GraduationCap, Instagram, ShieldCheck, Menu, Headset, MessagesSquare, Wallet, Target } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { latestUpdateDate } from '../../data/updates'
@@ -66,28 +66,34 @@ export default function CompanyLayout() {
   const hasNewUpdate = !lastSeen || lastSeen < latestUpdateDate()
 
   const links = [
-    { to: '/painel/conversas', icon: MessageSquare, label: 'Conversas' },
-    ...(aiEnabled ? [{ to: '/painel/historico', icon: History, label: 'Conversas IA' }] : []),
-    { to: '/painel/instagram', icon: Instagram,     label: 'Instagram' },
-    { to: '/painel/contatos',  icon: Contact2,      label: 'Pacientes' },
-    { to: '/painel/agenda',    icon: Calendar,      label: 'Agenda' },
-    { to: '/painel/atividades', icon: Kanban,       label: 'Kanban' },
-    { to: '/painel/alertas',   icon: BellRing,      label: 'Alertas',
+    // Atendimento
+    { to: '/painel/conversas', icon: MessageSquare, label: 'Conversas', section: 'Atendimento' },
+    ...(aiEnabled ? [{ to: '/painel/historico', icon: History, label: 'Conversas IA', section: 'Atendimento' }] : []),
+    { to: '/painel/instagram', icon: Instagram,     label: 'Instagram', section: 'Atendimento' },
+    { to: '/painel/alertas',   icon: BellRing,      label: 'Alertas', section: 'Atendimento',
       badge: pendingAlerts > 0 ? pendingAlerts : null, badgeColor: 'amber' },
-    { to: '/painel/tutorial',  icon: GraduationCap, label: 'Tutorial' },
-    { to: '/painel/novidades', icon: Sparkles,      label: 'Novidades',
+
+    // Gestão
+    { to: '/painel/contatos',   icon: Contact2,     label: 'Pacientes', section: 'Gestão' },
+    { to: '/painel/agenda',     icon: Calendar,     label: 'Agenda', section: 'Gestão' },
+    { to: '/painel/atividades', icon: Kanban,       label: 'Kanban', section: 'Gestão' },
+    { to: '/painel/financeiro', icon: Wallet,       label: 'Financeiro', section: 'Gestão' },
+    { to: '/painel/catalogo',   icon: Stethoscope,  label: 'Catálogo Clínico', section: 'Gestão' },
+    { to: '/painel/crm',        icon: Target,       label: 'CRM', section: 'Gestão' },
+
+    // Análise
+    ...(isAdmin ? [{ to: '/painel/metricas', icon: BarChart2, label: 'Métricas', section: 'Análise' }] : []),
+
+    // Conta & Ajuda
+    ...(isAdmin ? [{ to: '/painel/admin', icon: Settings2, label: 'Configuração', section: 'Conta & Ajuda' }] : []),
+    { to: '/painel/seguranca', icon: ShieldCheck,    label: 'Segurança', section: 'Conta & Ajuda' },
+    { to: '/painel/tutorial',  icon: GraduationCap,  label: 'Tutorial', section: 'Conta & Ajuda' },
+    { to: '/painel/novidades', icon: Sparkles,       label: 'Novidades', section: 'Conta & Ajuda',
       badge: hasNewUpdate ? 'Novo' : null, badgeColor: 'violet' },
-    { to: '/painel/seguranca', icon: ShieldCheck,        label: 'Segurança' },
-    { to: '/painel/feedback',  icon: MessagesSquare,     label: 'Feedback' },
-    { label: 'Suporte', icon: Headset, onClick: () => setSupportOpen(true),
+    { to: '/painel/feedback',  icon: MessagesSquare, label: 'Feedback', section: 'Conta & Ajuda' },
+    { label: 'Suporte', icon: Headset, section: 'Conta & Ajuda', onClick: () => setSupportOpen(true),
       badge: supportUnread > 0 ? supportUnread : null, badgeColor: 'amber',
       active: supportOpen },
-    { to: '/painel/catalogo',    icon: Stethoscope, label: 'Catálogo Clínico' },
-    { to: '/painel/financeiro',  icon: Wallet,      label: 'Financeiro' },
-    ...(isAdmin ? [
-      { to: '/painel/metricas', icon: BarChart2, label: 'Métricas' },
-      { to: '/painel/admin',    icon: Settings2, label: 'Configuração' },
-    ] : []),
   ]
 
   if (blocked) {
