@@ -4,7 +4,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { useContactTags } from '../../hooks/useContactTags'
-import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft, ChevronLeft, Plus, Pencil, Users } from 'lucide-react'
+import Recorder from 'opus-recorder'
+import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft, ChevronLeft, Plus, Pencil, Users, CheckCheck } from 'lucide-react'
 import './Company.css'
 
 const CONV_TABLE = 'mensagens_geral'
@@ -215,6 +216,7 @@ export default function CompanyConversations() {
   const [closeModal, setCloseModal]   = useState(null)
   const [reason, setReason]           = useState('')
   const [closing, setClosing]         = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
   const [toast, setToast]             = useState(null)
   const [msgText, setMsgText]         = useState('')
   const [sending, setSending]         = useState(false)
@@ -234,7 +236,6 @@ export default function CompanyConversations() {
   const [editingText, setEditingText]     = useState('')
   const [savingEdit, setSavingEdit]       = useState(false)
   const mediaRecorderRef = useRef(null)
-  const audioChunksRef   = useRef([])
   const recordTimerRef   = useRef(null)
   const recordStartRef   = useRef(0)
   const fileInputRef     = useRef(null)
@@ -840,19 +841,17 @@ export default function CompanyConversations() {
   async function startRecording() {
     if (recording) return
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
-          ? 'audio/ogg;codecs=opus'
-          : 'audio/webm'
-      const mr = new MediaRecorder(stream, { mimeType })
-      mr._stream = stream
-      audioChunksRef.current = []
-      mr.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
-      mediaRecorderRef.current = mr
+      // Grava direto em Ogg/Opus (via WASM), formato exigido pela WhatsApp Cloud API.
+      // MediaRecorder nativo produz WebM/Opus no Chrome, que a Cloud API rejeita.
+      const rec = new Recorder({
+        encoderPath: '/encoderWorker.min.js',
+        numberOfChannels: 1,
+        encoderSampleRate: 16000,
+        streamPages: false,
+      })
+      mediaRecorderRef.current = rec
+      await rec.start()
       recordStartRef.current = Date.now()
-      mr.start()
       setRecording(true)
       setRecordTime(0)
       recordTimerRef.current = setInterval(() => {
@@ -867,23 +866,23 @@ export default function CompanyConversations() {
 
   function stopRecording({ persistPreview = true } = {}) {
     return new Promise(resolve => {
-      const mr = mediaRecorderRef.current
-      if (!mr) return resolve(null)
-      mr.onstop = async () => {
-        const mimeType = mr.mimeType
-        const blob = new Blob(audioChunksRef.current, { type: mimeType })
-        const buf = await blob.arrayBuffer()
-        const bytes = new Uint8Array(buf)
+      const rec = mediaRecorderRef.current
+      if (!rec) return resolve(null)
+      rec.ondataavailable = typedArray => {
+        const bytes = typedArray instanceof Uint8Array ? typedArray : new Uint8Array(typedArray)
         let bin = ''
-        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i])
+        const chunk = 0x8000
+        for (let i = 0; i < bytes.length; i += chunk) {
+          bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk))
+        }
         const base64 = btoa(bin)
         const duration = Math.floor((Date.now() - recordStartRef.current) / 1000)
-        const audioData = { base64, mime: mimeType, duration }
+        const audioData = { base64, mime: 'audio/ogg; codecs=opus', duration }
         if (persistPreview) setRecordedAudio(audioData)
-        mr._stream?.getTracks().forEach(t => t.stop())
+        rec.close()
         resolve(audioData)
       }
-      mr.stop()
+      rec.stop()
       if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null }
       setRecording(false)
     })
@@ -986,6 +985,8 @@ export default function CompanyConversations() {
           ? (text ? `${filePrefix}\n${text}` : filePrefix)
           : text
       const mediaBase64 = audio?.base64 || file?.base64 || null
+      // Type da mensagem no padrão da WhatsApp Cloud API (usado pelo n8n quando whatsapp_api_type = 'oficial')
+      const messageType = audio ? 'audio' : file ? (file.kind === 'image' ? 'image' : 'document') : 'text'
       const { error: insErr } = await supabase.rpc('send_mensagem_geral', {
         p_instancia: instance,
         p_numero: selected.session_id,
@@ -1001,6 +1002,7 @@ export default function CompanyConversations() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
+          type: messageType,
           audio_base64: audio?.base64 || null,
           audio_mime: audio?.mime || null,
           audio_duration: audio?.duration || null,
@@ -1105,25 +1107,53 @@ export default function CompanyConversations() {
     if (!reason || !closeModal) return
     if (!checkSession()) return
     setClosing(true)
-    const { error } = await supabase.from('conversations').insert({
-      session_id: closeModal.session_id,
-      instancia: instance,
-      reason,
-      closed_at: new Date().toISOString(),
-    })
+    const targets = closeModal.bulk ? closeModal.contacts : [closeModal]
+    const closedAt = new Date().toISOString()
+    const results = await Promise.all(targets.map(t =>
+      supabase.from('conversations').insert({
+        session_id: t.session_id, instancia: instance, reason, closed_at: closedAt,
+      })
+    ))
     setClosing(false)
-    if (error) return
-    const closedId = closeModal.session_id
-    setClosedMap(prev => ({ ...prev, [closedId]: reason }))
-    supabase.from('attendances').delete().eq('numero', closedId).eq('instancia', instance)
-    setAttendancesMap(prev => { const n = { ...prev }; delete n[closedId]; return n })
-    if (selected?.session_id === closedId) setSelected(null)
+    if (results.some(r => r.error)) return
+    const closedIds = targets.map(t => t.session_id)
+    setClosedMap(prev => { const n = { ...prev }; closedIds.forEach(id => { n[id] = reason }); return n })
+    await Promise.all(closedIds.map(id => supabase.from('attendances').delete().eq('numero', id).eq('instancia', instance)))
+    setAttendancesMap(prev => { const n = { ...prev }; closedIds.forEach(id => delete n[id]); return n })
+    if (selected && closedIds.includes(selected.session_id)) setSelected(null)
     setCloseModal(null)
     setReason('')
+    setSelectedIds(new Set())
     setTab('finalizados')
     const label = REASONS.find(r => r.value === reason)?.label || reason
-    setToast({ message: `Conversa finalizada — ${label}`, color: REASONS.find(r => r.value === reason)?.color || '#16A34A' })
+    const count = closedIds.length
+    setToast({
+      message: count > 1 ? `${count} conversas finalizadas — ${label}` : `Conversa finalizada — ${label}`,
+      color: REASONS.find(r => r.value === reason)?.color || '#16A34A',
+    })
     setTimeout(() => setToast(null), 3500)
+  }
+
+  function toggleSelect(sid) {
+    setSelectedIds(prev => {
+      const n = new Set(prev)
+      n.has(sid) ? n.delete(sid) : n.add(sid)
+      return n
+    })
+  }
+
+  function handleBulkMarkRead() {
+    setUnreadMap(prev => {
+      const n = { ...prev }
+      selectedIds.forEach(sid => delete n[sid])
+      return n
+    })
+    setSelectedIds(new Set())
+  }
+
+  function handleBulkFinalize(contactsToClose) {
+    setCloseModal({ bulk: true, contacts: contactsToClose })
+    setReason('')
   }
 
   // Busca por conteúdo de mensagem (com debounce de 400ms)
@@ -1184,7 +1214,7 @@ export default function CompanyConversations() {
           {tabList.map(t => (
             <button
               key={t.id}
-              onClick={() => { setTab(t.id); setSelected(null); setTagFilter(null) }}
+              onClick={() => { setTab(t.id); setSelected(null); setTagFilter(null); setSelectedIds(new Set()) }}
               style={{
                 flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
                 padding: '10px 4px', border: 'none', background: 'none', cursor: 'pointer',
@@ -1248,6 +1278,39 @@ export default function CompanyConversations() {
               ))}
             </div>
           )}
+          {filtered.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              {selectedIds.size > 0 ? (
+                <>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {selectedIds.size} selecionada(s)
+                  </span>
+                  <button onClick={handleBulkMarkRead}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 6, background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', cursor: 'pointer' }}>
+                    <CheckCheck size={12} /> Marcar como lida
+                  </button>
+                  {tab !== 'finalizados' && (
+                    <button onClick={() => handleBulkFinalize(filtered.filter(c => selectedIds.has(c.session_id)))}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 6, background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0', cursor: 'pointer' }}>
+                      <CheckCircle2 size={12} /> Finalizar selecionadas
+                    </button>
+                  )}
+                  <button onClick={() => setSelectedIds(new Set())}
+                    style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 6, background: 'none', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <input type="checkbox"
+                    checked={filtered.every(c => selectedIds.has(c.session_id))}
+                    onChange={() => setSelectedIds(filtered.every(c => selectedIds.has(c.session_id)) ? new Set() : new Set(filtered.map(c => c.session_id)))}
+                  />
+                  Selecionar todas
+                </label>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="contacts-list-body">
@@ -1277,6 +1340,13 @@ export default function CompanyConversations() {
                   setContextMenu({ x: e.clientX, y: e.clientY, contact: c })
                 }}
               >
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(c.session_id)}
+                  onClick={e => e.stopPropagation()}
+                  onChange={e => { e.stopPropagation(); toggleSelect(c.session_id) }}
+                  style={{ flexShrink: 0, cursor: 'pointer' }}
+                />
                 <div className="contact-avatar" style={saved?.photo ? { background: 'transparent', overflow: 'hidden' } : c.isGroup ? { background: '#EDE9FE' } : {}}>
                   {saved?.photo
                     ? <img src={saved.photo} alt={saved.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -2289,7 +2359,7 @@ export default function CompanyConversations() {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>Finalizar conversa</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                  {closeModal.phone} — qual foi o resultado?
+                  {closeModal.bulk ? `${closeModal.contacts.length} conversas selecionadas` : closeModal.phone} — qual foi o resultado?
                 </div>
               </div>
               <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 4, cursor: 'pointer' }}
