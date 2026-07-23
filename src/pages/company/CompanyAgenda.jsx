@@ -25,6 +25,19 @@ const DAYS_OF_WEEK = [
   { num: 6, label: 'Sáb', full: 'Sábado' },
 ]
 
+// Tonalidade clarinha por coluna (Seg..Dom), pra não confundir uma coluna com a outra.
+// bg = slot claro, bgAlt = slot escuro (alternados), hoverBg = ao passar o mouse na linha.
+// Fim de semana usa um tom neutro mais discreto.
+const COLUMN_TINTS = [
+  { bg: '#FAFCFF', bgAlt: '#EFF5FF', hoverBg: '#DCEAFF' }, // Seg
+  { bg: '#FAFFFC', bgAlt: '#EAFAF1', hoverBg: '#CFF1E0' }, // Ter
+  { bg: '#FFFEFA', bgAlt: '#FFF6E6', hoverBg: '#FFE8BE' }, // Qua
+  { bg: '#FDFAFF', bgAlt: '#F3ECFF', hoverBg: '#E1CFFF' }, // Qui
+  { bg: '#FFFAFC', bgAlt: '#FFEDF3', hoverBg: '#FFD0E2' }, // Sex
+  { bg: '#FAFBFC', bgAlt: '#EFF1F5', hoverBg: '#DEE3EA' }, // Sáb
+  { bg: '#FAFBFC', bgAlt: '#EFF1F5', hoverBg: '#DEE3EA' }, // Dom
+]
+
 const STATUS_OPTIONS = [
   { value: 'agendado',   label: 'Agendado',   color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', icon: Calendar },
   { value: 'confirmado', label: 'Confirmado', color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0', icon: CheckCircle2 },
@@ -118,6 +131,7 @@ export default function CompanyAgenda() {
   const [deletingNow, setDeletingNow] = useState(false)
   const [draggingId, setDraggingId]     = useState(null)
   const [dragOverSlot, setDragOverSlot] = useState(null) // { dateStr, hhmm }
+  const [hoveredHhmm, setHoveredHhmm]   = useState(null)
 
   // Carrega agendas + agendamentos + contatos
   useEffect(() => {
@@ -829,7 +843,7 @@ export default function CompanyAgenda() {
                           padding: '8px 6px', textAlign: 'center', borderLeft: '1px solid var(--border)',
                           fontSize: 12, fontWeight: 600,
                           color: isToday ? '#2563EB' : 'var(--text-secondary)',
-                          background: isToday ? '#EFF6FF' : 'transparent',
+                          background: isToday ? '#EFF6FF' : COLUMN_TINTS[i].bg,
                         }}>
                           <div>{DAYS_OF_WEEK[d.getDay()].label}</div>
                           <div style={{ fontSize: 14, fontWeight: 700 }}>{String(d.getDate()).padStart(2, '0')}/{String(d.getMonth() + 1).padStart(2, '0')}</div>
@@ -842,9 +856,14 @@ export default function CompanyAgenda() {
                     <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
                       Configure horários nesta agenda.
                     </div>
-                  ) : slots.map((hhmm, idx) => (
-                    <div key={hhmm} style={{ display: 'grid', gridTemplateColumns: '64px repeat(7, 1fr)', borderBottom: idx === slots.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
-                      <div style={{ padding: '6px 8px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
+                  ) : slots.map((hhmm, idx) => {
+                    const rowHovered = hoveredHhmm === hhmm
+                    return (
+                    <div key={hhmm}
+                      onMouseEnter={() => setHoveredHhmm(hhmm)}
+                      onMouseLeave={() => setHoveredHhmm(prev => prev === hhmm ? null : prev)}
+                      style={{ display: 'grid', gridTemplateColumns: '64px repeat(7, 1fr)', borderBottom: idx === slots.length - 1 ? 'none' : '1px solid #F1F5F9', transition: 'background 0.1s' }}>
+                      <div style={{ padding: '6px 8px', fontSize: 11, fontWeight: 600, color: rowHovered ? 'var(--text-primary)' : 'var(--text-muted)', textAlign: 'right', borderRight: '1px solid var(--border)', background: rowHovered ? '#F1F5F9' : 'transparent' }}>
                         {hhmm}
                       </div>
                       {weekDays.map((d, i) => {
@@ -852,7 +871,9 @@ export default function CompanyAgenda() {
                         const appts = working ? apptsAt(d, hhmm) : []
                         const dateStr = fmtDateInput(d)
                         const isDragOver = dragOverSlot?.dateStr === dateStr && dragOverSlot?.hhmm === hhmm
-                        const cellBg = !working ? '#F9FAFB' : isDragOver ? '#DBEAFE' : 'transparent'
+                        const tint = COLUMN_TINTS[i]
+                        const slotBg = idx % 2 === 1 ? tint.bgAlt : tint.bg
+                        const cellBg = !working ? '#F9FAFB' : isDragOver ? '#DBEAFE' : rowHovered ? tint.hoverBg : slotBg
                         return (
                           <div key={i}
                             onClick={() => working && !draggingId && openNewAppt(d, hhmm)}
@@ -876,7 +897,7 @@ export default function CompanyAgenda() {
                               transition: 'background 0.1s',
                             }}
                             onMouseEnter={e => { if (working && appts.length === 0 && !draggingId) e.currentTarget.style.background = '#EFF6FF' }}
-                            onMouseLeave={e => { if (working && appts.length === 0 && !draggingId) e.currentTarget.style.background = 'transparent' }}
+                            onMouseLeave={e => { if (working && appts.length === 0 && !draggingId) e.currentTarget.style.background = cellBg }}
                           >
                             {appts.map(appt => {
                               const status = STATUS_OPTIONS.find(s => s.value === appt.status)
@@ -931,7 +952,7 @@ export default function CompanyAgenda() {
                         )
                       })}
                     </div>
-                  ))}
+                  )})}
                 </div>
               </div>
             </div>
