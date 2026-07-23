@@ -4,6 +4,20 @@
 
 export const UPDATES = [
   {
+    date: '2026-07-23',
+    title: 'CRM em Kanban — funil de vendas com alertas automáticos',
+    type: 'feature',
+    tags: ['CRM', 'Vendas'],
+    items: [
+      'Novo item "CRM" no menu (em Gestão): um quadro kanban dedicado a acompanhar leads do primeiro contato até fechar, separado das conversas do dia a dia.',
+      'Já nasce com um funil padrão de 7 etapas — Novo Lead → Primeiro Contato → Agendou → Compareceu → Retorno → Fidelizado → Perdido — e vocês podem criar quantos funis quiserem (um por serviço, por unidade, etc).',
+      'Arrastar e soltar entre etapas, clicar na bolinha colorida do card cicla a temperatura do lead (frio/morno/quente), e o nome é editável direto no card.',
+      'Alerta automático de 3 níveis: cada etapa tem um prazo configurável — passou do prazo, o card fica amarelo; passou muito, fica vermelho. Uma aba "Alertas" lista todo mundo parado, do mais atrasado pro menos.',
+      'Filtros combináveis (temperatura, etapa, dias parado, origem, tag, responsável) podem ser salvos como "Lista" — reaplica com um clique depois.',
+      'Clicando num lead abre um painel lateral com o histórico completo: notas, mudanças de etapa, mensagens do WhatsApp, agendamentos e lançamentos financeiros daquele contato, tudo numa timeline só, em ordem cronológica.',
+    ],
+  },
+  {
     date: '2026-04-30',
     title: 'Tela de Segurança & Privacidade',
     type: 'feature',
