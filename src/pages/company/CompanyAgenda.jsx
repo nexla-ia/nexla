@@ -99,6 +99,8 @@ export default function CompanyAgenda() {
   const [searchParams, setSearchParams] = useSearchParams()
   const instance = session?.company?.instance
   const apiInstancia = session?.company?.api_instancia
+  // API Oficial (Meta) grava `numero` sem sufixo de JID; só a Evolution usa "@s.whatsapp.net".
+  const isOfficialApi = (session?.company?.whatsapp_api_type || 'evolution') === 'oficial'
 
   const [tab, setTab]                 = useState('calendario')
   const [agendas, setAgendas]         = useState([])
@@ -439,23 +441,30 @@ export default function CompanyAgenda() {
     const isNew = !apptModal.id
     const prevStatus = apptModal._prevStatus
     let supaError
+    // Otimista: reflete na tela na hora, sem esperar o Realtime confirmar (que pode demorar).
     if (isNew && apptModal.recurrence) {
       const count = Math.min(parseInt(apptModal.recurrence_count) || 1, 52)
       const rows = buildRecurringRows(payload, startsAt, apptModal.recurrence, count)
-      const { error } = await supabase.from('appointments').insert(rows)
+      const { data, error } = await supabase.from('appointments').insert(rows).select()
       supaError = error
+      if (!error && data) setAppointments(prev => [...prev, ...data])
+    } else if (isNew) {
+      const { data, error } = await supabase.from('appointments').insert(payload).select().single()
+      supaError = error
+      if (!error && data) setAppointments(prev => [...prev, data])
     } else {
-      const { error } = isNew
-        ? await supabase.from('appointments').insert(payload)
-        : await supabase.from('appointments').update(payload).eq('id', apptModal.id)
+      const { error } = await supabase.from('appointments').update(payload).eq('id', apptModal.id)
       supaError = error
+      if (!error) setAppointments(prev => prev.map(a => a.id === apptModal.id ? { ...a, ...payload } : a))
     }
     setSavingAppt(false)
     if (supaError) { setApptErr('Erro: ' + supaError.message); return }
 
     // Registra evento na conversa do paciente (se tem número)
     if (numero) {
-      const sessionId = `${numero}@s.whatsapp.net`
+      // Precisa bater com o formato real usado em mensagens_geral pra essa empresa,
+      // senão cria uma 2ª "conversa" fantasma pro mesmo contato (numero divergente).
+      const sessionId = isOfficialApi ? numero : `${numero}@s.whatsapp.net`
       const dateStr = startsAt.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
       const ag = agendas.find(a => a.id === payload.agenda_id)
       let msg = null
@@ -551,8 +560,12 @@ export default function CompanyAgenda() {
   async function confirmDeleteApptAction() {
     if (!apptModal?.id) return
     setDeletingNow(true)
-    await supabase.from('appointments').delete().eq('id', apptModal.id)
+    const deletedId = apptModal.id
+    const { error } = await supabase.from('appointments').delete().eq('id', deletedId)
     setDeletingNow(false)
+    if (error) return
+    // Otimista: tira da tela na hora, sem esperar o Realtime confirmar (que pode demorar).
+    setAppointments(prev => prev.filter(a => a.id !== deletedId))
     setConfirmDeleteAppt(false)
     setApptModal(null)
   }
