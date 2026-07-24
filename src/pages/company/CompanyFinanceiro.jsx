@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 import {
   Plus, X, Pencil, Trash2, ChevronLeft, ChevronRight,
   Wallet, CheckCircle2, Clock, XCircle, Search, Tag,
-  Download, AlertCircle, TrendingDown,
+  Download, AlertCircle, TrendingDown, Lock,
 } from 'lucide-react'
 import './Company.css'
 
@@ -169,8 +169,12 @@ function PendingTable({ items, catMap, onEdit, onDelete, onToggle, deleting }) {
 // ── Main component ────────────────────────────────────────────────────────
 export default function CompanyFinanceiro() {
   const { session } = useAuth()
-  const instance = session?.company?.instance_name || session?.company?.instancia
+  // Era session?.company?.instance_name || session?.company?.instancia — nenhum dos dois
+  // existe no schema real de `companies` (só `instance`). Isso deixava o módulo inteiro
+  // sempre vazio pra qualquer empresa real (confirmei: 0 lançamentos reais no banco).
+  const instance = session?.company?.instance
   const userEmail = session?.user?.email
+  const isAdmin = session?.user?.role === 'admin'
 
   const [activeTab, setActiveTab]       = useState('overview')
   const [transactions, setTransactions] = useState([])
@@ -225,12 +229,25 @@ export default function CompanyFinanceiro() {
   }
 
   async function loadAllPending() {
-    const { data } = await supabase
-      .from('financial_transactions').select('*, financial_categories(nome, cor, tipo)')
-      .eq('instancia', instance)
-      .eq('status', 'pendente')
-      .order('vencimento', { ascending: true })
-    setAllPending(data || [])
+    // PostgREST corta em 1000 linhas por request. Clínica com muito pendente acumulado
+    // perderia lançamentos vencidos antigos e o cálculo de inadimplência ficaria errado
+    // se a gente aceitasse isso — então pagina em loop até trazer tudo.
+    const PAGE = 1000
+    let all = []
+    let from = 0
+    while (true) {
+      const { data, error } = await supabase
+        .from('financial_transactions').select('*, financial_categories(nome, cor, tipo)')
+        .eq('instancia', instance)
+        .eq('status', 'pendente')
+        .order('vencimento', { ascending: true })
+        .range(from, from + PAGE - 1)
+      if (error || !data) break
+      all = all.concat(data)
+      if (data.length < PAGE) break
+      from += PAGE
+    }
+    setAllPending(all)
   }
 
   async function loadChartData() {
@@ -506,6 +523,21 @@ export default function CompanyFinanceiro() {
       {monthOffset !== 0 && <button className="nx-btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => setMonthOffset(0)}>Mês atual</button>}
     </div>
   )
+
+  // ── Acesso restrito: só admin da empresa entra no Financeiro ────────────────
+  if (!isAdmin) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', padding: '2rem', textAlign: 'center' }}>
+        <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#FEF2F2', border: '1px solid #FECACA', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
+          <Lock size={26} style={{ color: '#DC2626' }} />
+        </div>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>Acesso restrito</h2>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 360, lineHeight: 1.5 }}>
+          O módulo Financeiro é visível só pra administradores da empresa. Se você precisa de acesso, peça pro admin da sua clínica.
+        </p>
+      </div>
+    )
+  }
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

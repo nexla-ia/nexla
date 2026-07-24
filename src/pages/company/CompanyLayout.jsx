@@ -77,7 +77,7 @@ export default function CompanyLayout() {
     { to: '/painel/contatos',   icon: Contact2,     label: 'Pacientes', section: 'Gestão' },
     { to: '/painel/agenda',     icon: Calendar,     label: 'Agenda', section: 'Gestão' },
     { to: '/painel/atividades', icon: Kanban,       label: 'Kanban', section: 'Gestão' },
-    { to: '/painel/financeiro', icon: Wallet,       label: 'Financeiro', section: 'Gestão' },
+    ...(isAdmin ? [{ to: '/painel/financeiro', icon: Wallet, label: 'Financeiro', section: 'Gestão' }] : []),
     { to: '/painel/catalogo',   icon: Stethoscope,  label: 'Catálogo Clínico', section: 'Gestão' },
     { to: '/painel/crm',        icon: Target,       label: 'CRM', section: 'Gestão' },
 
