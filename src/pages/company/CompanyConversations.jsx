@@ -5,11 +5,50 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { useContactTags } from '../../hooks/useContactTags'
 import Recorder from 'opus-recorder'
-import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft, ChevronLeft, Plus, Pencil, Users, CheckCheck } from 'lucide-react'
+import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft, ChevronLeft, ChevronDown, Plus, Pencil, Users, CheckCheck, MapPin, Crosshair, Smile } from 'lucide-react'
 import './Company.css'
 
 const CONV_TABLE = 'mensagens_geral'
 const PAGE_SIZE  = 50
+
+const EMOJI_CATEGORIES = [
+  {
+    key: 'smileys', label: 'Carinhas', icon: '😀',
+    emojis: ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','🫠','😉','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🫢','🫡','🤫','🤔','🫣','🤐','🤨','😐','😑','😶','🫥','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🤧','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','🫤','😟','🙁','☹️','😮','😯','😲','😳','🥺','🥹','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','🤖','😺','😸','😹','😻','😼','😽','🙀','😿','😾'],
+  },
+  {
+    key: 'people', label: 'Pessoas', icon: '👋',
+    emojis: ['👋','🤚','🖐️','✋','🖖','🫱','🫲','🫳','🫴','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','🫵','👍','👎','✊','👊','🤛','🤜','👏','🙌','🫶','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦾','🦵','🦿','🦶','👂','🦻','👃','🧠','🫀','🫁','🦷','🦴','👀','👁️','👅','👄','🫦','💋','🩸','👶','🧒','👦','👧','🧑','👱','👨','🧔','👩','🧓','👴','👵','😀','🙋','🙋‍♂️','🙋‍♀️','🧑‍⚕️','🧑‍🎓','🧑‍🏫','🧑‍💻','🧑‍🍳','🧑‍🔧','🧑‍🎨','🧑‍🚀','👮','🕵️','💂','👷','🤴','👸','👳','👲','🧕','🤵','👰','🤰','🤱'],
+  },
+  {
+    key: 'animals', label: 'Animais', icon: '🐶',
+    emojis: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐽','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🪱','🐛','🦋','🐌','🐞','🐜','🪰','🪲','🪳','🦟','🦗','🕷️','🕸️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🦣','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🐂','🐄','🐎','🐖','🐑','🦙','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🐓','🦃','🦤','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁','🐀','🐿️','🦔'],
+  },
+  {
+    key: 'food', label: 'Comida', icon: '🍔',
+    emojis: ['🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🧆','🌮','🌯','🫔','🥗','🥘','🫕','🥫','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥠','🥮','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🥛','🍼','☕','🍵','🧃','🥤','🧋','🍶','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🧉','🍾'],
+  },
+  {
+    key: 'activities', label: 'Atividades', icon: '⚽',
+    emojis: ['⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🪀','🏓','🏸','🏒','🏑','🥍','🏏','🪃','🥅','⛳','🪁','🏹','🎣','🤿','🥊','🥋','🎽','🛹','🛼','🛷','⛸️','🥌','🎿','⛷️','🏂','🏋️','🤼','🤸','⛹️','🤺','🤾','🏌️','🏇','🧘','🏄','🏊','🤽','🚣','🧗','🚵','🚴','🏆','🥇','🥈','🥉','🏅','🎖️','🏵️','🎗️','🎫','🎟️','🎪','🤹','🎭','🩰','🎨','🎬','🎤','🎧','🎼','🎹','🥁','🪘','🎷','🎺','🪗','🎸','🪕','🎻','🎲','♟️','🎯','🎳','🎮','🎰','🧩'],
+  },
+  {
+    key: 'travel', label: 'Viagens', icon: '🚗',
+    emojis: ['🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🦯','🦽','🦼','🛴','🚲','🛵','🏍️','🛺','🚨','🚔','🚍','🚘','🚖','🚡','🚠','🚟','🚃','🚋','🚞','🚝','🚄','🚅','🚈','🚂','🚆','🚇','🚊','🚉','✈️','🛫','🛬','🛩️','💺','🛰️','🚀','🛸','🚁','🛶','⛵','🚤','🛥️','🛳️','⛴️','🚢','⚓','🪝','⛽','🚧','🚦','🚥','🗺️','🗿','🗽','🗼','🏰','🏯','🏟️','🎡','🎢','🎠','⛲','⛱️','🏖️','🏝️','🏜️','🌋','⛰️','🏔️','🗻','🏕️','⛺','🏠','🏡','🏘️','🏚️','🏗️','🏭','🏢','🏬','🏣','🏤','🏥','🏦','🏨','🏪','🏫','🏩','💒','🏛️','⛪','🕌','🕍','🛕','🕋'],
+  },
+  {
+    key: 'objects', label: 'Objetos', icon: '💡',
+    emojis: ['⌚','📱','💻','⌨️','🖥️','🖨️','🖱️','🕹️','💽','💾','💿','📀','📷','📸','📹','🎥','📞','☎️','📟','📠','📺','📻','🎙️','⏱️','⏲️','⏰','🕰️','⌛','⏳','📡','🔋','🪫','🔌','💡','🔦','🕯️','🪔','🧯','🛢️','💸','💵','💴','💶','💷','🪙','💰','💳','🧾','💎','⚖️','🪜','🧰','🪛','🔧','🔨','⚒️','🛠️','⛏️','🪚','🔩','⚙️','🪤','🧱','⛓️','🧲','🔫','💣','🧨','🪓','🔪','🗡️','⚔️','🛡️','🚬','⚰️','🪦','⚱️','🏺','🔮','📿','🧿','💈','⚗️','🔭','🔬','🕳️','💊','💉','🩸','🩹','🩺','🩻','🚪','🛗','🪞','🪟','🛏️','🛋️','🪑','🚽','🪠','🚿','🛁','🪥','🪒','🧴','🧷','🧹','🧺','🧻','🪣','🧼','🫧','🪒','🧽','🧯','🛒','🎁','🎈','🎏','🎀','🪄','🪅','🎉','🎊','🎎','🏮','🎐','🧧','✉️','📩','📨','📧','💌','📮','📪','📦','📋','📁','📂','🗂️','📅','📆','🗓️','📇','📈','📉','📊','📌','📍','📎','🖇️','📏','📐','✂️','🗃️','🗄️','🗑️','🔒','🔓','🔏','🔐','🔑','🗝️'],
+  },
+  {
+    key: 'symbols', label: 'Símbolos', icon: '❤️',
+    emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☪️','🕉️','☸️','✡️','🔯','🕎','☯️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚛️','🉑','☢️','☣️','📴','📳','🈶','🈚','🈸','🈺','🈷️','✴️','🆚','💮','🉐','㊙️','㊗️','🈴','🈵','🈹','🈲','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕','🛑','⛔','📛','🚫','💯','💢','♨️','🚷','🚯','🚳','🚱','🔞','📵','🚭','❗','❕','❓','❔','‼️','⁉️','🔅','🔆','〽️','⚠️','🚸','🔱','⚜️','🔰','♻️','✅','🈯','💹','❇️','✳️','❎','🌐','💠','Ⓜ️','🌀','💤','🏧','🚾','♿','🅿️','🈳','🈂️','🛂','🛃','🛄','🛅','🚹','🚺','🚼','⚧️','🚻','🚮','🎦','📶','🈁','🔣','🔤','🔡','🔠','🆖','🆗','🆙','🆒','🆕','🆓','0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🔢','#️⃣','*️⃣','⏏️','▶️','⏸️','⏹️','⏺️','⏭️','⏮️','⏩','⏪','⏫','⏬','◀️','🔼','🔽','➡️','⬅️','⬆️','⬇️','↗️','↘️','↙️','↖️','↕️','↔️','↪️','↩️','⤴️','⤵️','🔀','🔁','🔂','🔄','🔃','🎵','🎶','➕','➖','➗','✖️','🟰','♾️','💲','💱','™️','©️','®️'],
+  },
+  {
+    key: 'flags', label: 'Bandeiras', icon: '🏳️',
+    emojis: ['🏁','🚩','🎌','🏴','🏳️','🏳️‍🌈','🏳️‍⚧️','🏴‍☠️','🇧🇷','🇺🇸','🇵🇹','🇪🇸','🇦🇷','🇨🇱','🇺🇾','🇵🇾','🇧🇴','🇨🇴','🇻🇪','🇵🇪','🇲🇽','🇫🇷','🇩🇪','🇮🇹','🇬🇧','🇨🇦','🇯🇵','🇨🇳','🇰🇷','🇮🇳','🇦🇺','🇿🇦'],
+  },
+]
 
 function mapRow(r) {
   return {
@@ -18,6 +57,17 @@ function mapRow(r) {
     type: getMessageType(r),
     content: getMessageContent(r),
     base64: r.base64 || null,
+    resumo: r.resumo || null,
+    transcricao: r.transcricao || null,
+    location: r.location || null,
+    contato: parseContactInput(r.contato),
+    // Aceita tanto { emoji, from } quanto só o emoji cru (string) — não depende do n8n
+    // montar o objeto certinho, igual fizemos com location/contato.
+    reacao: (() => {
+      if (!r.reacao) return null
+      if (typeof r.reacao === 'string') return r.reacao.trim() ? { emoji: r.reacao.trim() } : null
+      return r.reacao.emoji ? r.reacao : null
+    })(),
     ts: getTimestamp(r),
   }
 }
@@ -57,6 +107,57 @@ function getMessageContent(row) {
     .trim()
 }
 
+// Extrai nome (FN) e telefone (TEL) de um vCard puro (texto, não base64).
+function parseVcardText(vcard) {
+  if (!vcard) return { name: null, phone: null }
+  const nameMatch = vcard.match(/FN:(.*)/)
+  const telMatch = vcard.match(/TEL[^:]*:([^\r\n]*)/)
+  return {
+    name: nameMatch?.[1]?.trim() || null,
+    phone: telMatch?.[1]?.replace(/\D/g, '') || null,
+  }
+}
+
+// Aceita o que o n8n mandar puro: string em base64 (como a Cloud API entrega), texto de
+// vCard cru, ou já um objeto { name, phone, vcard } — normaliza tudo pro mesmo formato
+// pra não depender de o n8n extrair nome/telefone antes de salvar.
+function parseContactInput(contato) {
+  if (!contato) return null
+  const decodeIfBase64 = (raw) => {
+    if (raw.includes('BEGIN:VCARD')) return raw
+    try { return atob(raw) } catch { return raw }
+  }
+  if (typeof contato === 'string') {
+    const vcardText = decodeIfBase64(contato)
+    const { name, phone } = parseVcardText(vcardText)
+    return { name, phone, vcard: vcardText }
+  }
+  if (contato.name || contato.phone) return contato
+  if (contato.vcard) {
+    const vcardText = decodeIfBase64(contato.vcard)
+    const { name, phone } = parseVcardText(vcardText)
+    return { name: name || contato.name || null, phone: phone || contato.phone || null, wa_id: contato.wa_id || null, vcard: vcardText }
+  }
+  return null
+}
+
+// Prévia curta da última mensagem, mostrada na lista de conversas.
+function getLastMsgPreview(row) {
+  if (row.location?.lat != null) return `📍 ${row.location.name?.trim() || 'Localização'}`
+  const contato = parseContactInput(row.contato)
+  if (contato && (contato.name || contato.phone)) return `👤 ${contato.name?.trim() || 'Contato'}`
+  if (row.resumo?.trim()) return `🎤 ${row.resumo.trim()}`
+  const content = getMessageContent(row)
+  if (!content) return ''
+  const fileLineMatch = content.match(/^(🎤 Áudio|🖼️ [^\n]+|📄 [^\n]+|📎 [^\n]+)(\n([\s\S]*))?$/)
+  if (fileLineMatch) {
+    const extra = fileLineMatch[3]?.trim()
+    return extra ? `${fileLineMatch[1].split('\n')[0]} · ${extra}` : fileLineMatch[1]
+  }
+  const oneLine = content.replace(/\s+/g, ' ').trim()
+  return oneLine.length > 60 ? oneLine.slice(0, 60) + '…' : oneLine
+}
+
 function getMessageType(row) { return (row.type || 'human').toLowerCase() }
 
 function parseTimestamp(val) {
@@ -88,6 +189,165 @@ function detectMedia(b64) {
   if (b64.startsWith('R0lGOD')) return { type: 'image', mime: 'image/gif' }
   if (b64.startsWith('JVBERi')) return { type: 'pdf', mime: 'application/pdf' }
   return null
+}
+
+// Formata texto de mensagem igual o WhatsApp: *negrito*, ~riscado~ e links clicáveis.
+const FORMAT_TOKEN_RE = /(https?:\/\/[^\s]+|www\.[a-zA-Z0-9-]+\.[^\s]+|\*[^\s*][^*]*\*|~[^\s~][^~]*~)/g
+
+function renderFormattedText(text) {
+  if (!text) return text
+  const nodes = []
+  let lastIndex = 0
+  let match
+  let key = 0
+  FORMAT_TOKEN_RE.lastIndex = 0
+  while ((match = FORMAT_TOKEN_RE.exec(text)) !== null) {
+    if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index))
+    let token = match[0]
+    if (/^(https?:\/\/|www\.)/i.test(token)) {
+      let trail = ''
+      const trailMatch = token.match(/[.,;:!?)\]'"]+$/)
+      if (trailMatch) { trail = trailMatch[0]; token = token.slice(0, -trail.length) }
+      const href = /^https?:\/\//i.test(token) ? token : `https://${token}`
+      nodes.push(
+        <a key={key++} href={href} target="_blank" rel="noreferrer"
+          onClick={e => e.stopPropagation()}
+          style={{ color: 'inherit', textDecoration: 'underline' }}>
+          {token}
+        </a>
+      )
+      if (trail) nodes.push(trail)
+    } else if (token.startsWith('*')) {
+      nodes.push(<strong key={key++}>{token.slice(1, -1)}</strong>)
+    } else if (token.startsWith('~')) {
+      nodes.push(<s key={key++}>{token.slice(1, -1)}</s>)
+    }
+    lastIndex = FORMAT_TOKEN_RE.lastIndex
+  }
+  if (lastIndex < text.length) nodes.push(text.slice(lastIndex))
+  return nodes
+}
+
+// Aceita "lat, lng" cru ou um link do Google Maps (@lat,lng / ?q=lat,lng / ?ll=lat,lng).
+// Não resolve links encurtados (goo.gl/maps/...) — precisa do link completo com coordenadas.
+function parseLocationInput(raw) {
+  const text = (raw || '').trim()
+  if (!text) return null
+  const clean = text.replace(/%2C/gi, ',')
+  const plain = clean.match(/^(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)$/)
+  if (plain) return { lat: parseFloat(plain[1]), lng: parseFloat(plain[2]) }
+  const atMatch = clean.match(/@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/)
+  if (atMatch) return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) }
+  const qMatch = clean.match(/[?&]q=(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/)
+  if (qMatch) return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) }
+  const llMatch = clean.match(/[?&]ll=(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/)
+  if (llMatch) return { lat: parseFloat(llMatch[1]), lng: parseFloat(llMatch[2]) }
+  return null
+}
+
+// Mini "static maps" sem precisar de API key/billing: monta um mosaico 2x2 de tiles
+// XYZ padrão (CARTO Voyager, cobertura mundial e sem key) e recorta na posição exata
+// do pino — 2 tiles em cada eixo garantem cobertura mesmo quando o ponto cai perto
+// de uma borda de tile.
+function lonLatToPixel(lat, lng, zoom) {
+  const n = Math.pow(2, zoom)
+  const latRad = lat * Math.PI / 180
+  const x = (lng + 180) / 360 * n * 256
+  const y = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n * 256
+  return { x, y }
+}
+
+function getStaticMapTiles(lat, lng, zoom, width, height) {
+  const { x: px, y: py } = lonLatToPixel(lat, lng, zoom)
+  const left = px - width / 2
+  const top = py - height / 2
+  const tileX0 = Math.floor(left / 256)
+  const tileY0 = Math.floor(top / 256)
+  const n = Math.pow(2, zoom)
+  const wrap = (t) => ((t % n) + n) % n
+  const subs = ['a', 'b', 'c', 'd']
+  const tiles = []
+  for (let dy = 0; dy < 2; dy++) {
+    for (let dx = 0; dx < 2; dx++) {
+      const tx = wrap(tileX0 + dx)
+      const ty = wrap(tileY0 + dy)
+      const sub = subs[(tx + ty) % subs.length]
+      tiles.push({ dx, dy, url: `https://${sub}.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${tx}/${ty}.png` })
+    }
+  }
+  return { tiles, offsetX: left - tileX0 * 256, offsetY: top - tileY0 * 256 }
+}
+
+// ── Apresentação de resumo/transcrição gerados por IA (documento e áudio) ──────
+// Paleta violeta = "insight de IA" em todo o app (mesma linguagem do CRM); em cima
+// da bolha verde do atendente vira um overlay translúcido branco pra não brigar de cor.
+function AiToggleChip({ isAtendente, icon: Icon, label, expanded, onClick }) {
+  const onGreen = isAtendente
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        padding: '3px 10px 3px 8px', borderRadius: 20, cursor: 'pointer',
+        fontSize: 10.5, fontWeight: 700, letterSpacing: '0.01em',
+        border: `1px solid ${onGreen ? 'rgba(255,255,255,0.35)' : (expanded ? '#DDD6FE' : '#E9E4FB')}`,
+        background: onGreen ? 'rgba(255,255,255,0.14)' : (expanded ? '#EDE7FE' : '#F8F6FE'),
+        color: onGreen ? '#fff' : '#6D28D9',
+        transition: 'background 0.15s, border-color 0.15s, transform 0.1s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)' }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)' }}
+    >
+      <Icon size={10.5} />
+      {label}
+      <ChevronDown size={10} style={{ transition: 'transform 0.18s', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', opacity: 0.75 }} />
+    </button>
+  )
+}
+
+function AiExpandedCard({ isAtendente, icon: Icon, title, children }) {
+  const onGreen = isAtendente
+  return (
+    <div style={{
+      marginTop: 6, borderRadius: 10, padding: '9px 12px',
+      background: onGreen ? 'rgba(255,255,255,0.12)' : 'linear-gradient(180deg, #FBFAFF 0%, #F5F3FF 100%)',
+      border: `1px solid ${onGreen ? 'rgba(255,255,255,0.22)' : '#E9E4FB'}`,
+      animation: 'ai-card-in 0.16s ease-out',
+      maxWidth: 280,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4,
+        fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+        color: onGreen ? 'rgba(255,255,255,0.7)' : '#8B5CF6',
+      }}>
+        <Icon size={10} /> {title}
+      </div>
+      <div style={{
+        fontSize: 12.5, lineHeight: 1.5, whiteSpace: 'pre-wrap',
+        color: onGreen ? 'rgba(255,255,255,0.95)' : '#1E1B3A',
+      }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function AiLoadingDots({ isAtendente, label }) {
+  const onGreen = isAtendente
+  const dotColor = onGreen ? 'rgba(255,255,255,0.85)' : '#8B5CF6'
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 5, fontSize: 10.5, fontStyle: 'italic', color: onGreen ? 'rgba(255,255,255,0.65)' : 'var(--text-muted)' }}>
+      <span style={{ display: 'inline-flex', gap: 3 }}>
+        {[0, 0.15, 0.3].map(delay => (
+          <span key={delay} style={{
+            width: 5, height: 5, borderRadius: '50%', background: dotColor,
+            animation: 'msg-dot-bounce 1.1s ease-in-out infinite', animationDelay: `${delay}s`,
+          }} />
+        ))}
+      </span>
+      {label}
+    </div>
+  )
 }
 
 function isToolMessage(row) {
@@ -158,7 +418,10 @@ export default function CompanyConversations() {
   const [searchParams, setSearchParams] = useSearchParams()
   const instance      = session?.company?.instance
   const apiInstancia  = session?.company?.api_instancia
-  const sendWebhookUrl = (session?.company?.whatsapp_api_type || 'evolution') === 'oficial'
+  // WhatsApp Cloud API (Meta) não tem endpoint de editar/apagar mensagem já enviada —
+  // só a Evolution API (sessão própria) consegue. Some a opção de editar quando for Oficial.
+  const isOfficialApi = (session?.company?.whatsapp_api_type || 'evolution') === 'oficial'
+  const sendWebhookUrl = isOfficialApi
     ? 'https://n8n.nexladesenvolvimento.com.br/webhook/respondeplataforma'
     : 'https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla'
   const contactsTable = session?.company?.contacts_table
@@ -220,6 +483,10 @@ export default function CompanyConversations() {
   const [toast, setToast]             = useState(null)
   const [msgText, setMsgText]         = useState('')
   const [sending, setSending]         = useState(false)
+  const [otherTyping, setOtherTyping] = useState(null) // { name } | null
+  const typingChRef = useRef(null)
+  const lastTypingSentRef = useRef(0)
+  const typingClearTimeoutRef = useRef(null)
   const [closedLoaded, setClosedLoaded] = useState(false)
   const [lightbox, setLightbox]       = useState(null)
   const [recording, setRecording]     = useState(false)
@@ -235,10 +502,23 @@ export default function CompanyConversations() {
   const [editingMsgId, setEditingMsgId]   = useState(null)
   const [editingText, setEditingText]     = useState('')
   const [savingEdit, setSavingEdit]       = useState(false)
+  const [expandedCaptions, setExpandedCaptions] = useState(new Set()) // ids com resumo do documento visível
+  const [expandedTranscripts, setExpandedTranscripts] = useState(new Set()) // ids com transcrição do áudio visível
+  const [locationModal, setLocationModal] = useState(false)
+  const [locInput, setLocInput]       = useState('')
+  const [locName, setLocName]         = useState('')
+  const [locAddress, setLocAddress]   = useState('')
+  const [locErr, setLocErr]           = useState('')
+  const [sendingLocation, setSendingLocation] = useState(false)
+  const [gettingGeo, setGettingGeo]   = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [emojiCategory, setEmojiCategory] = useState(EMOJI_CATEGORIES[0].key)
+  const emojiPickerRef = useRef(null)
   const mediaRecorderRef = useRef(null)
   const recordTimerRef   = useRef(null)
   const recordStartRef   = useRef(0)
   const fileInputRef     = useRef(null)
+  const messageInputRef  = useRef(null)
   const bottomRef        = useRef(null)
   const selectedRef      = useRef(null)
   const autoCloseDone    = useRef(false)
@@ -347,7 +627,10 @@ export default function CompanyConversations() {
     const target = searchParams.get('contact')
     if (!target || loadingContacts) return
     const cleanTarget = target.replace(/\D/g, '')
-    const sessionId = `${cleanTarget}@s.whatsapp.net`
+    // API Oficial (Meta) grava `numero` sem sufixo de JID; só a Evolution usa
+    // "@s.whatsapp.net". Usar o sufixo errado cria uma 2ª entrada pro mesmo contato,
+    // com histórico de mensagens "invisível" (chave diferente da conversa real).
+    const sessionId = isOfficialApi ? cleanTarget : `${cleanTarget}@s.whatsapp.net`
     const existing = contacts.find(c => c.session_id === sessionId || c.phone === cleanTarget)
     if (existing) {
       setSelected(existing)
@@ -376,6 +659,32 @@ export default function CompanyConversations() {
       window.removeEventListener('scroll', close, true)
     }
   }, [contextMenu])
+
+  // Fecha o seletor de emoji ao clicar fora dele (e fora do botão que o abre)
+  useEffect(() => {
+    if (!showEmojiPicker) return
+    const close = (e) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target)) setShowEmojiPicker(false)
+    }
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [showEmojiPicker])
+
+  // Insere o emoji na posição do cursor (não só no final), igual apps de chat de verdade
+  function insertEmoji(emoji) {
+    const el = messageInputRef.current
+    const start = el?.selectionStart ?? msgText.length
+    const end = el?.selectionEnd ?? msgText.length
+    const newText = msgText.slice(0, start) + emoji + msgText.slice(end)
+    setMsgText(newText)
+    notifyTyping()
+    requestAnimationFrame(() => {
+      if (!el) return
+      el.focus()
+      const pos = start + emoji.length
+      el.setSelectionRange(pos, pos)
+    })
+  }
 
   function openSaveContact(contact) {
     const numero = contact.phone.replace(/\D/g, '')
@@ -452,11 +761,22 @@ export default function CompanyConversations() {
   useEffect(() => {
     if (!instance) return
     setLoadingContacts(true)
-    supabase.from(CONV_TABLE).select('numero, type, created_at, horaLastMessage, aplicativo, nome')
+    // `resumo`, `location` e `contato` são opcionais (colunas novas, adicionadas só depois que as
+    // migrations correspondentes rodarem) — tenta com todas e, se alguma ainda não existir (42703),
+    // vai removendo uma de cada vez (da mais nova pra mais antiga) sem quebrar a lista de conversas.
+    const BASE_COLS = 'numero, type, created_at, horaLastMessage, aplicativo, nome, mensagem'
+    const OPTIONAL_COLS = ['resumo', 'location', 'contato']
+    const fetchContactsRows = (cols) => supabase.from(CONV_TABLE).select(cols)
       .eq('instancia', instance)
       .or('aplicativo.neq.instagram,aplicativo.is.null')
       .order('id', { ascending: false })
       .limit(5000)
+    let chain = fetchContactsRows([BASE_COLS, ...OPTIONAL_COLS].join(', '))
+    for (let i = OPTIONAL_COLS.length - 1; i >= 0; i--) {
+      const cols = [BASE_COLS, ...OPTIONAL_COLS.slice(0, i)].join(', ')
+      chain = chain.then(res => res.error?.code === '42703' ? fetchContactsRows(cols) : res)
+    }
+    chain
       .then(({ data, error }) => {
         if (!error && data) {
           const seen = new Set()
@@ -482,6 +802,7 @@ export default function CompanyConversations() {
               outsideAssumed: hasOutsideHuman.has(normPhoneKey(sid)),
               pushname: row.nome || null,
               isGroup: sid.includes('@g.us'),
+              lastMsgPreview: getLastMsgPreview(row),
             })
           }
           setContacts(unique)
@@ -610,10 +931,22 @@ export default function CompanyConversations() {
       }
     }
 
+    // Reações (e outros updates, como id_mensagem chegando depois do webhook) não criam
+    // linha nova — o n8n faz UPDATE na mensagem já existente. Sem isso, a reação só apareceria
+    // depois de reabrir a conversa.
+    function handleUpdatedMsg(p) {
+      const row = p.new
+      if (!row) return
+      setMessages(msgs => msgs.map(m => m.id === row.id ? mapRow(row) : m))
+    }
+
     const ch = supabase.channel(`convs-msgs-${instance}`, { config: { broadcast: { ack: true } } })
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: CONV_TABLE, filter: `instancia=eq.${instance}` },
         handleNewMsg)
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: CONV_TABLE, filter: `instancia=eq.${instance}` },
+        handleUpdatedMsg)
       .subscribe((status) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           supabase.removeChannel(ch)
@@ -645,6 +978,73 @@ export default function CompanyConversations() {
         setLoadingMsgs(false)
       })
   }, [selected, instance])
+
+  // Indicador "digitando..." entre atendentes — basta ter a conversa aberta pra ver,
+  // igual no WhatsApp: não precisa focar a caixa de texto, só quem manda precisa digitar.
+  useEffect(() => {
+    setOtherTyping(null)
+    if (!selected || !instance) return
+    const topic = `conv-typing-${instance}-${selected.session_id}`.replace(/[^a-zA-Z0-9_-]/g, '_')
+    const ch = supabase.channel(topic, { config: { broadcast: { self: false } } })
+    ch.on('broadcast', { event: 'typing' }, ({ payload }) => {
+      // `broadcast: { self: false }` já garante que não ouvimos nosso próprio evento
+      // nesta mesma aba — não precisa (e não deve) filtrar de novo por e-mail aqui,
+      // senão duas abas do mesmo atendente nunca veem o indicador uma da outra.
+      setOtherTyping({ name: payload?.name || 'Atendente' })
+      if (typingClearTimeoutRef.current) clearTimeout(typingClearTimeoutRef.current)
+      typingClearTimeoutRef.current = setTimeout(() => setOtherTyping(null), 3500)
+    })
+    ch.on('broadcast', { event: 'typing_stop' }, () => {
+      if (typingClearTimeoutRef.current) clearTimeout(typingClearTimeoutRef.current)
+      setOtherTyping(null)
+    })
+    ch.subscribe()
+    typingChRef.current = ch
+    return () => {
+      supabase.removeChannel(ch)
+      typingChRef.current = null
+      if (typingClearTimeoutRef.current) clearTimeout(typingClearTimeoutRef.current)
+    }
+  }, [selected?.session_id, instance]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function notifyTyping() {
+    if (!typingChRef.current) return
+    const now = Date.now()
+    if (now - lastTypingSentRef.current < 1000) return
+    lastTypingSentRef.current = now
+    typingChRef.current.send({
+      type: 'broadcast', event: 'typing',
+      payload: { email: session?.user?.email, name: session?.user?.name },
+    })
+  }
+  function notifyStopTyping() {
+    if (!typingChRef.current) return
+    typingChRef.current.send({
+      type: 'broadcast', event: 'typing_stop',
+      payload: { email: session?.user?.email },
+    })
+  }
+
+  // Com a conversa aberta, começar a digitar em qualquer lugar da tela já escreve
+  // na caixa de mensagem — sem precisar clicar nela antes, igual o "type to search" do Gmail.
+  useEffect(() => {
+    if (!selected) return
+    function handleGlobalKeyDown(e) {
+      if (closeModal || transferModal || contextMenu || chatTagPickerOpen || headerTagOpen) return
+      if (sending || recording || !canRespond(selected)) return
+      const active = document.activeElement
+      const isEditable = active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA' || active?.isContentEditable
+      if (isEditable) return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.key.length !== 1) return // só teclas imprimíveis (letras/números/símbolos/espaço)
+      e.preventDefault()
+      setMsgText(prev => prev + e.key)
+      notifyTyping()
+      messageInputRef.current?.focus()
+    }
+    document.addEventListener('keydown', handleGlobalKeyDown)
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [selected, sending, recording, closeModal, transferModal, contextMenu, chatTagPickerOpen, headerTagOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadMore() {
     if (loadingMore || !hasMore || !selected || !instance || !messages.length) return
@@ -682,7 +1082,7 @@ export default function CompanyConversations() {
       const maxId = maxMsgIdRef.current
       if (!maxId) return
       supabase.from(CONV_TABLE)
-        .select('id, id_mensagem, type, mensagem, base64, created_at, horaLastMessage, aplicativo')
+        .select('*')
         .eq('instancia', instance)
         .eq('numero', selected.session_id)
         .or('aplicativo.neq.instagram,aplicativo.is.null')
@@ -935,6 +1335,7 @@ export default function CompanyConversations() {
   async function handleSend() {
     if (sending || !selected) return
     if (!checkSession()) return
+    notifyStopTyping()
     if (!canRespond(selected)) {
       const att = attendancesMap[selected.session_id]
       setToast({
@@ -995,7 +1396,29 @@ export default function CompanyConversations() {
         p_hora: new Date().toISOString(),
         p_base64: mediaBase64,
       })
-      if (insErr) console.error('send_mensagem_geral:', insErr)
+      if (insErr) {
+        console.error('send_mensagem_geral:', insErr)
+      } else {
+        // Busca de volta a mensagem recém-inserida pra exibir na hora — não dá pra
+        // confiar só no Realtime aqui: anexos grandes (áudio/PDF em base64) podem
+        // estourar o limite de payload do canal e chegar sem o conteúdo (bolha vazia).
+        const { data: justSent } = await supabase
+          .from(CONV_TABLE).select('*')
+          .eq('instancia', instance)
+          .eq('numero', selected.session_id)
+          .eq('mensagem', mensagemPayload)
+          .eq('type', 'atendente')
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (justSent) {
+          setMessages(prev => {
+            if (prev.some(m => m.id === justSent.id)) return prev
+            maxMsgIdRef.current = Math.max(maxMsgIdRef.current, justSent.id)
+            return [...prev, mapRow(justSent)]
+          })
+        }
+      }
 
       fetch(sendWebhookUrl, {
         method: 'POST',
@@ -1046,6 +1469,161 @@ export default function CompanyConversations() {
         .catch(e => console.warn('webhook envio:', e))
     } finally {
       setSending(false)
+    }
+  }
+
+  function handleUseMyLocation() {
+    if (!navigator.geolocation) {
+      setLocErr('Seu navegador não suporta geolocalização.')
+      return
+    }
+    setLocErr('')
+    setGettingGeo(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocInput(`${pos.coords.latitude}, ${pos.coords.longitude}`)
+        setGettingGeo(false)
+      },
+      (err) => {
+        setLocErr('Não foi possível obter sua localização: ' + err.message)
+        setGettingGeo(false)
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
+
+  async function handleSendLocation() {
+    if (sendingLocation || !selected) return
+    if (!checkSession()) return
+    const coords = parseLocationInput(locInput)
+    if (!coords) {
+      setLocErr('Cole um link do Google Maps ou coordenadas no formato "lat, lng".')
+      return
+    }
+    if (!canRespond(selected)) {
+      const att = attendancesMap[selected.session_id]
+      setToast({
+        message: `Conversa em atendimento por ${att?.attendant_name || 'outro atendente'}. Peça pra ele transferir ou finalize antes.`,
+        color: '#DC2626',
+      })
+      setTimeout(() => setToast(null), 4000)
+      return
+    }
+    setLocErr('')
+    setSendingLocation(true)
+    try {
+      const name = locName.trim()
+      const address = locAddress.trim()
+      const mensagemPayload = `📍 ${name || 'Localização'}`
+      const { error: insErr } = await supabase.rpc('send_mensagem_geral', {
+        p_instancia: instance,
+        p_numero: selected.session_id,
+        p_mensagem: mensagemPayload,
+        p_type: 'atendente',
+        p_hora: new Date().toISOString(),
+        p_base64: null,
+      })
+      if (insErr) {
+        console.error('send_mensagem_geral (location):', insErr)
+      } else {
+        const { data: justSent } = await supabase
+          .from(CONV_TABLE).select('*')
+          .eq('instancia', instance)
+          .eq('numero', selected.session_id)
+          .eq('mensagem', mensagemPayload)
+          .eq('type', 'atendente')
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (justSent) {
+          const locationData = { lat: coords.lat, lng: coords.lng, name: name || null, address: address || null }
+          // Coluna `location` é opcional (migration 20260724) — se ainda não existir no banco,
+          // o envio segue funcionando normalmente, só sem o card bonito (mostra o texto acima).
+          try {
+            await supabase.from(CONV_TABLE).update({ location: locationData }).eq('id', justSent.id)
+          } catch { /* coluna ainda não migrada — ok, ignora */ }
+          setMessages(prev => {
+            if (prev.some(m => m.id === justSent.id)) return prev
+            maxMsgIdRef.current = Math.max(maxMsgIdRef.current, justSent.id)
+            return [...prev, mapRow({ ...justSent, location: locationData })]
+          })
+        }
+      }
+
+      const isGroup = !!selected.isGroup
+      const locationWebhookUrl = isOfficialApi ? sendWebhookUrl : 'https://n8n.nexladesenvolvimento.com.br/webhook/locamed'
+      fetch(locationWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          number: isGroup ? selected.session_id : selected.phone,
+          session_id: selected.session_id,
+          ...(isGroup ? { idgrupo: selected.session_id } : {}),
+          instancia: instance,
+          api_instancia: apiInstancia,
+          latitude: coords.lat,
+          longitude: coords.lng,
+          name: name || null,
+          address: address || null,
+          type: 'location',
+          ai_enabled: session?.company?.ai_enabled !== false,
+          company: session?.company?.name,
+          sender_name: session?.user?.name,
+          sender_email: session?.user?.email,
+        }),
+      })
+        .then(r => r.text())
+        .then(async text => {
+          const [instResp, msgResp, msgId] = text.trim().split('\n').map(l => l.trim())
+          if (!msgId || !instResp || !msgResp) return
+          const { data: row } = await supabase
+            .from('mensagens_geral')
+            .select('id')
+            .eq('instancia', instResp)
+            .eq('numero', selected.session_id)
+            .eq('mensagem', msgResp)
+            .eq('type', 'atendente')
+            .order('id', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (row?.id) {
+            supabase.from('mensagens_geral')
+              .update({ id_mensagem: msgId })
+              .eq('id', row.id)
+              .then(() => {
+                setMessages(prev => prev.map(m => m.id === row.id ? { ...m, id_mensagem: msgId } : m))
+              })
+          }
+        })
+        .catch(e => console.warn('webhook envio localização:', e))
+
+      setLocationModal(false)
+      setLocInput('')
+      setLocName('')
+      setLocAddress('')
+    } finally {
+      setSendingLocation(false)
+    }
+  }
+
+  // Abre, dentro da própria plataforma, a conversa do número de um contato compartilhado
+  // no chat — não navega pro WhatsApp externo. Se ainda não existir conversa com esse
+  // número, cria uma entrada "vazia" pra o atendente já poder iniciar o atendimento nela
+  // (mesmo padrão usado pelo link ?contact= vindo da página de Contatos).
+  function openContactConversation(phoneDigits) {
+    if (!phoneDigits) return
+    const sessionId = isOfficialApi ? phoneDigits : `${phoneDigits}@s.whatsapp.net`
+    const existing = contacts.find(c => c.session_id === sessionId || c.phone === phoneDigits)
+    if (existing) {
+      setSelected(existing)
+      if (closedMap[existing.session_id]) setTab('finalizados')
+      else if (attendancesMap[existing.session_id]) setTab('meu-setor')
+      else setTab('recepcao')
+    } else {
+      const synthetic = { session_id: sessionId, phone: phoneDigits, lastTs: null }
+      setContacts(prev => [synthetic, ...prev])
+      setSelected(synthetic)
+      setTab('recepcao')
     }
   }
 
@@ -1188,12 +1766,13 @@ export default function CompanyConversations() {
 
   const currentList = tab === 'recepcao' ? recepcao : tab === 'meu-setor' ? meuSetor : finalizados
   const cleanSearch = search.replace(/\D/g, '')
+  const searchLc = search.trim().toLowerCase()
   const filtered = currentList.filter(c => {
-    if (hasLetters) {
-      if (!msgMatchNums) return false // ainda carregando
-      if (!msgMatchNums.has(c.phone.replace(/\D/g, ''))) return false
-    } else if (cleanSearch) {
-      if (!c.phone.replace(/\D/g, '').includes(cleanSearch)) return false
+    if (searchLc) {
+      const nameMatch = getContactName(c).toLowerCase().includes(searchLc)
+      const phoneMatch = cleanSearch.length > 0 && c.phone.replace(/\D/g, '').includes(cleanSearch)
+      const msgMatch = hasLetters && !!msgMatchNums?.has(c.phone.replace(/\D/g, ''))
+      if (!nameMatch && !phoneMatch && !msgMatch) return false
     }
     if (tagFilter) {
       const cleanNum = c.phone.replace(/\D/g, '')
@@ -1244,7 +1823,7 @@ export default function CompanyConversations() {
         <div className="contacts-list-header" style={{ paddingTop: 10 }}>
           <input
             className="contacts-search"
-            placeholder="Buscar por telefone ou mensagem..."
+            placeholder="Buscar por nome, telefone ou mensagem..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -1414,6 +1993,11 @@ export default function CompanyConversations() {
                       <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, color: rs.color, background: rs.bg, border: `1px solid ${rs.border}`, lineHeight: '16px' }}>{rs.label}</span>
                     )}
                   </div>
+                  {c.lastMsgPreview && (
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.lastMsgPreview}
+                    </div>
+                  )}
                   {tab === 'recepcao' && (
                     <button
                       onClick={e => handleAssume(c, e)}
@@ -1486,9 +2070,15 @@ export default function CompanyConversations() {
                       >
                         {getContactName(selected)}
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {getContactName(selected) !== selected.phone && <span style={{ fontFamily: 'monospace' }}>{selected.phone}</span>}
-                        {!loadingMsgs && <span>{messages.length} mensagem(ns)</span>}
+                      <div style={{ fontSize: 12, color: otherTyping ? '#16A34A' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {otherTyping ? (
+                          <span style={{ fontStyle: 'italic', fontWeight: 600 }}>{otherTyping.name} está digitando...</span>
+                        ) : (
+                          <>
+                            {getContactName(selected) !== selected.phone && <span style={{ fontFamily: 'monospace' }}>{selected.phone}</span>}
+                            {!loadingMsgs && <span>{messages.length} mensagem(ns)</span>}
+                          </>
+                        )}
                       </div>
                       {saved && (() => {
                         const patTags = tagsByContact[saved.id] || []
@@ -1871,29 +2461,210 @@ export default function CompanyConversations() {
                     <div className={`msg-row ${isLeft ? 'ai' : 'client'}`}>
                       {(() => {
                         const media = detectMedia(msg.base64)
+                        const hasLocation = !!(msg.location && msg.location.lat != null && msg.location.lng != null)
+                        const hasContact = !!(msg.contato && (msg.contato.name || msg.contato.phone))
                         const rawContent = msg.content || ''
                         const fileLineMatch = rawContent.match(/^(🎤 Áudio|🖼️ [^\n]+|📄 [^\n]+|📎 [^\n]+)(\n([\s\S]*))?$/)
                         const fileLine = fileLineMatch?.[1] || null
                         const extraText = fileLineMatch?.[3]?.trim() || ''
                         const isPlaceholder = !!fileLine
-                        const displayContent = isPlaceholder ? extraText : rawContent
-                        const hasOnlyMedia = media && !displayContent
-                        const bubbleStyle = isAtendente
-                          ? hasOnlyMedia
-                            ? { background: 'transparent', padding: 0, boxShadow: 'none', border: 'none' }
-                            : { background: '#16A34A', color: '#fff', borderBottomRightRadius: 4 }
-                          : hasOnlyMedia
-                            ? { background: 'transparent', padding: 0, boxShadow: 'none', border: 'none' }
-                            : {}
+                        // Documento: texto extraído automaticamente vira "resumo" sob demanda,
+                        // não aparece direto embaixo do anexo. Imagem: não tem resumo/transcrição
+                        // pra extrair, então não mostra nada além da própria foto. Legenda digitada
+                        // de verdade pelo atendente ao enviar (formato "🖼️/📄 arquivo\ntexto") continua.
+                        const suppressCaption = (media?.type === 'image' || media?.type === 'pdf') && !isPlaceholder
+                        const hiddenSummary = (media?.type === 'pdf' && suppressCaption) ? rawContent.trim() : ''
+                        const captionExpanded = expandedCaptions.has(msg.id)
+                        const transcriptExpanded = expandedTranscripts.has(msg.id)
+                        const isRecent = msg.ts && (Date.now() - new Date(msg.ts).getTime()) < 3 * 60 * 1000
+                        // Localização e contato viram card próprio (igual PDF) — o texto de fallback
+                        // salvo pra quem ainda não rodou a migration não aparece duplicado embaixo.
+                        const displayContent = (hasLocation || hasContact) ? '' : suppressCaption ? '' : isPlaceholder ? extraText : rawContent
+                        const hasOnlyMedia = (media || hasLocation || hasContact) && !displayContent
+                        const bubbleStyle = {
+                          position: 'relative',
+                          ...(isAtendente
+                            ? hasOnlyMedia
+                              ? { background: 'transparent', padding: 0, boxShadow: 'none', border: 'none' }
+                              : { background: '#16A34A', color: '#fff', borderBottomRightRadius: 4 }
+                            : hasOnlyMedia
+                              ? { background: 'transparent', padding: 0, boxShadow: 'none', border: 'none' }
+                              : {}),
+                        }
                         return (
                           <div className="msg-bubble" style={bubbleStyle}>
+                            {msg.reacao?.emoji && (
+                              <div style={{
+                                position: 'absolute', bottom: -9, [isLeft ? 'left' : 'right']: -6,
+                                background: '#fff', borderRadius: '50%',
+                                width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.25)', border: '2px solid #F8FAFC',
+                                lineHeight: 1, zIndex: 1,
+                              }}>
+                                {msg.reacao.emoji}
+                              </div>
+                            )}
+                            {hasLocation && (() => {
+                              const { lat, lng } = msg.location
+                              const MAP_W = 280, MAP_H = 150, ZOOM = 15
+                              const { tiles, offsetX, offsetY } = getStaticMapTiles(lat, lng, ZOOM, MAP_W, MAP_H)
+                              return (
+                                <a href={`https://www.google.com/maps?q=${lat},${lng}`}
+                                  target="_blank" rel="noreferrer"
+                                  style={{
+                                    display: 'block', borderRadius: 14, overflow: 'hidden',
+                                    textDecoration: 'none', width: MAP_W, maxWidth: '100%',
+                                    marginBottom: hasOnlyMedia ? 0 : 6,
+                                    boxShadow: '0 4px 14px rgba(0,0,0,0.16)',
+                                    border: '1px solid rgba(0,0,0,0.06)',
+                                  }}>
+                                  <div style={{ position: 'relative', width: MAP_W, height: MAP_H, background: '#E8EAED', overflow: 'hidden' }}>
+                                    <div style={{
+                                      position: 'absolute', left: -offsetX, top: -offsetY,
+                                      width: 512, height: 512, display: 'grid',
+                                      gridTemplateColumns: '256px 256px', gridTemplateRows: '256px 256px',
+                                    }}>
+                                      {tiles.map(t => (
+                                        <img key={`${t.dx}-${t.dy}`} src={t.url} width={256} height={256}
+                                          alt="" draggable={false}
+                                          style={{ display: 'block', gridColumn: t.dx + 1, gridRow: t.dy + 1 }}
+                                          onError={e => { e.target.style.visibility = 'hidden' }} />
+                                      ))}
+                                    </div>
+                                    <div style={{
+                                      position: 'absolute', left: '50%', top: MAP_H / 2 + 2,
+                                      width: 14, height: 5, borderRadius: '50%',
+                                      background: 'rgba(0,0,0,0.28)', filter: 'blur(1.5px)',
+                                      transform: 'translateX(-50%)',
+                                    }} />
+                                    <div style={{
+                                      position: 'absolute', left: '50%', top: '50%',
+                                      transform: 'translate(-50%, -100%)',
+                                      filter: 'drop-shadow(0 2px 2px rgba(127,29,29,0.45))',
+                                    }}>
+                                      <div style={{ position: 'relative', width: 30, height: 30 }}>
+                                        <MapPin size={30} color="#7F1D1D" fill="#E11D48" strokeWidth={1.5} style={{ display: 'block' }} />
+                                        <div style={{ position: 'absolute', left: '50%', top: 8, width: 7, height: 7, borderRadius: '50%', background: '#fff', transform: 'translateX(-50%)' }} />
+                                      </div>
+                                    </div>
+                                    <div style={{
+                                      position: 'absolute', right: 5, bottom: 3, fontSize: 8, lineHeight: '11px',
+                                      color: 'rgba(0,0,0,0.45)', background: 'rgba(255,255,255,0.6)',
+                                      padding: '0 4px', borderRadius: 3,
+                                    }}>
+                                      © OSM © CARTO
+                                    </div>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff', padding: '9px 12px', borderTop: '1px solid #F1F5F9' }}>
+                                    <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC2626', flexShrink: 0 }}>
+                                      <MapPin size={15} />
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontSize: 12.5, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {msg.location.name || 'Localização compartilhada'}
+                                      </div>
+                                      <div style={{
+                                        fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                        color: msg.location.address ? '#6B7280' : '#DC2626',
+                                        fontWeight: msg.location.address ? 400 : 700,
+                                      }}>
+                                        {msg.location.address || 'Abrir no mapa'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </a>
+                              )
+                            })()}
+                            {hasContact && (() => {
+                              const c = msg.contato
+                              const phoneDigits = (c.phone || c.wa_id || '').replace(/\D/g, '')
+                              const name = c.name || 'Contato compartilhado'
+                              const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '#'
+                              const AVATAR_PALETTE = ['#0EA5E9', '#8B5CF6', '#F97316', '#10B981', '#EC4899', '#6366F1']
+                              const hash = [...name].reduce((a, ch) => a + ch.charCodeAt(0), 0)
+                              const avatarColor = AVATAR_PALETTE[hash % AVATAR_PALETTE.length]
+                              return (
+                                <div role="button" tabIndex={0}
+                                  onClick={() => openContactConversation(phoneDigits)}
+                                  onKeyDown={e => e.key === 'Enter' && openContactConversation(phoneDigits)}
+                                  style={{
+                                    display: 'block', borderRadius: 14, overflow: 'hidden',
+                                    width: 240, maxWidth: '100%',
+                                    marginBottom: hasOnlyMedia ? 0 : 6,
+                                    background: '#fff', border: '1px solid #E5E7EB',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                                    cursor: phoneDigits ? 'pointer' : 'default',
+                                  }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 14px 12px' }}>
+                                    <div style={{
+                                      width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
+                                      background: avatarColor, color: '#fff', fontSize: 15, fontWeight: 700,
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      boxShadow: `0 2px 6px ${avatarColor}55`,
+                                    }}>
+                                      {initials}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {name}
+                                      </div>
+                                      {phoneDigits && (
+                                        <div style={{ fontSize: 11.5, color: '#6B7280', marginTop: 1 }}>
+                                          {formatPhone(phoneDigits)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {phoneDigits && (
+                                    <div style={{
+                                      display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center',
+                                      padding: '9px 0', borderTop: '1px solid #F1F5F9',
+                                      color: '#2563EB', fontSize: 12, fontWeight: 700,
+                                    }}>
+                                      <MessageSquare size={13} /> Abrir conversa
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })()}
                             {media && (() => {
                               const src = `data:${media.mime};base64,${msg.base64}`
                               if (media.type === 'audio') return (
-                                <audio controls src={src} style={{ width: 280, maxWidth: '100%', display: 'block', marginBottom: hasOnlyMedia ? 0 : 6 }} />
+                                <div style={{ marginBottom: hasOnlyMedia ? 0 : 6 }}>
+                                  <audio controls src={src} style={{ width: 280, maxWidth: '100%', display: 'block' }} />
+                                  {msg.resumo ? (
+                                    <AiExpandedCard isAtendente={isAtendente} icon={Sparkles} title="Resumo">
+                                      {msg.resumo}
+                                    </AiExpandedCard>
+                                  ) : isRecent ? (
+                                    <AiLoadingDots isAtendente={isAtendente} label="Gerando resumo..." />
+                                  ) : null}
+                                  {msg.transcricao ? (
+                                    <div style={{ marginTop: 6 }}>
+                                      <AiToggleChip
+                                        isAtendente={isAtendente} icon={FileText} label="Transcrição"
+                                        expanded={transcriptExpanded}
+                                        onClick={() => setExpandedTranscripts(prev => {
+                                          const n = new Set(prev)
+                                          n.has(msg.id) ? n.delete(msg.id) : n.add(msg.id)
+                                          return n
+                                        })}
+                                      />
+                                      {transcriptExpanded && (
+                                        <AiExpandedCard isAtendente={isAtendente} icon={FileText} title="Transcrição completa">
+                                          {renderFormattedText(msg.transcricao)}
+                                        </AiExpandedCard>
+                                      )}
+                                    </div>
+                                  ) : isRecent ? (
+                                    <div style={{ marginTop: 6 }}>
+                                      <AiLoadingDots isAtendente={isAtendente} label="Transcrevendo áudio..." />
+                                    </div>
+                                  ) : null}
+                                </div>
                               )
                               if (media.type === 'image') return (
-                                <img src={src} alt="mídia" style={{ maxWidth: 280, width: '100%', borderRadius: 8, display: 'block', marginBottom: hasOnlyMedia ? 0 : 6, cursor: 'zoom-in' }}
+                                <img src={src} alt="mídia" style={{ maxWidth: 280, width: '100%', borderRadius: 8, display: 'block', marginBottom: hasOnlyMedia ? 0 : 6, cursor: 'zoom-in', boxShadow: '0 2px 10px rgba(0,0,0,0.12)' }}
                                   onClick={() => setLightbox(src)} />
                               )
                               if (media.type === 'pdf') {
@@ -1922,6 +2693,30 @@ export default function CompanyConversations() {
                               }
                               return null
                             })()}
+                            {media?.type === 'pdf' && suppressCaption && (
+                              hiddenSummary ? (
+                                <div style={{ marginTop: hasOnlyMedia ? 4 : 0, marginBottom: hasOnlyMedia ? 0 : 6 }}>
+                                  <AiToggleChip
+                                    isAtendente={isAtendente} icon={Sparkles} label="Resumo"
+                                    expanded={captionExpanded}
+                                    onClick={() => setExpandedCaptions(prev => {
+                                      const n = new Set(prev)
+                                      n.has(msg.id) ? n.delete(msg.id) : n.add(msg.id)
+                                      return n
+                                    })}
+                                  />
+                                  {captionExpanded && (
+                                    <AiExpandedCard isAtendente={isAtendente} icon={Sparkles} title="Resumo do documento">
+                                      {renderFormattedText(hiddenSummary)}
+                                    </AiExpandedCard>
+                                  )}
+                                </div>
+                              ) : isRecent ? (
+                                <div style={{ marginTop: hasOnlyMedia ? 4 : 0, marginBottom: hasOnlyMedia ? 0 : 6 }}>
+                                  <AiLoadingDots isAtendente={isAtendente} label="Gerando resumo..." />
+                                </div>
+                              ) : null
+                            )}
                             {isImage && !msg.base64 && (
                               <div style={{
                                 display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -1973,14 +2768,14 @@ export default function CompanyConversations() {
                                 </div>
                               </div>
                             ) : displayContent ? (
-                              <span style={{ whiteSpace: 'pre-wrap' }}>{displayContent}</span>
+                              <span style={{ whiteSpace: 'pre-wrap' }}>{renderFormattedText(displayContent)}</span>
                             ) : null}
                           </div>
                         )
                       })()}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: isLeft ? 'flex-start' : 'flex-end', gap: 5 }}>
-                      {isAtendente && !msg.base64 && editingMsgId !== msg.id && (
+                      {isAtendente && !isOfficialApi && !msg.base64 && editingMsgId !== msg.id && (
                         <button
                           onClick={() => { setEditingMsgId(msg.id); setEditingText(msg.content || '') }}
                           title="Editar mensagem"
@@ -2089,6 +2884,7 @@ export default function CompanyConversations() {
                 )}
                 <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                   <input
+                    ref={messageInputRef}
                     className="nx-input"
                     style={{ flex: 1, fontSize: 13 }}
                     placeholder={
@@ -2098,8 +2894,13 @@ export default function CompanyConversations() {
                       : "Digite uma mensagem..."
                     }
                     value={msgText}
-                    onChange={e => setMsgText(e.target.value)}
+                    onChange={e => {
+                      setMsgText(e.target.value)
+                      if (e.target.value.trim()) notifyTyping()
+                      else notifyStopTyping()
+                    }}
                     onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                    onBlur={notifyStopTyping}
                     disabled={sending || recording || !canRespond(selected)}
                   />
                   <input
@@ -2111,6 +2912,72 @@ export default function CompanyConversations() {
                   />
                   {!recording && !recordedAudio && !attachedFile && (
                     <>
+                      <div ref={emojiPickerRef} style={{ position: 'relative', flexShrink: 0 }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setShowEmojiPicker(v => !v) }}
+                          title="Emoji"
+                          disabled={!canRespond(selected)}
+                          style={{
+                            padding: '0 14px', height: '100%',
+                            background: '#fff', border: '1px solid var(--border)',
+                            borderRadius: 8, color: '#6B7280',
+                            cursor: canRespond(selected) ? 'pointer' : 'not-allowed',
+                            opacity: canRespond(selected) ? 1 : 0.45,
+                            display: 'inline-flex', alignItems: 'center',
+                          }}
+                        >
+                          <Smile size={15} />
+                        </button>
+                        {showEmojiPicker && (() => {
+                          const activeCat = EMOJI_CATEGORIES.find(c => c.key === emojiCategory) || EMOJI_CATEGORIES[0]
+                          return (
+                            <div style={{
+                              position: 'absolute', bottom: 'calc(100% + 8px)', right: 0,
+                              background: '#fff', border: '1px solid var(--border)', borderRadius: 12,
+                              boxShadow: '0 8px 24px rgba(0,0,0,0.14)', zIndex: 20,
+                              width: 300, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                            }}>
+                              <div style={{
+                                display: 'grid', gridTemplateColumns: `repeat(${EMOJI_CATEGORIES.length}, 1fr)`,
+                                borderBottom: '1px solid var(--border)', flexShrink: 0,
+                              }}>
+                                {EMOJI_CATEGORIES.map(cat => (
+                                  <button key={cat.key}
+                                    title={cat.label}
+                                    onClick={() => setEmojiCategory(cat.key)}
+                                    style={{
+                                      background: cat.key === activeCat.key ? '#F1F5F9' : 'none',
+                                      border: 'none', cursor: 'pointer', fontSize: 16,
+                                      padding: '8px 0', borderBottom: cat.key === activeCat.key ? '2px solid #2563EB' : '2px solid transparent',
+                                    }}
+                                  >
+                                    {cat.icon}
+                                  </button>
+                                ))}
+                              </div>
+                              <div style={{
+                                padding: 10, display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 2,
+                                maxHeight: 220, overflowY: 'auto',
+                              }}>
+                                {activeCat.emojis.map((emoji, i) => (
+                                  <button key={i}
+                                    onClick={() => insertEmoji(emoji)}
+                                    style={{
+                                      background: 'none', border: 'none', cursor: 'pointer',
+                                      fontSize: 19, borderRadius: 6, padding: '4px 0',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#F1F5F9'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        })()}
+                      </div>
                       <button
                         onClick={() => fileInputRef.current?.click()}
                         title="Anexar imagem ou PDF"
@@ -2140,6 +3007,21 @@ export default function CompanyConversations() {
                         }}
                       >
                         <Mic size={15} />
+                      </button>
+                      <button
+                        onClick={() => { setLocErr(''); setLocationModal(true) }}
+                        title="Enviar localização"
+                        disabled={!canRespond(selected)}
+                        style={{
+                          padding: '0 14px', flexShrink: 0,
+                          background: '#fff', border: '1px solid var(--border)',
+                          borderRadius: 8, color: '#6B7280',
+                          cursor: canRespond(selected) ? 'pointer' : 'not-allowed',
+                          opacity: canRespond(selected) ? 1 : 0.45,
+                          display: 'inline-flex', alignItems: 'center',
+                        }}
+                      >
+                        <MapPin size={15} />
                       </button>
                     </>
                   )}
@@ -2257,6 +3139,73 @@ export default function CompanyConversations() {
                 onClick={handleSaveContact}
                 disabled={!saveContactModal.nome.trim() || savingContact}>
                 {savingContact ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      , document.body)}
+
+      {locationModal && createPortal(
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
+          backdropFilter: 'blur(4px)', padding: '1.5rem',
+        }} onClick={() => !sendingLocation && setLocationModal(false)}>
+          <div className="nx-card" style={{ width: '100%', maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>
+                <MapPin size={17} color="#DC2626" />
+                Enviar localização
+              </div>
+              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => setLocationModal(false)}>
+                <X size={16} />
+              </button>
+            </div>
+            <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Link do Google Maps ou coordenadas
+                </label>
+                <input className="nx-input" autoFocus placeholder="Ex: -23.5505, -46.6333 ou link do Google Maps"
+                  value={locInput}
+                  onChange={e => { setLocInput(e.target.value); setLocErr('') }}
+                  onKeyDown={e => e.key === 'Enter' && handleSendLocation()} />
+              </div>
+              <button
+                onClick={handleUseMyLocation}
+                disabled={gettingGeo}
+                className="nx-btn-ghost"
+                style={{ justifyContent: 'center', gap: 8, fontSize: 13 }}
+              >
+                <Crosshair size={14} />
+                {gettingGeo ? 'Obtendo localização...' : 'Usar minha localização atual'}
+              </button>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nome do local (opcional)</label>
+                <input className="nx-input" placeholder="Ex: Clínica MedicinaMKT"
+                  value={locName}
+                  onChange={e => setLocName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSendLocation()} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Endereço (opcional)</label>
+                <input className="nx-input" placeholder="Ex: Av. Paulista, 1000 - São Paulo"
+                  value={locAddress}
+                  onChange={e => setLocAddress(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSendLocation()} />
+              </div>
+              {locErr && (
+                <div style={{ fontSize: 12, color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 10px' }}>
+                  {locErr}
+                </div>
+              )}
+            </div>
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)', display: 'flex', gap: 10 }}>
+              <button className="nx-btn-ghost" style={{ flex: 1 }} onClick={() => setLocationModal(false)} disabled={sendingLocation}>Cancelar</button>
+              <button className="nx-btn-primary" style={{ flex: 1, justifyContent: 'center' }}
+                onClick={handleSendLocation}
+                disabled={!locInput.trim() || sendingLocation}>
+                {sendingLocation ? 'Enviando...' : 'Enviar localização'}
               </button>
             </div>
           </div>

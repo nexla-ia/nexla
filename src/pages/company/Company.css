@@ -13,6 +13,18 @@
   50% { opacity: 0.4; }
 }
 
+/* Bolinhas saltitantes — indicador de "gerando resumo/transcrição" nas mensagens */
+@keyframes msg-dot-bounce {
+  0%, 60%, 100% { transform: translateY(0);   opacity: 0.45; }
+  30%           { transform: translateY(-4px); opacity: 1; }
+}
+
+/* Card de resumo/transcrição de IA — fade + leve slide ao expandir */
+@keyframes ai-card-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .company-root {
   display: flex;
   min-height: 100vh;
