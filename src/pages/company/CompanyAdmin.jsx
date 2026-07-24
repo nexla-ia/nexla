@@ -4,8 +4,9 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import ConfirmModal from '../../components/ConfirmModal'
 import LimitReachedModal from '../../components/LimitReachedModal'
-import { getEffectiveLimits, reachedLimit, upgradeMessage, formatLimit } from '../../lib/planLimits'
-import { Plus, X, UserMinus, RefreshCw, UserCheck, UserX, Pencil, QrCode, Wifi, WifiOff, LogOut, Trash2, Lock, Bell, Zap, Globe } from 'lucide-react'
+import { getEffectiveLimits, reachedLimit, upgradeMessage, formatLimit, UNLIMITED, PLAN_NAMES } from '../../lib/planLimits'
+import { fmtMoney } from '../../lib/billing'
+import { Plus, X, UserMinus, RefreshCw, UserCheck, UserX, Pencil, QrCode, Wifi, WifiOff, LogOut, Trash2, Lock, Bell, Sparkles, ArrowUpRight } from 'lucide-react'
 import './Company.css'
 
 const SECTOR_COLORS = ['#2563EB', '#16A34A', '#7C3AED', '#DC2626', '#D97706', '#0891B2']
@@ -33,6 +34,16 @@ export default function CompanyAdmin() {
   const limits    = getEffectiveLimits(session?.company)
   const maxUsers  = limits.users
   const [limitModal, setLimitModal] = useState(null)
+
+  const [proCount, setProCount]         = useState(0)
+  const [agendaCount, setAgendaCount]   = useState(0)
+  useEffect(() => {
+    if (!instance) return
+    supabase.from('professionals').select('id, active').eq('instancia', instance)
+      .then(({ data }) => setProCount((data || []).filter(p => p.active !== false).length))
+    supabase.from('agendas').select('id', { count: 'exact', head: true }).eq('instancia', instance)
+      .then(({ count }) => setAgendaCount(count || 0))
+  }, [instance])
 
   const [users, setUsers]               = useState([])
   const [sectors, setSectors]           = useState([])
@@ -65,16 +76,9 @@ export default function CompanyAdmin() {
 
   const co = session?.company || {}
 
-  const [apiType, setApiType] = useState(co.whatsapp_api_type || 'evolution')
-  const [savingApiType, setSavingApiType] = useState(false)
-
-  async function handleSaveApiType(type) {
-    setSavingApiType(true)
-    setApiType(type)
-    await supabase.from('companies').update({ whatsapp_api_type: type }).eq('id', companyId)
-    patchCompany({ whatsapp_api_type: type })
-    setSavingApiType(false)
-  }
+  // Somente leitura aqui — quem muda a API do WhatsApp é o ADM Nexla (painel /adm),
+  // nunca a própria empresa. Requer reconfigurar webhook/n8n do lado de dentro.
+  const apiType = co.whatsapp_api_type || 'evolution'
 
   const [notifs, setNotifs] = useState({
     notify_agenda_created:   co.notify_agenda_created   !== false,
@@ -296,69 +300,81 @@ export default function CompanyAdmin() {
   const domain = slugify(session?.company?.name || 'empresa') + '.com'
   const activeUsers = users.filter(u => u.active !== false)
 
+  const planPrice = session?.company?.plan_price_override ?? limits.price
+  const planIdx = PLAN_NAMES.indexOf(limits.plan)
+  const nextPlan = planIdx >= 0 ? PLAN_NAMES[planIdx + 1] : null
+
+  const planMetrics = [
+    { label: 'Profissionais',       current: proCount,           limit: limits.professionals },
+    { label: 'Usuários na equipe',  current: activeUsers.length, limit: maxUsers },
+    { label: 'Agendas',             current: agendaCount,        limit: limits.agendas },
+  ]
+
   return (
     <div className="page-enter">
 
-      {/* Tipo de API WhatsApp */}
+      {/* Plano e cobrança */}
       <div className="page-body">
-        <div className="section-title" style={{ marginBottom: 6 }}>Tipo de API WhatsApp</div>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px' }}>
-          Define qual infraestrutura é usada para enviar e receber mensagens. Altere apenas se o suporte orientar.
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          {[
-            {
-              key: 'evolution',
-              icon: <Zap size={18} />,
-              title: 'Evolution API',
-              desc: 'Conexão via QR Code (WhatsApp pessoal). Padrão Nexla.',
-              color: '#7C3AED',
-              bg: '#FAF5FF',
-              border: '#DDD6FE',
-            },
-            {
-              key: 'oficial',
-              icon: <Globe size={18} />,
-              title: 'API Oficial (Meta)',
-              desc: 'WhatsApp Business API oficial. Requer número verificado pela Meta.',
-              color: '#16A34A',
-              bg: '#F0FDF4',
-              border: '#BBF7D0',
-            },
-          ].map(opt => (
-            <button
-              key={opt.key}
-              onClick={() => handleSaveApiType(opt.key)}
-              disabled={savingApiType}
-              style={{
-                display: 'flex', alignItems: 'flex-start', gap: 12,
-                padding: '16px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
-                border: `2px solid ${apiType === opt.key ? opt.color : 'var(--border)'}`,
-                background: apiType === opt.key ? opt.bg : 'var(--bg-card)',
-                transition: 'all 0.15s', opacity: savingApiType ? 0.7 : 1,
-              }}
-            >
-              <div style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: apiType === opt.key ? opt.color : '#F1F5F9', color: apiType === opt.key ? '#fff' : 'var(--text-muted)', transition: 'all 0.15s' }}>
-                {opt.icon}
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: apiType === opt.key ? opt.color : 'var(--text-primary)', marginBottom: 3 }}>{opt.title}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>{opt.desc}</div>
-                {apiType === opt.key && (
-                  <div style={{ marginTop: 6, fontSize: 10, fontWeight: 700, color: opt.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>✓ Em uso</div>
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
-        {apiType === 'oficial' && (
-          <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: '#FFFBEB', border: '1px solid #FDE68A', fontSize: 12, color: '#92400E' }}>
-            <strong>API Oficial ativa.</strong> As mensagens serão enviadas pelo webhook da Meta. O QR Code de conexão Evolution está desativado.
+        <div className="section-title" style={{ marginBottom: 12 }}>Plano e cobrança</div>
+        <div style={{
+          background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+          borderRadius: 14, padding: '22px 26px',
+          display: 'flex', flexWrap: 'wrap', gap: 28, alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ flexShrink: 0 }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontSize: 10, fontWeight: 700, color: '#C9A074', textTransform: 'uppercase', letterSpacing: '0.08em',
+              background: 'rgba(201,160,116,0.12)', border: '1px solid rgba(201,160,116,0.3)',
+              borderRadius: 20, padding: '3px 10px', marginBottom: 10,
+            }}>
+              <Sparkles size={11} /> Plano atual
+            </div>
+            <div style={{ fontSize: 26, fontWeight: 700, color: '#C9A074', lineHeight: 1, fontFamily: 'var(--font-display)' }}>{limits.plan}</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 5 }}>
+              {planPrice ? `${fmtMoney(planPrice)}/mês` : 'Sob consulta'}
+            </div>
           </div>
-        )}
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 26, flex: 1, minWidth: 280 }}>
+            {planMetrics.map(m => {
+              const isUnlimited = m.limit === UNLIMITED
+              const pct = isUnlimited ? 6 : Math.min(100, (m.current / Math.max(m.limit, 1)) * 100)
+              return (
+                <div key={m.label} style={{ minWidth: 130, flex: '1 1 130px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                    <span>{m.label}</span>
+                    <span style={{ color: '#fff' }}>{m.current}/{isUnlimited ? '∞' : m.limit}</span>
+                  </div>
+                  <div style={{ height: 5, background: 'rgba(255,255,255,0.12)', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: reachedLimit(m.current, m.limit) ? '#DC2626' : '#16A34A', borderRadius: 3, transition: 'width 0.3s' }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {nextPlan && (
+            <button
+              onClick={() => setLimitModal({
+                title: `Fazer upgrade pra ${nextPlan}`,
+                body: `Libere mais profissionais, usuários e recursos avançados subindo do plano ${limits.plan} pro ${nextPlan}. Nosso time monta a proposta certa pro tamanho da sua clínica.`,
+                cta: `Falar sobre o ${nextPlan}`,
+              })}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0,
+                background: 'linear-gradient(135deg, #C9A074 0%, #B08D5E 100%)',
+                color: '#1a1410', border: 'none', borderRadius: 10,
+                padding: '11px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+              }}>
+              Fazer upgrade pra {nextPlan} <ArrowUpRight size={14} />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Conexão WhatsApp — só para Evolution */}
+      {/* Conexão WhatsApp — só para Evolution. Tipo de API (Evolution x Oficial) não
+          aparece mais aqui: quem configura isso é só o time Nexla, direto no /adm. */}
       {apiType !== 'oficial' && <div className="page-body">
         <div className="section-header">
           <div className="section-title">Conexão WhatsApp</div>
