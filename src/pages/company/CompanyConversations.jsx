@@ -1373,6 +1373,7 @@ export default function CompanyConversations() {
       const text = msgText.trim()
       const file = attachedFile
       setMsgText('')
+      if (messageInputRef.current) { messageInputRef.current.style.height = 'auto' }
       setRecordedAudio(null)
       setRecordTime(0)
       setAttachedFile(null)
@@ -2882,11 +2883,13 @@ export default function CompanyConversations() {
                     </button>
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                  <input
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                  <textarea
                     ref={messageInputRef}
                     className="nx-input"
-                    style={{ flex: 1, fontSize: 13 }}
+                    rows={1}
+                    style={{ flex: 1, fontSize: 13, resize: 'none', overflow: 'hidden', lineHeight: 1.5, minHeight: 38, maxHeight: 120, paddingTop: 9, paddingBottom: 9 }}
                     placeholder={
                       !canRespond(selected) ? "Conversa está com outro atendente — você não pode responder"
                       : recordedAudio ? "Mensagem opcional para acompanhar o áudio..."
@@ -2896,10 +2899,17 @@ export default function CompanyConversations() {
                     value={msgText}
                     onChange={e => {
                       setMsgText(e.target.value)
+                      e.target.style.height = 'auto'
+                      e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
                       if (e.target.value.trim()) notifyTyping()
                       else notifyStopTyping()
                     }}
-                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSend()
+                      }
+                    }}
                     onBlur={notifyStopTyping}
                     disabled={sending || recording || !canRespond(selected)}
                   />
@@ -3033,6 +3043,10 @@ export default function CompanyConversations() {
                   >
                     <Send size={14} />
                   </button>
+                  </div>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', paddingLeft: 2 }}>
+                    Shift+Enter para nova linha
+                  </span>
                 </div>
                 <a
                   href={`https://wa.me/${selected.phone}`}
