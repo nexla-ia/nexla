@@ -157,6 +157,15 @@ export default function CompanyAlerts() {
     await supabase.from('alerts').update({ resolved: true }).eq('id', id)
   }
 
+  const [resolvingAll, setResolvingAll] = useState(false)
+  async function resolveAll() {
+    const pendingIds = visible.filter(a => !a.resolved).map(a => a.id)
+    if (!pendingIds.length) return
+    setResolvingAll(true)
+    await supabase.from('alerts').update({ resolved: true }).in('id', pendingIds)
+    setResolvingAll(false)
+  }
+
   async function handleForward() {
     if (!forwardTarget) return
     const target = companyUsers.find(u => u.id === forwardTarget)
@@ -241,7 +250,7 @@ export default function CompanyAlerts() {
             {realtimeStatus === 'connected' ? 'Ao vivo' : realtimeStatus === 'error' ? 'Erro de conexão' : 'Conectando...'}
           </div>
 
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {['all', 'pending', 'resolved'].map(f => (
               <button
                 key={f}
@@ -252,6 +261,17 @@ export default function CompanyAlerts() {
                 {f === 'all' ? `Todos (${visible.length})` : f === 'pending' ? `Pendentes (${pending})` : `Resolvidos (${resolved})`}
               </button>
             ))}
+            {pending > 0 && (
+              <button
+                className="nx-btn-ghost"
+                style={{ fontSize: 12, padding: '7px 14px', color: '#16A34A', borderColor: '#BBF7D0', opacity: resolvingAll ? 0.6 : 1 }}
+                onClick={resolveAll}
+                disabled={resolvingAll}
+              >
+                <CheckCircle2 size={13} />
+                {resolvingAll ? 'Resolvendo...' : `Resolver todos (${pending})`}
+              </button>
+            )}
           </div>
         </div>
       </div>
