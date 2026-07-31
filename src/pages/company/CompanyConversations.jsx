@@ -1157,12 +1157,12 @@ export default function CompanyConversations() {
     }
 
     const assumeMsg = `▶ Atendimento assumido por ${name}${sectorLabel}`
-    await supabase.rpc('send_mensagem_geral', {
-      p_instancia: instance,
-      p_numero: contact.session_id,
-      p_mensagem: assumeMsg,
-      p_type: 'sistema',
-      p_hora: new Date().toISOString(),
+    await supabase.from(CONV_TABLE).insert({
+      instancia: instance,
+      numero: contact.session_id,
+      mensagem: assumeMsg,
+      type: 'sistema',
+      hora: new Date().toISOString(),
     })
 
     setAttendancesMap(prev => ({
