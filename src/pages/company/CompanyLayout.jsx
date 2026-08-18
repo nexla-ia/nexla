@@ -7,7 +7,7 @@ import BlockedScreen from '../../components/BlockedScreen'
 import SupportWidget from '../../components/SupportWidget'
 import BrandMark from '../../components/BrandMark'
 import { shouldBlockAccess } from '../../lib/billing'
-import { MessageSquare, History, BellRing, BarChart2, Settings2, Contact2, Calendar, Sparkles, Kanban, Stethoscope, GraduationCap, Instagram, ShieldCheck, Menu, Headset, MessagesSquare, Wallet, Target } from 'lucide-react'
+import { MessageSquare, History, BellRing, BarChart2, Settings2, Contact2, Calendar, Sparkles, Kanban, Stethoscope, GraduationCap, Instagram, ShieldCheck, Menu, Headset, MessagesSquare, Wallet, Target, Star } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { latestUpdateDate } from '../../data/updates'
@@ -75,6 +75,7 @@ export default function CompanyLayout() {
 
     // Gestão
     { to: '/painel/contatos',   icon: Contact2,     label: 'Pacientes', section: 'Gestão' },
+    { to: '/painel/fidelidade', icon: Star,         label: 'Fidelidade', section: 'Gestão' },
     { to: '/painel/agenda',     icon: Calendar,     label: 'Agenda', section: 'Gestão' },
     { to: '/painel/atividades', icon: Kanban,       label: 'Kanban', section: 'Gestão' },
     ...(isAdmin ? [{ to: '/painel/financeiro', icon: Wallet, label: 'Financeiro', section: 'Gestão' }] : []),

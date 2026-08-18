@@ -4,6 +4,18 @@
 
 export const UPDATES = [
   {
+    date: '2026-08-18',
+    title: 'Fidelidade — identifique quem acabou de chegar',
+    type: 'feature',
+    tags: ['Fidelidade', 'Pacientes'],
+    items: [
+      'Novo item "Fidelidade" no menu (em Gestão): mostra só os pacientes que chegaram há pouco tempo, sem precisar caçar na lista de conversas.',
+      'A plataforma identifica sozinha quem é novo pela data do primeiro contato — não importa quantas mensagens já trocou com a IA.',
+      'Filtro por dia específico ou pelo mês inteiro, olhando a última interação de cada um — bom pra ver "quem chegou hoje" ou fazer um raio-x do mês.',
+      'Botões diretos "Conversar" e "Histórico" em cada linha, já levando pro atendimento daquele paciente.',
+    ],
+  },
+  {
     date: '2026-07-23',
     title: 'CRM em Kanban — funil de vendas com alertas automáticos',
     type: 'feature',

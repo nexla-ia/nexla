@@ -16,6 +16,7 @@ import CompanyLayout from './pages/company/CompanyLayout'
 import CompanyHistory from './pages/company/CompanyHistory'
 import CompanyAlerts from './pages/company/CompanyAlerts'
 import CompanyConversations from './pages/company/CompanyConversations'
+import CompanyFidelidade from './pages/company/CompanyFidelidade'
 import CompanyContacts from './pages/company/CompanyContacts'
 import CompanyPatientDetail from './pages/company/CompanyPatientDetail'
 import CompanyAgenda from './pages/company/CompanyAgenda'
@@ -77,6 +78,7 @@ export default function App() {
           <Route path="/painel" element={<PrivateCompany><CompanyLayout /></PrivateCompany>}>
             <Route index element={<PainelIndex />} />
             <Route path="conversas" element={<CompanyConversations />} />
+            <Route path="fidelidade" element={<CompanyFidelidade />} />
             <Route path="historico" element={<CompanyHistory />} />
             <Route path="contatos" element={<CompanyContacts />} />
             <Route path="contatos/:id" element={<CompanyPatientDetail />} />

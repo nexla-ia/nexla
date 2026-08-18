@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { MessageSquare, Bot, User, PhoneCall, Info, Headset } from 'lucide-react'
@@ -102,10 +103,12 @@ export default function CompanyHistory() {
   const { session } = useAuth()
   const historyTable = session?.company?.history_table
   const instance     = session?.company?.instance
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [contacts, setContacts] = useState([])
   const [closedMap, setClosedMap] = useState({}) // session_id → reason
   const [loadingContacts, setLoadingContacts] = useState(false)
+  const [contactsLoaded, setContactsLoaded] = useState(false)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
   const [messages, setMessages] = useState([])
@@ -183,6 +186,7 @@ export default function CompanyHistory() {
           setContacts(unique)
         }
         setLoadingContacts(false)
+        setContactsLoaded(true)
       })
   }, [historyTable, instance])
 
@@ -273,6 +277,20 @@ export default function CompanyHistory() {
   useEffect(() => {
     if (!loadingMsgs) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loadingMsgs])
+
+  // Abre conversa via ?contact=xxxx (vindo da tela de Fidelidade, por exemplo).
+  // Só consome o parâmetro depois que a lista terminou de carregar pelo menos uma
+  // vez (contactsLoaded) — senão a corrida com o fetch apaga o ?contact= antes dos
+  // dados chegarem e a conversa nunca é selecionada.
+  useEffect(() => {
+    const target = searchParams.get('contact')
+    if (!target || !contactsLoaded) return
+    const cleanTarget = target.replace(/\D/g, '')
+    const existing = contacts.find(c => c.phone.replace(/\D/g, '') === cleanTarget)
+    setSelected(existing || { session_id: target, phone: formatPhone(target), lastTs: null })
+    searchParams.delete('contact')
+    setSearchParams(searchParams, { replace: true })
+  }, [searchParams, contactsLoaded, contacts])
 
   const filtered = contacts.filter(c => c.phone.includes(search))
 

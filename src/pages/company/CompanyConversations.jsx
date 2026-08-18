@@ -4,8 +4,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { useContactTags } from '../../hooks/useContactTags'
+import { isNewClient } from '../../lib/loyalty'
 import Recorder from 'opus-recorder'
-import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft, ChevronLeft, ChevronDown, Plus, Pencil, Users, CheckCheck, MapPin, Crosshair, Smile } from 'lucide-react'
+import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft, ChevronLeft, ChevronDown, Plus, Pencil, Users, CheckCheck, MapPin, Crosshair, Smile, AlertCircle } from 'lucide-react'
 import './Company.css'
 
 const CONV_TABLE = 'mensagens_geral'
@@ -781,12 +782,23 @@ export default function CompanyConversations() {
         if (!error && data) {
           const seen = new Set()
           const unique = []
-          // Indexa quem teve resposta de atendente humano em algum momento
+          // Indexa quem teve resposta de atendente humano em algum momento e acha a
+          // primeira mensagem de cada contato (pra marcar cliente novo na fidelidade —
+          // por data do primeiro contato, não por contagem de mensagens)
           const hasOutsideHuman = new Set()
+          const firstSeenByNum = new Map()
           for (const row of data) {
             const t = (row.type || '').toLowerCase()
             if ((t === 'atendente' || t === 'humano') && row.numero) {
               hasOutsideHuman.add(normPhoneKey(row.numero))
+            }
+            if (row.numero) {
+              const norm = normPhoneKey(row.numero)
+              const ts = getTimestamp(row)
+              if (ts) {
+                const prev = firstSeenByNum.get(norm)
+                if (!prev || new Date(ts) < new Date(prev)) firstSeenByNum.set(norm, ts)
+              }
             }
           }
           for (const row of data) {
@@ -803,6 +815,7 @@ export default function CompanyConversations() {
               pushname: row.nome || null,
               isGroup: sid.includes('@g.us'),
               lastMsgPreview: getLastMsgPreview(row),
+              isNewClient: !sid.includes('@g.us') && isNewClient(firstSeenByNum.get(norm)),
             })
           }
           setContacts(unique)
@@ -1943,6 +1956,11 @@ export default function CompanyConversations() {
                     </div>
                     {c.isGroup && (
                       <span style={{ fontSize: 9, fontWeight: 700, color: '#7C3AED', background: '#EDE9FE', border: '1px solid #DDD6FE', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.04em' }}>GRUPO</span>
+                    )}
+                    {c.isNewClient && (
+                      <span title="Cliente novo — poucas mensagens no histórico" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, color: '#DC2626', background: '#FEE2E2', border: '1px solid #FECACA', lineHeight: '16px' }}>
+                        <AlertCircle size={9} /> Novo
+                      </span>
                     )}
                     {!c.isGroup && getContactName(c) !== c.phone && (
                       <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{c.phone}</span>
