@@ -7,6 +7,8 @@ import { Search, AlertCircle, History, MessageSquare, Users, Send, Check, Lock, 
 import './Company.css'
 
 const FIDELIDADE_WEBHOOK = 'https://n8n.nexladesenvolvimento.com.br/webhook/recebe-info'
+// Horário do disparo automático é fixo pra todas as empresas — só o dia do mês é configurável.
+const FIDELIDADE_HORA_FIXA = '08:00'
 
 function normPhoneKey(sid) {
   const n = (sid || '').replace(/@.*$/, '').replace(/\D/g, '')
@@ -19,14 +21,6 @@ function fmtWhen(ts) {
   if (isNaN(d.getTime())) return '—'
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
-
-// O picker nativo de datetime-local não trava em intervalos de 30min de forma confiável
-// entre navegadores — por isso hora é um <select> com só os horários redondos.
-const HALF_HOUR_SLOTS = Array.from({ length: 48 }, (_, i) => {
-  const h = String(Math.floor(i / 2)).padStart(2, '0')
-  const m = i % 2 === 0 ? '00' : '30'
-  return `${h}:${m}`
-})
 
 // Rótulo do mês de calendário anterior — o mesmo período usado por isNewClient()
 function prevMonthLabel(now = new Date()) {
@@ -49,7 +43,6 @@ export default function CompanyFidelidade() {
   const [mensagem, setMensagem] = useState('')
   const [sentMap, setSentMap] = useState({}) // numero (só dígitos) → { sent_at, scheduled_for }
   const [agendarDiaMes, setAgendarDiaMes] = useState('') // 1..31 | '' = sem agendamento (envia sempre)
-  const [agendarHora, setAgendarHora] = useState('') // 'HH:mm', só horários redondos de 30min
   const [dispararStatus, setDispararStatus] = useState('idle') // idle | disparando | concluido | erro
   const [dispararInfo, setDispararInfo] = useState(null) // { total, resposta }
 
@@ -115,14 +108,13 @@ export default function CompanyFidelidade() {
   useEffect(() => {
     if (!instance || !session?.company?.id) return
 
-    supabase.from('companies').select('fidelidade_mensagem, fidelidade_dia_mes, fidelidade_hora').eq('id', session.company.id).single()
+    supabase.from('companies').select('fidelidade_mensagem, fidelidade_dia_mes').eq('id', session.company.id).single()
       .then(({ data }) => {
         if (data?.fidelidade_mensagem) setMensagem(data.fidelidade_mensagem)
         if (data?.fidelidade_dia_mes) setAgendarDiaMes(String(data.fidelidade_dia_mes))
-        if (data?.fidelidade_hora) setAgendarHora(data.fidelidade_hora)
 
-        // Auto-disparo: verifica se hoje é o dia configurado e hora já passou
-        if (data?.fidelidade_dia_mes && data?.fidelidade_hora && data?.fidelidade_mensagem) {
+        // Auto-disparo: verifica se hoje é o dia configurado e já passou das 08h fixas
+        if (data?.fidelidade_dia_mes && data?.fidelidade_mensagem) {
           const now = new Date()
           const todayDay = now.getDate()
           const currentHHmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
@@ -130,7 +122,7 @@ export default function CompanyFidelidade() {
           const storageKey = `fidelidade_auto_${instance}_${mesRef}`
 
           if (Number(data.fidelidade_dia_mes) === todayDay
-              && currentHHmm >= data.fidelidade_hora
+              && currentHHmm >= FIDELIDADE_HORA_FIXA
               && !localStorage.getItem(storageKey)) {
             localStorage.setItem(storageKey, now.toISOString())
             setTimeout(() => dispararFidelidade(data.fidelidade_mensagem), 800)
@@ -218,18 +210,15 @@ export default function CompanyFidelidade() {
   const periodLabel = prevMonthLabel()
 
   const DIAS_DO_MES = Array.from({ length: 31 }, (_, i) => i + 1)
-  const agendarAtivo = agendarDiaMes !== '' && agendarHora !== ''
+  const agendarAtivo = agendarDiaMes !== ''
 
-  // Salvar só grava a config (mensagem + dia do mês + hora, recorrente todo mês)
-  // na empresa. Não escreve mais linha por cliente — quem descobre pra quem
-  // enviar é o banco (api_fidelidade_processar), chamado pelo worker do n8n a
-  // cada tick. O webhook aqui é só um "acorda e confere agora" — não carrega os
-  // clientes e não bloqueia o resultado se falhar.
+  // Salvar só grava a config (mensagem + dia do mês) na empresa — hora é fixa
+  // (FIDELIDADE_HORA_FIXA) pra todo mundo, não é mais escolhida aqui.
   async function saveMensagem() {
     if (!mensagem.trim()) return
     setSaveStatus('sending')
     const diaMes = agendarAtivo ? Number(agendarDiaMes) : null
-    const hora = agendarAtivo ? agendarHora : null
+    const hora = agendarAtivo ? FIDELIDADE_HORA_FIXA : null
     const { error } = await supabase.from('companies')
       .update({ fidelidade_mensagem: mensagem, fidelidade_dia_mes: diaMes, fidelidade_hora: hora })
       .eq('id', session.company.id)
@@ -296,22 +285,12 @@ export default function CompanyFidelidade() {
               <option value="">Dia do mês...</option>
               {DIAS_DO_MES.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
-            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-              às
-            </label>
-            <select
-              className="nx-select"
-              style={{ fontSize: 12, padding: '5px 8px' }}
-              value={agendarHora}
-              disabled={agendarDiaMes === ''}
-              onChange={e => setAgendarHora(e.target.value)}
-            >
-              <option value="">Horário...</option>
-              {HALF_HOUR_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}
-            </select>
-            {(agendarDiaMes !== '' || agendarHora !== '') && (
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+              às {FIDELIDADE_HORA_FIXA} (fixo)
+            </span>
+            {agendarDiaMes !== '' && (
               <button className="nx-btn-ghost" style={{ padding: '3px 10px', fontSize: 11 }}
-                onClick={() => { setAgendarDiaMes(''); setAgendarHora('') }}>
+                onClick={() => setAgendarDiaMes('')}>
                 Enviar sempre (sem repetição)
               </button>
             )}
@@ -337,12 +316,12 @@ export default function CompanyFidelidade() {
               {saveStatus === 'sending' ? 'Salvando...'
                 : saveStatus === 'sent' ? 'Salvo ✓'
                 : saveStatus === 'error' ? 'Erro, tentar de novo'
-                : agendarAtivo ? 'Salvar e repetir todo mês' : 'Salvar e ativar envio'}
+                : agendarAtivo ? `Salvar e repetir todo mês às ${FIDELIDADE_HORA_FIXA}` : 'Salvar e ativar envio'}
             </button>
           </div>
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
-          Horário só em intervalos redondos de 30 minutos (ex: 17:00, 17:30). Deixe os dois campos em branco pra ativar o envio contínuo (assim que salvar, sem repetição). Preenchendo, vira recorrente: dispara todo mês nesse dia e hora.
+          O horário do disparo automático é sempre {FIDELIDADE_HORA_FIXA}, igual pra todas as empresas — só o dia do mês é escolhido aqui. Deixe em branco pra ativar o envio contínuo (assim que salvar, sem repetição). Escolhendo um dia, vira recorrente: dispara todo mês nesse dia às {FIDELIDADE_HORA_FIXA}.
           {' '}O próprio sistema identifica os clientes novos (verificando as conversas) e envia pra eles — sem precisar clicar um por um.
         </div>
       </div>
