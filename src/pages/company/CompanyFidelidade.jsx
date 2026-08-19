@@ -3,12 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { isNewClient } from '../../lib/loyalty'
-import { Search, AlertCircle, History, MessageSquare, Users, Send, Check, Lock } from 'lucide-react'
+import { Search, AlertCircle, History, MessageSquare, Users, Send, Check, Lock, Zap, Clock } from 'lucide-react'
 import './Company.css'
 
-// Temporário: enquanto a automação de verdade não é ligada no n8n, esse botão
-// dispara o webhook manualmente pra cada cliente novo.
-const NEW_CLIENT_WEBHOOK_URL = 'https://n8n.nexladesenvolvimento.com.br/webhook/testeeeee'
+const FIDELIDADE_WEBHOOK = 'https://n8n.nexladesenvolvimento.com.br/webhook/recebe-info'
 
 function normPhoneKey(sid) {
   const n = (sid || '').replace(/@.*$/, '').replace(/\D/g, '')
@@ -52,6 +50,65 @@ export default function CompanyFidelidade() {
   const [sentMap, setSentMap] = useState({}) // numero (só dígitos) → { sent_at, scheduled_for }
   const [agendarDiaMes, setAgendarDiaMes] = useState('') // 1..31 | '' = sem agendamento (envia sempre)
   const [agendarHora, setAgendarHora] = useState('') // 'HH:mm', só horários redondos de 30min
+  const [dispararStatus, setDispararStatus] = useState('idle') // idle | disparando | concluido | erro
+  const [dispararInfo, setDispararInfo] = useState(null) // { total, resposta }
+
+  async function dispararFidelidade(msgOverride) {
+    if (!instance) return
+    setDispararStatus('disparando')
+    setDispararInfo(null)
+    try {
+      // Clientes novos do mês anterior que ainda não receberam
+      const now = new Date()
+      const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
+      const prevEnd   = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+
+      const [{ data: allClients }, { data: jaEnviados }] = await Promise.all([
+        supabase.from('fidelidade_clientes_novos')
+          .select('numero, nome, primeiro_contato')
+          .eq('instancia', instance)
+          .gte('primeiro_contato', prevStart)
+          .lt('primeiro_contato', prevEnd),
+        supabase.from('fidelidade_envios').select('numero').eq('instancia', instance),
+      ])
+
+      const jaSet = new Set((jaEnviados || []).map(c => normPhoneKey(c.numero)))
+      const clientes = (allClients || [])
+        .filter(c => !jaSet.has(normPhoneKey(c.numero)))
+        .map(c => ({ numero: c.numero, nome: c.nome || null }))
+
+      const mesRef = `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}` // mês anterior
+      const apiType = session?.company?.whatsapp_api_type || 'evolution'
+
+      const payload = {
+        empresa: {
+          nome: session?.company?.name || null,
+          instancia: instance,
+          api_instancia: session?.company?.api_instancia || null,
+          whatsapp_api_type: apiType,
+          webhook_envio: apiType === 'oficial'
+            ? 'https://n8n.nexladesenvolvimento.com.br/webhook/respondeplataforma'
+            : 'https://n8n.nexladesenvolvimento.com.br/webhook/envioNexla',
+        },
+        mensagem: msgOverride || mensagem,
+        clientes,
+        total: clientes.length,
+        mes_referencia: mesRef,
+      }
+
+      const res = await fetch(FIDELIDADE_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const resText = await res.text()
+      setDispararStatus('concluido')
+      setDispararInfo({ total: clientes.length, resposta: resText })
+    } catch (err) {
+      setDispararStatus('erro')
+      setDispararInfo({ resposta: err.message })
+    }
+  }
 
   // Mensagem configurada e histórico de envios — carrega direto do banco (não confia
   // no session.company em cache, que pode ter sido salvo antes da coluna existir)
@@ -63,6 +120,22 @@ export default function CompanyFidelidade() {
         if (data?.fidelidade_mensagem) setMensagem(data.fidelidade_mensagem)
         if (data?.fidelidade_dia_mes) setAgendarDiaMes(String(data.fidelidade_dia_mes))
         if (data?.fidelidade_hora) setAgendarHora(data.fidelidade_hora)
+
+        // Auto-disparo: verifica se hoje é o dia configurado e hora já passou
+        if (data?.fidelidade_dia_mes && data?.fidelidade_hora && data?.fidelidade_mensagem) {
+          const now = new Date()
+          const todayDay = now.getDate()
+          const currentHHmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+          const mesRef = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+          const storageKey = `fidelidade_auto_${instance}_${mesRef}`
+
+          if (Number(data.fidelidade_dia_mes) === todayDay
+              && currentHHmm >= data.fidelidade_hora
+              && !localStorage.getItem(storageKey)) {
+            localStorage.setItem(storageKey, now.toISOString())
+            setTimeout(() => dispararFidelidade(data.fidelidade_mensagem), 800)
+          }
+        }
       })
 
     supabase.from('fidelidade_envios').select('numero, sent_at, scheduled_for').eq('instancia', instance)
@@ -165,17 +238,6 @@ export default function CompanyFidelidade() {
       setSaveStatus('error')
     } else {
       setSaveStatus('sent')
-      fetch(NEW_CLIENT_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instancia: instance,
-          api_instancia: session?.company?.api_instancia || null,
-          company: session?.company?.name || null,
-          dia_mes: diaMes,
-          hora,
-        }),
-      }).catch(() => {})
     }
     setTimeout(() => setSaveStatus('idle'), 3000)
   }
@@ -285,6 +347,20 @@ export default function CompanyFidelidade() {
         </div>
       </div>
 
+      {/* Banner de status do disparo */}
+      {dispararStatus !== 'idle' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 10, marginBottom: 14,
+          background: dispararStatus === 'concluido' ? '#F0FDF4' : dispararStatus === 'erro' ? '#FEF2F2' : '#EFF6FF',
+          border: `1px solid ${dispararStatus === 'concluido' ? '#BBF7D0' : dispararStatus === 'erro' ? '#FECACA' : '#BFDBFE'}`,
+        }}>
+          {dispararStatus === 'disparando' && <><Zap size={15} style={{ color: '#2563EB', flexShrink: 0 }} /><span style={{ fontSize: 13, color: '#1D4ED8' }}>Disparando mensagens para clientes novos de {periodLabel}...</span></>}
+          {dispararStatus === 'concluido' && <><Check size={15} style={{ color: '#16A34A', flexShrink: 0 }} /><span style={{ fontSize: 13, color: '#15803D' }}>Disparo concluído — {dispararInfo?.total || 0} cliente{dispararInfo?.total === 1 ? '' : 's'} notificado{dispararInfo?.total === 1 ? '' : 's'} em {periodLabel}.</span></>}
+          {dispararStatus === 'erro' && <><AlertCircle size={15} style={{ color: '#DC2626', flexShrink: 0 }} /><span style={{ fontSize: 13, color: '#B91C1C' }}>Erro no disparo: {dispararInfo?.resposta}</span></>}
+          <button style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'var(--text-muted)' }} onClick={() => setDispararStatus('idle')}>×</button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <div className="nx-card" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, flex: '1 1 260px' }}>
           <Search size={15} style={{ color: 'var(--text-muted)' }} />
@@ -295,6 +371,17 @@ export default function CompanyFidelidade() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
+
+        <button
+          className="nx-btn-ghost"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '7px 14px', whiteSpace: 'nowrap', opacity: dispararStatus === 'disparando' ? 0.5 : 1 }}
+          disabled={dispararStatus === 'disparando' || !mensagem.trim()}
+          onClick={() => dispararFidelidade()}
+          title={!mensagem.trim() ? 'Configure uma mensagem antes de disparar' : ''}
+        >
+          {dispararStatus === 'disparando' ? <Clock size={13} /> : <Zap size={13} />}
+          {dispararStatus === 'disparando' ? 'Disparando...' : 'Disparar agora'}
+        </button>
 
         <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
           Cliente entra como novo se o primeiro contato caiu em {periodLabel.toLowerCase()} (mês passado).
