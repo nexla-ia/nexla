@@ -101,6 +101,16 @@ function normPhoneKey(sid) {
   return n.startsWith('55') && n.length > 10 ? n.slice(2) : n
 }
 
+// Normaliza pra busca: além do DDI, remove o "9" de celular (DDD+9+8 dígitos → DDD+8 dígitos)
+// quando presente — sem isso, buscar "8116-1007" não acha um número salvo como "9 8116-1007",
+// porque o "9" no meio quebra a comparação de texto simples.
+function canonicalPhone(val) {
+  let d = (val || '').replace(/@.*$/, '').replace(/\D/g, '')
+  if (d.startsWith('55') && d.length > 10) d = d.slice(2)
+  if (d.length === 11 && d[2] === '9') d = d.slice(0, 2) + d.slice(3)
+  return d
+}
+
 function getMessageContent(row) {
   return (row.mensagem || '')
     .replace(/^\*[^*]+\*:\n/, '')
@@ -1784,7 +1794,10 @@ export default function CompanyConversations() {
   const filtered = currentList.filter(c => {
     if (searchLc) {
       const nameMatch = getContactName(c).toLowerCase().includes(searchLc)
-      const phoneMatch = cleanSearch.length > 0 && c.phone.replace(/\D/g, '').includes(cleanSearch)
+      const phoneMatch = cleanSearch.length > 0 && (
+        c.phone.replace(/\D/g, '').includes(cleanSearch) ||
+        canonicalPhone(c.phone).includes(canonicalPhone(search))
+      )
       const msgMatch = hasLetters && !!msgMatchNums?.has(c.phone.replace(/\D/g, ''))
       if (!nameMatch && !phoneMatch && !msgMatch) return false
     }
