@@ -19,7 +19,8 @@
 7. [Agenda](#7-agenda)
 8. [Alertas](#8-alertas)
 9. [Atividades / Kanban](#9-atividades--kanban)
-10. [Receitas comuns para IA](#10-receitas-comuns-para-ia)
+10. [Fidelidade](#10-fidelidade)
+11. [Receitas comuns para IA](#11-receitas-comuns-para-ia)
 
 ---
 
@@ -397,16 +398,110 @@ POST /rpc/api_kanban_card_create
 
 ---
 
-## 10. Receitas comuns para IA
+## 10. Fidelidade
 
-### 10.1 Mensagem nova chega — montar contexto
+> Só se aplica a empresas com WhatsApp via **Evolution API** (`whatsapp_api_type` diferente de `oficial`).
+
+Fluxo simples: a tela Fidelidade do painel só configura (mensagem + recorrência,
+salvos em `companies`). Quem descobre pra quem enviar é sempre o banco — não
+existe mais botão de "Enviar" por cliente nem fila gravada manualmente.
+
+A recorrência é **dia do mês + hora**, não uma data única — `fidelidade_dia_mes`
+(1 a 31) e `fidelidade_hora` ('HH:mm'). Deixando os dois em branco, o envio fica
+sempre ativo (dispara em todo tick do worker). Preenchendo, só dispara quando
+`extract(day from now())` bater com `fidelidade_dia_mes` **e** a hora atual bater
+com `fidelidade_hora` — todo mês, nesse dia e hora.
+
+**"Cliente novo"** = primeiro contato caiu no **mês de calendário anterior** ao
+atual (janela fixa, não móvel — mesma regra de `src/lib/loyalty.js`). No dia 1º
+de cada mês a lista pula de uma vez pra quem chegou no mês inteiro anterior.
+
+### 10.1 `api_fidelidade_processar` — endpoint único do worker (via RPC)
+
+Essa é a **única chamada** que o Schedule Trigger do n8n precisa fazer, a cada
+tick (rode a cada 30min pra não perder horários configurados em `:30`). Ela:
+
+1. Lê `fidelidade_mensagem`, `fidelidade_dia_mes` e `fidelidade_hora` da empresa.
+2. Se não tiver mensagem configurada, ou se tiver dia/hora configurados e não
+   for esse dia+hora agora, devolve **array vazio** — nada a fazer nessa rodada.
+3. Senão, varre `mensagens_geral` procurando clientes novos (primeiro contato no
+   mês de calendário anterior) que ainda não estão em `fidelidade_envios`, e
+   devolve todo mundo pronto pra receber, já com a mensagem configurada.
+
+```json
+POST /rpc/api_fidelidade_processar
+{ "p_instancia": "clinicaolhos" }
+```
+
+Retorno (array, pode vir vazio):
+```json
+[
+  {
+    "numero": "556196622676",
+    "nome": "Clínica AcolheDor",
+    "mensagem": "Olá! Vimos que você é novo por aqui, seja bem-vindo...",
+    "primeiro_contato": "2026-08-17T13:02:00+00:00",
+    "ultima_interacao": "2026-08-18T09:40:00+00:00",
+    "total_mensagens": 4
+  }
+]
+```
+
+Pra cada item: gerar a mensagem final (IA, usando `mensagem` como base — ver
+prompt da Jade) e mandar pela Evolution API (`POST /message/sendText/{{instancia}}`,
+seção final deste doc). Depois do envio dar certo, **grave em `fidelidade_envios`**
+pra não reenviar pro mesmo cliente no próximo tick:
+
+```json
+POST /rest/v1/fidelidade_envios
+{
+  "instancia": "clinicaolhos",
+  "numero": "556196622676",
+  "nome": "Clínica AcolheDor",
+  "mensagem": "texto que foi enviado",
+  "sent_at": "2026-08-18T21:00:00Z",
+  "delivered_at": "2026-08-18T21:00:00Z",
+  "sent_by_email": "automacao@n8n"
+}
+```
+
+> **Importante:** sem essa gravação, o próximo tick do Schedule Trigger vai achar
+> o mesmo cliente de novo (`api_fidelidade_processar` só exclui quem já está
+> registrado em `fidelidade_envios`) e reenviar a mensagem.
+
+### 10.2 `fidelidade_clientes_novos` — mesma coisa, sem RPC (pra montar com nodes visuais)
+
+Se preferir montar o fluxo só com o node nativo "Supabase → Get many rows" do
+n8n (sem HTTP Request chamando RPC), essa **view** já vem com a parte pesada
+pronta — agrupa `mensagens_geral` por telefone e calcula o primeiro contato de
+cada um. Consulta ela como se fosse uma tabela normal:
+
+```
+Tabela: fidelidade_clientes_novos
+Filtros (Must Match: All Filters):
+  instancia         eq   {{ $json.instance }}
+  primeiro_contato  gte  {{ $now.startOf('month').minus({months: 1}).toISO() }}
+  primeiro_contato  lt   {{ $now.startOf('month').toISO() }}
+```
+
+Colunas: `instancia`, `numero_norm`, `numero`, `nome`, `primeiro_contato`,
+`ultima_interacao`, `total_mensagens`. Depois, exclui quem já está em
+`fidelidade_envios` com um node **Merge** (comparando por `numero`) — como as
+duas consultas já vêm pequenas (uma linha por cliente, não por mensagem), não
+precisa de Code node pra essa parte.
+
+---
+
+## 11. Receitas comuns para IA
+
+### 11.1 Mensagem nova chega — montar contexto
 
 1. `api_paciente_by_phone` → pega lead/paciente
 2. `api_messages_by_phone` (limit 20) → últimas mensagens
 3. `api_appointments_by_phone` → próximos agendamentos
 4. `api_professionals_list`, `api_procedures_list`, `api_insurance_plans_list` → catálogo (cachear 1h)
 
-### 10.2 IA agendou consulta
+### 11.2 IA agendou consulta
 
 1. `api_professionals_list` → escolhe profissional
 2. `api_appointments_busy_slots` → slots ocupados na semana
@@ -415,7 +510,7 @@ POST /rpc/api_kanban_card_create
 5. `api_message_create` → registra confirmação no histórico
 6. `api_conversation_close` com `p_reason: agendado` → fecha ticket
 
-### 10.3 IA não soube responder
+### 11.3 IA não soube responder
 
 1. `api_alert_create` → pra atendente humano com contexto
 2. `api_message_create` → mensagem amigável: *"Vou passar sua dúvida pra alguém da equipe agora."*
@@ -439,4 +534,4 @@ Content-Type: application/json
 
 ---
 
-*Última atualização: 2026-04-30 · v2 (POST + JSON only)*
+*Última atualização: 2026-08-19 · v6 (Fidelidade — "novo" = mês de calendário anterior; view pra montagem sem RPC)*

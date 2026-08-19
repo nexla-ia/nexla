@@ -62,6 +62,7 @@ export default function CompanyLayout() {
 
   const isAdmin = session?.user?.role === 'admin'
   const aiEnabled = session?.company?.ai_enabled !== false
+  const isOfficialApi = (session?.company?.whatsapp_api_type || 'evolution') === 'oficial'
   const lastSeen = typeof window !== 'undefined' ? localStorage.getItem('nx_news_seen') : null
   const hasNewUpdate = !lastSeen || lastSeen < latestUpdateDate()
 
@@ -75,7 +76,7 @@ export default function CompanyLayout() {
 
     // Gestão
     { to: '/painel/contatos',   icon: Contact2,     label: 'Pacientes', section: 'Gestão' },
-    { to: '/painel/fidelidade', icon: Star,         label: 'Fidelidade', section: 'Gestão' },
+    ...(isOfficialApi ? [] : [{ to: '/painel/fidelidade', icon: Star, label: 'Fidelidade', section: 'Gestão' }]),
     { to: '/painel/agenda',     icon: Calendar,     label: 'Agenda', section: 'Gestão' },
     { to: '/painel/atividades', icon: Kanban,       label: 'Kanban', section: 'Gestão' },
     ...(isAdmin ? [{ to: '/painel/financeiro', icon: Wallet, label: 'Financeiro', section: 'Gestão' }] : []),
