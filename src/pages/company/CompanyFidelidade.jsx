@@ -22,6 +22,46 @@ function fmtWhen(ts) {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+// YYYY-MM-DD / YYYY-MM no fuso local (evita o desvio de toISOString, que usa UTC)
+function toLocalDateStr(d) {
+  const yr = d.getFullYear()
+  const mo = String(d.getMonth() + 1).padStart(2, '0')
+  const dy = String(d.getDate()).padStart(2, '0')
+  return `${yr}-${mo}-${dy}`
+}
+
+function toLocalMonthStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function todayStr() { return toLocalDateStr(new Date()) }
+function currentMonthStr() { return toLocalMonthStr(new Date()) }
+
+function sameLocalDay(ts, dateStr) {
+  if (!ts) return false
+  const d = new Date(ts)
+  if (isNaN(d.getTime())) return false
+  return toLocalDateStr(d) === dateStr
+}
+
+function sameLocalMonth(ts, monthStr) {
+  if (!ts) return false
+  const d = new Date(ts)
+  if (isNaN(d.getTime())) return false
+  return toLocalMonthStr(d) === monthStr
+}
+
+function fmtDateBR(dateStr) {
+  const [y, m, d] = dateStr.split('-')
+  return `${d}/${m}/${y}`
+}
+
+function fmtMonthBR(monthStr) {
+  const [y, m] = monthStr.split('-').map(Number)
+  const label = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
 // Rótulo do mês de calendário anterior — o mesmo período usado por isNewClient()
 function prevMonthLabel(now = new Date()) {
   const d = new Date(now.getFullYear(), now.getMonth() - 1, 1)
@@ -39,6 +79,9 @@ export default function CompanyFidelidade() {
   const [savedByPhone, setSavedByPhone] = useState({}) // numero (só dígitos) → { nome, photo }
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [mode, setMode] = useState('todos') // 'todos' | 'dia' | 'mes' — filtro extra por última interação
+  const [dateFilter, setDateFilter] = useState(todayStr())
+  const [monthFilter, setMonthFilter] = useState(currentMonthStr())
   const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'sending' | 'sent' | 'error'
   const [mensagem, setMensagem] = useState('')
   const [sentMap, setSentMap] = useState({}) // numero (só dígitos) → { sent_at, scheduled_for }
@@ -198,14 +241,18 @@ export default function CompanyFidelidade() {
     }
   }), [contacts, savedByPhone])
 
-  // A tela só existe pra mostrar clientes novos — "novo" já é definido como
-  // "primeiro contato no mês de calendário anterior" (isNewClient), sem filtro
-  // extra de data em cima — senão quase ninguém bate as duas condições juntas.
+  // "novo" já é "primeiro contato no mês de calendário anterior" (isNewClient).
+  // O filtro de Dia/Mês aqui é opcional, por cima disso, pela última interação —
+  // por padrão fica em "Todos" pra não esconder quem não interagiu de novo hoje.
   const filtered = useMemo(() => enriched.filter(c => {
     if (!c.novo) return false
+    if (mode !== 'todos') {
+      const matchesDate = mode === 'dia' ? sameLocalDay(c.lastTs, dateFilter) : sameLocalMonth(c.lastTs, monthFilter)
+      if (!matchesDate) return false
+    }
     const s = search.toLowerCase()
     return !s || c.nome?.toLowerCase().includes(s) || c.phone.includes(search)
-  }), [enriched, search])
+  }), [enriched, search, mode, dateFilter, monthFilter])
 
   const periodLabel = prevMonthLabel()
 
@@ -362,8 +409,63 @@ export default function CompanyFidelidade() {
           {dispararStatus === 'disparando' ? 'Disparando...' : 'Disparar agora'}
         </button>
 
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--border)', padding: 3, borderRadius: 8 }}>
+          {[
+            { key: 'todos', label: 'Todos' },
+            { key: 'dia', label: 'Dia' },
+            { key: 'mes', label: 'Mês' },
+          ].map(o => (
+            <button
+              key={o.key}
+              onClick={() => setMode(o.key)}
+              style={{
+                padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                border: 'none', cursor: 'pointer',
+                background: mode === o.key ? '#fff' : 'transparent',
+                color: mode === o.key ? '#DC2626' : 'var(--text-muted)',
+                boxShadow: mode === o.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              }}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+
+        {mode !== 'todos' && (
+          <div className="nx-card" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            {mode === 'dia' ? (
+              <input
+                type="date"
+                className="nx-input"
+                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--text-primary)', padding: 0 }}
+                value={dateFilter}
+                onChange={e => setDateFilter(e.target.value)}
+              />
+            ) : (
+              <input
+                type="month"
+                className="nx-input"
+                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--text-primary)', padding: 0 }}
+                value={monthFilter}
+                onChange={e => setMonthFilter(e.target.value)}
+              />
+            )}
+            {mode === 'dia' && dateFilter !== todayStr() && (
+              <button className="nx-btn-ghost" style={{ padding: '3px 10px', fontSize: 11 }} onClick={() => setDateFilter(todayStr())}>
+                Hoje
+              </button>
+            )}
+            {mode === 'mes' && monthFilter !== currentMonthStr() && (
+              <button className="nx-btn-ghost" style={{ padding: '3px 10px', fontSize: 11 }} onClick={() => setMonthFilter(currentMonthStr())}>
+                Este mês
+              </button>
+            )}
+          </div>
+        )}
+
         <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
           Cliente entra como novo se o primeiro contato caiu em {periodLabel.toLowerCase()} (mês passado).
+          {mode !== 'todos' && ' O filtro de Dia/Mês acima refina pela última interação.'}
         </span>
       </div>
 
