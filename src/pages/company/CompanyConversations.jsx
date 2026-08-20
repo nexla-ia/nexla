@@ -536,7 +536,8 @@ export default function CompanyConversations() {
   const messageInputRef  = useRef(null)
   const bottomRef        = useRef(null)
   const selectedRef      = useRef(null)
-  const autoCloseDone    = useRef(false)
+  const autoCloseDone      = useRef(false)
+  const extraClosedDone    = useRef(false)
   const chatBodyRef      = useRef(null)
   const isLoadingMoreRef = useRef(false)
   const maxMsgIdRef      = useRef(0)
@@ -851,6 +852,42 @@ export default function CompanyConversations() {
         setClosedLoaded(true)
       })
   }, [instance])
+
+  // Complementa a lista de contatos com finalizados que ficaram fora do limit(5000)
+  useEffect(() => {
+    if (!closedLoaded || loadingContacts || extraClosedDone.current || !instance) return
+    extraClosedDone.current = true
+    const contactSids = new Set(contacts.map(c => c.session_id))
+    const missing = Object.keys(closedMap).filter(sid => !contactSids.has(sid))
+    if (!missing.length) return
+    supabase.from(CONV_TABLE)
+      .select('numero, type, created_at, horaLastMessage, nome, mensagem')
+      .eq('instancia', instance)
+      .in('numero', missing)
+      .order('id', { ascending: false })
+      .limit(missing.length * 10)
+      .then(({ data }) => {
+        if (!data) return
+        const extra = []
+        const seen = new Set()
+        for (const row of data) {
+          const norm = normPhoneKey(row.numero)
+          if (seen.has(norm)) continue
+          seen.add(norm)
+          extra.push({
+            session_id: row.numero,
+            phone: formatPhone(row.numero),
+            lastTs: getTimestamp(row),
+            outsideAssumed: false,
+            pushname: row.nome || null,
+            isGroup: false,
+            lastMsgPreview: getLastMsgPreview(row),
+            isNewClient: false,
+          })
+        }
+        if (extra.length) setContacts(prev => [...prev, ...extra])
+      })
+  }, [closedLoaded, loadingContacts, instance, contacts, closedMap])
 
   // Auto-encerra tickets sem atividade após AUTO_CLOSE_HOURS horas
   useEffect(() => {
