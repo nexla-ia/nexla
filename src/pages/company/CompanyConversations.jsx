@@ -1310,15 +1310,15 @@ export default function CompanyConversations() {
       return
     }
 
-    // Mensagem-marco no histórico
+    // Mensagem-marco no histórico (interna — não vai ao WhatsApp do cliente)
     const meName = session?.user?.name || 'Atendente'
     const handoverMsg = `↪ Atendimento transferido por ${meName} para ${target.name}`
-    await supabase.rpc('send_mensagem_geral', {
-      p_instancia: instance,
-      p_numero: transferModal.session_id,
-      p_mensagem: handoverMsg,
-      p_type: 'atendente',
-      p_hora: new Date().toISOString(),
+    await supabase.from(CONV_TABLE).insert({
+      instancia: instance,
+      numero: transferModal.session_id,
+      mensagem: handoverMsg,
+      type: 'transferido',
+      hora: new Date().toISOString(),
     })
 
     setAttendancesMap(prev => ({
@@ -2557,6 +2557,30 @@ export default function CompanyConversations() {
                     <div style={{ flex: 1, height: 1, background: '#E2E8F0' }} />
                     <span style={{ fontSize: 11, color: '#94A3B8', whiteSpace: 'nowrap', fontStyle: 'italic' }}>{msg.content}</span>
                     <div style={{ flex: 1, height: 1, background: '#E2E8F0' }} />
+                  </div>
+                )
+                if (msg.type === 'transferido' || (msg.type === 'atendente' && msg.content?.startsWith('↪'))) return (
+                  <div key={msg.id} style={{ display: 'flex', justifyContent: 'center', margin: '14px 8px' }}>
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 8,
+                      background: 'linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%)',
+                      border: '1px solid #C4B5FD',
+                      borderRadius: 12, padding: '8px 14px',
+                      maxWidth: '85%',
+                    }}>
+                      <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <ArrowRightLeft size={13} color="#fff" />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#5B21B6', letterSpacing: 0.3 }}>TRANSFERÊNCIA DE ATENDIMENTO</div>
+                        <div style={{ fontSize: 12, color: '#6D28D9', marginTop: 1 }}>{msg.content.replace('↪ ', '')}</div>
+                      </div>
+                      {msg.ts && (
+                        <div style={{ fontSize: 10, color: '#A78BFA', marginLeft: 4, flexShrink: 0, alignSelf: 'flex-end' }}>
+                          {new Date(msg.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )
                 const isCliente    = msg.type === 'cliente'
