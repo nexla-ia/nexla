@@ -420,11 +420,11 @@ const REASONS = [
   { value: 'auto_encerrado', label: 'Expirado',    color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
 ]
 
-const AUTO_CLOSE_HOURS = 2
 const MANUAL_REASONS = REASONS.filter(r => r.value !== 'auto_encerrado')
 
 export default function CompanyConversations() {
   const { session } = useAuth()
+  const AUTO_CLOSE_HOURS = session?.company?.auto_close_hours || 2
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const instance      = session?.company?.instance

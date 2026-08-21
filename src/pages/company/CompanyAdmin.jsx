@@ -80,6 +80,19 @@ export default function CompanyAdmin() {
   // nunca a própria empresa. Requer reconfigurar webhook/n8n do lado de dentro.
   const apiType = co.whatsapp_api_type || 'evolution'
 
+  const [autoCloseHours, setAutoCloseHours] = useState(co.auto_close_hours || 2)
+  const [savingAutoClose, setSavingAutoClose] = useState(false)
+
+  async function saveAutoClose(val) {
+    const n = Math.max(1, Math.min(168, Number(val)))
+    if (!n) return
+    setSavingAutoClose(true)
+    setAutoCloseHours(n)
+    await supabase.from('companies').update({ auto_close_hours: n }).eq('id', companyId)
+    patchCompany({ auto_close_hours: n })
+    setSavingAutoClose(false)
+  }
+
   const [notifs, setNotifs] = useState({
     notify_agenda_created:   co.notify_agenda_created   !== false,
     notify_agenda_confirmed: co.notify_agenda_confirmed !== false,
@@ -579,6 +592,34 @@ export default function CompanyAdmin() {
               </label>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Tempo de encerramento automático */}
+      <div className="page-body" style={{ marginTop: 0 }}>
+        <div className="section-title" style={{ marginBottom: 14 }}>Atendimentos</div>
+        <div className="nx-card" style={{ padding: '1.25rem 1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>Tempo de encerramento automático</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                Conversas sem resposta são encerradas automaticamente após este período.
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <input
+                type="number"
+                min={1}
+                max={168}
+                value={autoCloseHours}
+                onChange={e => setAutoCloseHours(e.target.value)}
+                onBlur={e => saveAutoClose(e.target.value)}
+                style={{ width: 64, textAlign: 'center', fontSize: 13, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--input-bg)', color: 'var(--text)' }}
+              />
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>hora{autoCloseHours !== 1 ? 's' : ''}</span>
+              {savingAutoClose && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Salvando…</span>}
+            </div>
+          </div>
         </div>
       </div>
 
