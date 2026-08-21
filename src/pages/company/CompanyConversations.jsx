@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { useContactTags } from '../../hooks/useContactTags'
 import { isNewClient } from '../../lib/loyalty'
 import Recorder from 'opus-recorder'
-import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft, ChevronLeft, ChevronDown, Plus, Pencil, Users, CheckCheck, MapPin, Crosshair, Smile, AlertCircle } from 'lucide-react'
+import { MessageSquare, Bot, User, PhoneCall, CheckCircle2, X, Send, Headset, Sparkles, Inbox, UserCheck, Archive, Mic, Square, Trash2, Paperclip, FileText, Image as ImageIcon, Calendar, UserPlus, BookUser, Lock, ArrowRightLeft, ChevronLeft, ChevronDown, Plus, Pencil, Users, CheckCheck, MapPin, Crosshair, Smile, AlertCircle, Circle } from 'lucide-react'
 import './Company.css'
 
 const CONV_TABLE = 'mensagens_geral'
@@ -3140,6 +3140,23 @@ export default function CompanyConversations() {
               </button>
             )
           })()}
+          <button
+            onClick={() => {
+              setUnreadMap(prev => ({ ...prev, [contextMenu.contact.session_id]: 1 }))
+              setContextMenu(null)
+            }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+              padding: '8px 12px', border: 'none', background: 'transparent',
+              fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer',
+              borderRadius: 6, textAlign: 'left',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          >
+            <Circle size={13} />
+            Marcar como não lida
+          </button>
         </div>
       , document.body)}
 
