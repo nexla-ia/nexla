@@ -500,6 +500,10 @@ export default function CompanyConversations() {
   const typingClearTimeoutRef = useRef(null)
   const [closedLoaded, setClosedLoaded] = useState(false)
   const [lightbox, setLightbox]       = useState(null)
+  const [lightboxRot, setLightboxRot] = useState(0)   // graus: 0 | 90 | 180 | 270
+  const [lightboxZoom, setLightboxZoom] = useState(1) // escala: 0.25 → 4
+  const [lightboxPan, setLightboxPan] = useState({ x: 0, y: 0 })
+  const lbDragRef = useRef(null) // { startX, startY, panX, panY } enquanto arrasta
   const [recording, setRecording]     = useState(false)
   const [recordedAudio, setRecordedAudio] = useState(null) // { base64, mime, duration }
   const [recordTime, setRecordTime]   = useState(0)
@@ -532,7 +536,8 @@ export default function CompanyConversations() {
   const messageInputRef  = useRef(null)
   const bottomRef        = useRef(null)
   const selectedRef      = useRef(null)
-  const autoCloseDone    = useRef(false)
+  const autoCloseDone      = useRef(false)
+  const extraClosedDone    = useRef(false)
   const chatBodyRef      = useRef(null)
   const isLoadingMoreRef = useRef(false)
   const maxMsgIdRef      = useRef(0)
@@ -847,6 +852,42 @@ export default function CompanyConversations() {
         setClosedLoaded(true)
       })
   }, [instance])
+
+  // Complementa a lista de contatos com finalizados que ficaram fora do limit(5000)
+  useEffect(() => {
+    if (!closedLoaded || loadingContacts || extraClosedDone.current || !instance) return
+    extraClosedDone.current = true
+    const contactSids = new Set(contacts.map(c => c.session_id))
+    const missing = Object.keys(closedMap).filter(sid => !contactSids.has(sid))
+    if (!missing.length) return
+    supabase.from(CONV_TABLE)
+      .select('numero, type, created_at, horaLastMessage, nome, mensagem')
+      .eq('instancia', instance)
+      .in('numero', missing)
+      .order('id', { ascending: false })
+      .limit(missing.length * 10)
+      .then(({ data }) => {
+        if (!data) return
+        const extra = []
+        const seen = new Set()
+        for (const row of data) {
+          const norm = normPhoneKey(row.numero)
+          if (seen.has(norm)) continue
+          seen.add(norm)
+          extra.push({
+            session_id: row.numero,
+            phone: formatPhone(row.numero),
+            lastTs: getTimestamp(row),
+            outsideAssumed: false,
+            pushname: row.nome || null,
+            isGroup: false,
+            lastMsgPreview: getLastMsgPreview(row),
+            isNewClient: false,
+          })
+        }
+        if (extra.length) setContacts(prev => [...prev, ...extra])
+      })
+  }, [closedLoaded, loadingContacts, instance, contacts, closedMap])
 
   // Auto-encerra tickets sem atividade após AUTO_CLOSE_HOURS horas
   useEffect(() => {
@@ -1346,6 +1387,8 @@ export default function CompanyConversations() {
 
   // Helper: usuário atual pode responder essa conversa?
   // Regra: dono da conversa OU admin OU conversa ainda sem atendimento.
+  const lbBtn = { background: 'none', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 18, padding: '4px 10px', borderRadius: 8, lineHeight: 1 }
+
   function canRespond(contact) {
     if (!contact) return false
     if (closedMap[contact.session_id]) return false
@@ -2697,7 +2740,7 @@ export default function CompanyConversations() {
                               )
                               if (media.type === 'image') return (
                                 <img src={src} alt="mídia" style={{ maxWidth: 280, width: '100%', borderRadius: 8, display: 'block', marginBottom: hasOnlyMedia ? 0 : 6, cursor: 'zoom-in', boxShadow: '0 2px 10px rgba(0,0,0,0.12)' }}
-                                  onClick={() => setLightbox(src)} />
+                                  onClick={() => { setLightbox(src); setLightboxRot(0); setLightboxZoom(1); setLightboxPan({ x: 0, y: 0 }) }} />
                               )
                               if (media.type === 'pdf') {
                                 const fileName = (fileLine || '').replace(/^📄\s*/, '').trim() || 'documento.pdf'
@@ -3276,10 +3319,89 @@ export default function CompanyConversations() {
 
       {lightbox && createPortal(
         <div
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, cursor: 'zoom-out' }}
-          onClick={() => setLightbox(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 99999, userSelect: 'none' }}
+          onClick={e => { if (e.target === e.currentTarget) setLightbox(null) }}
+          onWheel={e => {
+            e.preventDefault()
+            const next = Math.min(4, Math.max(0.25, lightboxZoom + (e.deltaY < 0 ? 0.15 : -0.15)))
+            setLightboxZoom(next)
+            if (next <= 1) setLightboxPan({ x: 0, y: 0 })
+          }}
+          onMouseDown={e => {
+            if (lightboxZoom <= 1) return
+            lbDragRef.current = { startX: e.clientX - lightboxPan.x, startY: e.clientY - lightboxPan.y }
+          }}
+          onMouseMove={e => {
+            if (!lbDragRef.current) return
+            setLightboxPan({ x: e.clientX - lbDragRef.current.startX, y: e.clientY - lbDragRef.current.startY })
+          }}
+          onMouseUp={() => { lbDragRef.current = null }}
+          onMouseLeave={() => { lbDragRef.current = null }}
+          onKeyDown={e => {
+            if (e.key === 'Escape') setLightbox(null)
+            if (e.key === 'ArrowLeft') { setLightboxRot(r => (r - 90 + 360) % 360); setLightboxPan({ x: 0, y: 0 }) }
+            if (e.key === 'ArrowRight') { setLightboxRot(r => (r + 90) % 360); setLightboxPan({ x: 0, y: 0 }) }
+            if (e.key === '+' || e.key === '=') setLightboxZoom(z => Math.min(4, z + 0.25))
+            if (e.key === '-') setLightboxZoom(z => { const n = Math.max(0.25, z - 0.25); if (n <= 1) setLightboxPan({ x: 0, y: 0 }); return n })
+          }}
+          tabIndex={0}
+          ref={el => el?.focus()}
         >
-          <img src={lightbox} alt="mídia" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 10, boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }} />
+          {/* Área da imagem com pan via translate no wrapper */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', width: '100%', padding: '60px 24px 12px' }}>
+            <div style={{
+              transform: `translate(${lightboxPan.x}px, ${lightboxPan.y}px)`,
+              cursor: lightboxZoom > 1 ? (lbDragRef.current ? 'grabbing' : 'grab') : 'default',
+            }}>
+              <img
+                src={lightbox}
+                alt="mídia"
+                style={{
+                  maxWidth: lightboxRot % 180 === 0 ? '88vw' : '75vh',
+                  maxHeight: lightboxRot % 180 === 0 ? '78vh' : '88vw',
+                  objectFit: 'contain',
+                  borderRadius: 6,
+                  transform: `rotate(${lightboxRot}deg) scale(${lightboxZoom})`,
+                  transition: lbDragRef.current ? 'none' : 'transform 0.18s ease',
+                  boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
+                  display: 'block',
+                  pointerEvents: 'none',
+                }}
+                draggable={false}
+              />
+            </div>
+          </div>
+
+          {/* Barra de controles */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)',
+            borderRadius: 12, padding: '8px 12px', marginBottom: 24,
+            border: '1px solid rgba(255,255,255,0.15)',
+          }}
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <button title="Girar para esquerda (←)" onClick={() => { setLightboxRot(r => (r - 90 + 360) % 360); setLightboxPan({ x: 0, y: 0 }) }} style={lbBtn}>↺</button>
+            <button title="Girar para direita (→)" onClick={() => { setLightboxRot(r => (r + 90) % 360); setLightboxPan({ x: 0, y: 0 }) }} style={lbBtn}>↻</button>
+            <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.2)', margin: '0 4px' }} />
+            <button title="Zoom out (−)" onClick={() => setLightboxZoom(z => { const n = Math.max(0.25, z - 0.25); if (n <= 1) setLightboxPan({ x: 0, y: 0 }); return n })} style={lbBtn}>−</button>
+            <span style={{ fontSize: 12, color: '#fff', minWidth: 38, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
+              {Math.round(lightboxZoom * 100)}%
+            </span>
+            <button title="Zoom in (+)" onClick={() => setLightboxZoom(z => Math.min(4, z + 0.25))} style={lbBtn}>+</button>
+            <button title="Resetar" onClick={() => { setLightboxZoom(1); setLightboxRot(0); setLightboxPan({ x: 0, y: 0 }) }} style={{ ...lbBtn, fontSize: 10, padding: '4px 8px' }}>1:1</button>
+            <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.2)', margin: '0 4px' }} />
+            <button title="Fechar (Esc)" onClick={() => setLightbox(null)} style={{ ...lbBtn, color: '#FCA5A5' }}>✕</button>
+          </div>
+
+          <button onClick={() => setLightbox(null)}
+            style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}
+          >✕</button>
+
+          <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', fontSize: 11, color: 'rgba(255,255,255,0.4)', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+            Scroll para zoom · Arraste para mover · ← → para girar · Esc para fechar
+          </div>
         </div>
       , document.body)}
 
