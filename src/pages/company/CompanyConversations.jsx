@@ -951,6 +951,39 @@ export default function CompanyConversations() {
     return () => supabase.removeChannel(ch)
   }, [instance])
 
+  // Não lida marcada manualmente — carrega do banco e mantém em tempo real, pra
+  // sobreviver a reload e ficar igual em qualquer aba/atendente vendo a mesma empresa.
+  useEffect(() => {
+    if (!instance) return
+    supabase.from('conversas_nao_lidas').select('numero').eq('instancia', instance)
+      .then(({ data }) => {
+        if (!data) return
+        setUnreadMap(prev => {
+          const n = { ...prev }
+          data.forEach(r => { n[r.numero] = n[r.numero] || 1 })
+          return n
+        })
+      })
+
+    const ch = supabase.channel(`convs-nao-lidas-${instance}`)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'conversas_nao_lidas', filter: `instancia=eq.${instance}` },
+        (p) => {
+          const sid = p.new?.numero
+          if (!sid) return
+          setUnreadMap(prev => ({ ...prev, [sid]: prev[sid] || 1 }))
+        })
+      .on('postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'conversas_nao_lidas', filter: `instancia=eq.${instance}` },
+        (p) => {
+          const sid = p.old?.numero
+          if (!sid) return
+          setUnreadMap(prev => { const n = { ...prev }; delete n[sid]; return n })
+        })
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [instance])
+
   // Realtime: nova mensagem
   useEffect(() => {
     if (!instance) return
@@ -1787,12 +1820,23 @@ export default function CompanyConversations() {
     })
   }
 
-  function handleBulkMarkRead() {
+  // Limpa não-lida local + apaga a marcação persistida (senão volta a aparecer
+  // não lida no próximo reload mesmo depois de aberta/lida).
+  function clearUnread(sids) {
+    const arr = Array.isArray(sids) ? sids : [sids]
+    if (!arr.length) return
     setUnreadMap(prev => {
       const n = { ...prev }
-      selectedIds.forEach(sid => delete n[sid])
+      arr.forEach(sid => delete n[sid])
       return n
     })
+    if (instance) {
+      supabase.from('conversas_nao_lidas').delete().eq('instancia', instance).in('numero', arr).then(() => {})
+    }
+  }
+
+  function handleBulkMarkRead() {
+    clearUnread([...selectedIds])
     setSelectedIds(new Set())
   }
 
@@ -1983,7 +2027,7 @@ export default function CompanyConversations() {
               <div
                 key={c.session_id}
                 className={`contact-item ${selected?.session_id === c.session_id ? 'selected' : ''}`}
-                onClick={() => { setSelected(c); setUnreadMap(prev => { const n = { ...prev }; delete n[c.session_id]; return n }) }}
+                onClick={() => { setSelected(c); clearUnread(c.session_id) }}
                 onContextMenu={(e) => {
                   e.preventDefault()
                   setContextMenu({ x: e.clientX, y: e.clientY, contact: c })
@@ -3185,8 +3229,16 @@ export default function CompanyConversations() {
           })()}
           <button
             onClick={() => {
-              setUnreadMap(prev => ({ ...prev, [contextMenu.contact.session_id]: 1 }))
+              const sid = contextMenu.contact.session_id
+              setUnreadMap(prev => ({ ...prev, [sid]: 1 }))
               setContextMenu(null)
+              supabase.from('conversas_nao_lidas').upsert({
+                instancia: instance,
+                numero: sid,
+                marked_by_email: session?.user?.email || null,
+              }, { onConflict: 'instancia,numero' }).then(({ error }) => {
+                if (error) console.warn('conversas_nao_lidas (rode a migration 20260820b_conversas_nao_lidas.sql):', error.message)
+              })
             }}
             style={{
               display: 'flex', alignItems: 'center', gap: 8, width: '100%',
